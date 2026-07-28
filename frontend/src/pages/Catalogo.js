@@ -709,11 +709,11 @@ export default function Catalogo() {
               >
                 <div style={styles.ofertaProductoBadge}>🔥 OFERTA</div>
                 <img
-                  src={
-                    p.imagenes
-                      ? p.imagenes.split(",")[0]
-                      : "https://via.placeholder.com/300"
-                  }
+                 src={
+  p.imagenes
+    ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
+    : "https://via.placeholder.com/300"
+}
                   alt={p.nombre}
                   style={styles.productImage(isMobile)}
                   loading="lazy"
