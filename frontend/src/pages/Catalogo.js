@@ -391,11 +391,18 @@ export default function Catalogo() {
                 onClick={() => clickBanner(banner)}
               >
                 <img
-                  src={banner.imagen}
-                  alt={banner.titulo || "Banner"}
-                  style={styles.heroImage}
-                  loading="lazy"
-                />
+  src={
+    banner.imagen
+      ? `https://backend-zuib.onrender.com${banner.imagen}`
+      : "https://via.placeholder.com/1200x500/1e293b/60a5fa?text=Banner"
+  }
+  alt={banner.titulo || "Banner"}
+  style={styles.heroImage}
+  loading="lazy"
+  onError={(e) => {
+    e.target.src = "https://via.placeholder.com/1200x500/1e293b/60a5fa?text=Banner";
+  }}
+/>
                 <div style={styles.heroOverlay(isMobile)}>
                   <h1 style={styles.heroTitle(isMobile)}>
                     {banner.titulo}
