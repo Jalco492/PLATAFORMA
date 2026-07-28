@@ -630,11 +630,11 @@ export default function Catalogo() {
                 <div style={styles.nuevoBadge}>🆕 Nuevo</div>
                 <div style={styles.cardImageWrapper}>
                   <img
-                    src={
-                      p.imagenes
-                        ? p.imagenes.split(",")[0]
-                        : "https://via.placeholder.com/200"
-                    }
+                   src={
+  p.imagenes
+    ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
+    : "https://via.placeholder.com/200"
+}
                     alt={p.nombre}
                     className="slider-image"
                     style={styles.sliderImage}
