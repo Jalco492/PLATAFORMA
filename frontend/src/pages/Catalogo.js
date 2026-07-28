@@ -279,12 +279,13 @@ export default function Catalogo() {
 
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
-  const obtenerImagen = (producto) => {
-    if (producto.imagenes && producto.imagenes.trim() !== "") {
-      return producto.imagenes.split(",")[0];
-    }
-    return producto.imagen;
-  };
+  const obtenerImagen = (p) => {
+  if (p.imagen) {
+    return `https://backend-zuib.onrender.com${p.imagen}`;
+  }
+
+  return "https://via.placeholder.com/200";
+};
 
   const clickBanner = (banner) => {
     if (banner.subcategoria) {
