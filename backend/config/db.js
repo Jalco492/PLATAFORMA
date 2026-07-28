@@ -5,7 +5,7 @@ const connection = mysql.createPool({
   port: 30404,
   user: "root",
   password: "tWxOkTZbnEgsklCofROEbMlAhmkTRAWR",
-  database: "tienda",
+  database: "railway",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
