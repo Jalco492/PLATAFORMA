@@ -1830,6 +1830,13 @@ app.delete("/pedidos/:id", async (req, res) => {
   }
 });
 
+app.get("/", (req, res) => {
+  res.json({
+    mensaje: "Backend funcionando correctamente 🚀",
+    estado: "online"
+  });
+});
+
 // =================================================
 // 🚀 INICIAR SERVIDOR
 // =================================================
