@@ -344,12 +344,21 @@ export default function Productos() {
   ]);
 
   const obtenerImagen = (producto) => {
-    if (producto.imagenes && producto.imagenes.trim() !== "") {
-      const imagenes = producto.imagenes.split(",");
-      return imagenes[0].trim();
-    }
-    return producto.imagen;
-  };
+  let imagen = "";
+
+  if (producto.imagenes && producto.imagenes.trim() !== "") {
+    const imagenes = producto.imagenes.split(",");
+    imagen = imagenes[0].trim();
+  } else {
+    imagen = producto.imagen;
+  }
+
+  if (!imagen) {
+    return "https://via.placeholder.com/200";
+  }
+
+  return `https://backend-zuib.onrender.com${imagen}`;
+};
 
   const toggleFavorito = (producto) => {
     const productoCompleto = {
