@@ -1,0 +1,1244 @@
+// src/components/Pedido.js
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { 
+  FaTimes, 
+  FaWhatsapp, 
+  FaEnvelope, 
+  FaStore, 
+  FaShoppingCart,
+  FaPlus,
+  FaMinus,
+  FaTrash,
+  FaCheck,
+  FaArrowLeft,
+  FaArrowRight
+} from "react-icons/fa";
+import api from "../services/api";
+import Navbar from "./Navbar";
+import Footer from "./Footer";
+
+export default function Pedido() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Estados para el mensaje informativo - SOLO SE MUESTRA CUANDO EL CARRITO ESTÁ VACÍO
+  const [mostrarMensaje, setMostrarMensaje] = useState(() => {
+    // Verificar si hay productos en el carrito al cargar
+    const carritoGuardado = sessionStorage.getItem("carritoPedido");
+    let tieneProductos = false;
+    if (carritoGuardado) {
+      try {
+        const parsed = JSON.parse(carritoGuardado);
+        tieneProductos = Array.isArray(parsed) && parsed.length > 0;
+      } catch (e) {
+        console.error("Error al cargar carrito:", e);
+      }
+    }
+    
+    // Si el carrito está vacío, mostrar el mensaje
+    // Si tiene productos, NO mostrar el mensaje
+    return !tieneProductos;
+  });
+  
+  // Estados para el formulario de pedido
+  const [productosDisponibles, setProductosDisponibles] = useState([]);
+  const [carrito, setCarrito] = useState([]);
+  
+  // Estados para datos del cliente - INICIALIZAR DESDE SESSIONSTORAGE
+  const [cliente, setCliente] = useState(() => {
+    const clienteGuardado = sessionStorage.getItem("clientePedido");
+    if (clienteGuardado) {
+      try {
+        return JSON.parse(clienteGuardado);
+      } catch (e) {
+        console.error("Error al cargar cliente:", e);
+      }
+    }
+    return {
+      nombre: "",
+      email: "",
+      celular: "",
+      comentarios: ""
+    };
+  });
+  
+  const [cargando, setCargando] = useState(false);
+  const [mensajeExito, setMensajeExito] = useState("");
+  const [mensajeError, setMensajeError] = useState("");
+  const [numeroPedido, setNumeroPedido] = useState("");
+
+  // Estado para dark mode
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem("darkMode") === "true";
+  });
+
+  // Estado para favoritos (necesario para Navbar)
+  const [favoritos, setFavoritos] = useState(() => {
+    const guardados = localStorage.getItem("favoritos");
+    return guardados ? JSON.parse(guardados) : [];
+  });
+
+  // Estado para categorías y subcategorías (necesario para Navbar)
+  const [categorias, setCategorias] = useState([]);
+  const [subcategorias, setSubcategorias] = useState([]);
+  const [tipos, setTipos] = useState([]);
+
+  // REF para evitar duplicados al agregar productos desde ProductoDetalle
+  const productoAgregadoRef = useRef(false);
+  const ultimoProductoAgregadoRef = useRef(null);
+
+  // Función para obtener la imagen del producto
+  const obtenerImagen = (producto) => {
+    if (producto.imagenes && producto.imagenes.trim() !== "") {
+      const imagenes = producto.imagenes.split(",");
+      return imagenes[0].trim();
+    }
+    return producto.imagen || "/producto-default.jpg";
+  };
+
+  // Cargar productos disponibles y carrito guardado
+  useEffect(() => {
+    const cargarProductos = async () => {
+      try {
+        const res = await api.get("/productos");
+        setProductosDisponibles(res.data || []);
+      } catch (error) {
+        console.error("Error cargando productos:", error);
+        setProductosDisponibles([
+          { id: 1, nombre: "Piso Laminado Clásico", precio: 350, sku: "PLC-001", imagen: "/productos/piso1.jpg" },
+          { id: 2, nombre: "Piso Vinílico Premium", precio: 450, sku: "PVP-002", imagen: "/productos/piso2.jpg" },
+          { id: 3, nombre: "Piso Cerámico Brillante", precio: 280, sku: "PCB-003", imagen: "/productos/piso3.jpg" },
+          { id: 4, nombre: "Piso de Madera Natural", precio: 550, sku: "PMN-004", imagen: "/productos/piso4.jpg" },
+          { id: 5, nombre: "Piso Porcelánico Mate", precio: 390, sku: "PPM-005", imagen: "/productos/piso5.jpg" },
+        ]);
+      }
+    };
+    cargarProductos();
+
+    // Recuperar carrito guardado en sessionStorage
+    const carritoGuardado = sessionStorage.getItem("carritoPedido");
+    if (carritoGuardado) {
+      try {
+        const parsed = JSON.parse(carritoGuardado);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCarrito(parsed);
+          // Si hay productos, ocultar el mensaje
+          setMostrarMensaje(false);
+        }
+      } catch (e) {
+        console.error("Error al cargar carrito:", e);
+      }
+    }
+  }, []);
+
+  // Cargar categorías, subcategorías y tipos para Navbar
+  useEffect(() => {
+    const cargarDatosNavegacion = async () => {
+      try {
+        const [catRes, subRes, tipoRes] = await Promise.all([
+          api.get("/categorias"),
+          api.get("/subcategorias"),
+          api.get("/tipos"),
+        ]);
+        setCategorias(catRes.data);
+        setSubcategorias(subRes.data);
+        setTipos(tipoRes.data);
+      } catch (error) {
+        console.error("Error cargando datos de navegación:", error);
+      }
+    };
+    cargarDatosNavegacion();
+  }, []);
+
+  // Guardar dark mode en localStorage
+  useEffect(() => {
+    localStorage.setItem("darkMode", darkMode);
+  }, [darkMode]);
+
+  // Guardar favoritos en localStorage
+  useEffect(() => {
+    localStorage.setItem("favoritos", JSON.stringify(favoritos));
+  }, [favoritos]);
+
+  // Guardar carrito en sessionStorage cuando cambie
+  useEffect(() => {
+    if (carrito.length > 0 || sessionStorage.getItem("carritoPedido")) {
+      sessionStorage.setItem("carritoPedido", JSON.stringify(carrito));
+    }
+    
+    // Si el carrito está vacío, mostrar el mensaje
+    // Si el carrito tiene productos, ocultar el mensaje
+    setMostrarMensaje(carrito.length === 0);
+  }, [carrito]);
+
+  // Guardar cliente en sessionStorage cuando cambie - CADA VEZ QUE CAMBIA
+  useEffect(() => {
+    sessionStorage.setItem("clientePedido", JSON.stringify(cliente));
+  }, [cliente]);
+
+  // Escuchar productos agregados desde la página de productos
+  useEffect(() => {
+    // Verificar si hay un producto para agregar
+    if (!location.state?.productoAgregado) return;
+    
+    const { producto, cantidad } = location.state.productoAgregado;
+    
+    // Crear un identificador único para este producto (usando id y timestamp)
+    const productoId = producto.id;
+    const timestamp = Date.now();
+    const identificador = `${productoId}-${timestamp}`;
+    
+    // Verificar si ya procesamos este producto específico
+    if (ultimoProductoAgregadoRef.current === identificador) {
+      return;
+    }
+    
+    // Verificar si ya estamos procesando un producto
+    if (productoAgregadoRef.current) {
+      return;
+    }
+    
+    // Marcar como procesando
+    productoAgregadoRef.current = true;
+    ultimoProductoAgregadoRef.current = identificador;
+    
+    const productoConImagen = {
+      ...producto,
+      imagen: obtenerImagen(producto)
+    };
+    
+    // Agregar el producto al carrito
+    agregarProductoAlCarrito(productoConImagen, cantidad || 1);
+    
+    // Limpiar el state después de un delay
+    setTimeout(() => {
+      // Limpiar el state de location para evitar reprocesamiento
+      const cleanState = { ...location.state };
+      delete cleanState.productoAgregado;
+      window.history.replaceState(cleanState, document.title);
+      
+      // Resetear el flag de procesamiento
+      productoAgregadoRef.current = false;
+    }, 200);
+    
+  }, [location.state]);
+
+  // Función para toggle favoritos (necesario para Navbar)
+  const toggleFavorito = (producto) => {
+    const existe = favoritos.find((fav) => fav.id === producto.id);
+    if (existe) {
+      setFavoritos(favoritos.filter((f) => f.id !== producto.id));
+    } else {
+      setFavoritos([...favoritos, producto]);
+    }
+  };
+
+  // Función para verificar si un producto es favorito (necesario para Navbar)
+  const esFavorito = (id) => favoritos.some((f) => f.id === id);
+
+  // Función para agregar producto al carrito
+  const agregarProductoAlCarrito = (producto, cantidad = 1) => {
+    setCarrito(prevCarrito => {
+      const existe = prevCarrito.find(item => item.id === producto.id);
+      
+      let nuevoCarrito;
+      if (existe) {
+        // Si ya existe, sumamos la cantidad
+        const nuevaCantidad = existe.cantidad + cantidad;
+        nuevoCarrito = prevCarrito.map(item => 
+          item.id === producto.id 
+            ? { 
+                ...item, 
+                cantidad: nuevaCantidad, 
+                subtotal: item.precio * nuevaCantidad 
+              }
+            : item
+        );
+      } else {
+        // Si no existe, lo agregamos con la cantidad especificada
+        nuevoCarrito = [...prevCarrito, { 
+          ...producto, 
+          cantidad: cantidad,
+          subtotal: producto.precio * cantidad,
+          imagen: obtenerImagen(producto)
+        }];
+      }
+      
+      sessionStorage.setItem("carritoPedido", JSON.stringify(nuevoCarrito));
+      return nuevoCarrito;
+    });
+  };
+
+  // Eliminar producto del carrito
+  const eliminarDelCarrito = (id) => {
+    setCarrito(prevCarrito => {
+      const nuevoCarrito = prevCarrito.filter(item => item.id !== id);
+      sessionStorage.setItem("carritoPedido", JSON.stringify(nuevoCarrito));
+      return nuevoCarrito;
+    });
+  };
+
+  // Actualizar cantidad de un producto en el carrito
+  const actualizarCantidad = (id, nuevaCantidad) => {
+    if (nuevaCantidad < 1) return;
+    setCarrito(prevCarrito => {
+      const nuevoCarrito = prevCarrito.map(item => 
+        item.id === id 
+          ? { ...item, cantidad: nuevaCantidad, subtotal: item.precio * nuevaCantidad }
+          : item
+      );
+      sessionStorage.setItem("carritoPedido", JSON.stringify(nuevoCarrito));
+      return nuevoCarrito;
+    });
+  };
+
+  // Calcular total del carrito
+  const totalCarrito = carrito.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+
+  // Validar formulario
+  const validarFormulario = () => {
+    if (!cliente.nombre.trim()) {
+      setMensajeError("Por favor ingresa tu nombre");
+      return false;
+    }
+    if (!cliente.email.trim() || !cliente.email.includes("@")) {
+      setMensajeError("Por favor ingresa un correo electrónico válido");
+      return false;
+    }
+    if (!cliente.celular.trim() || cliente.celular.length < 10) {
+      setMensajeError("Por favor ingresa un número de celular válido (10 dígitos)");
+      return false;
+    }
+    if (carrito.length === 0) {
+      setMensajeError("Agrega al menos un producto al pedido");
+      return false;
+    }
+    return true;
+  };
+
+  // Enviar pedido
+  const enviarPedido = async () => {
+    if (!validarFormulario()) return;
+    
+    setCargando(true);
+    setMensajeError("");
+    setMensajeExito("");
+    setNumeroPedido("");
+
+    const pedidoData = {
+      cliente: {
+        nombre: cliente.nombre,
+        email: cliente.email,
+        celular: cliente.celular,
+        comentarios: cliente.comentarios || ""
+      },
+      productos: carrito.map(item => ({
+        id: item.id,
+        nombre: item.nombre,
+        sku: item.sku || 'N/A',
+        cantidad: item.cantidad,
+        precio: item.precio,
+        subtotal: item.subtotal,
+        imagen: item.imagen || obtenerImagen(item)
+      })),
+      total: totalCarrito
+    };
+
+    try {
+      const res = await api.post("/pedidos", pedidoData);
+      
+      if (res.status === 201) {
+        setNumeroPedido(res.data.numero_pedido);
+        setMensajeExito(`✅ ¡Pedido #${res.data.numero_pedido} creado exitosamente!`);
+        
+        // Limpiar todo
+        setCarrito([]);
+        setCliente({ nombre: "", email: "", celular: "", comentarios: "" });
+        sessionStorage.removeItem("carritoPedido");
+        sessionStorage.removeItem("clientePedido");
+      }
+    } catch (error) {
+      console.error("Error al guardar pedido:", error);
+      setMensajeError("❌ Error al crear el pedido. Por favor intenta de nuevo.");
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  // Ir a la página de productos para agregar
+  const irAProductos = () => {
+    // Resetear los refs al salir
+    productoAgregadoRef.current = false;
+    ultimoProductoAgregadoRef.current = null;
+    navigate("/productos", { 
+      state: { 
+        desdePedido: true,
+        cliente: cliente // Pasamos los datos del cliente para que Productos los preserve
+      } 
+    });
+  };
+
+  // ACEPTAR mensaje informativo
+  const aceptarMensaje = () => {
+    setMostrarMensaje(false);
+  };
+
+  // Si está mostrando el mensaje informativo Y el carrito está vacío
+  if (mostrarMensaje && carrito.length === 0) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: darkMode ? '#0a0a2a' : '#f8fafc',
+        color: darkMode ? '#fff' : '#111827',
+        fontFamily: "'Inter', sans-serif",
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: 0,
+        margin: 0,
+        boxSizing: 'border-box'
+      }}>
+        <Navbar
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          productos={productosDisponibles}
+          favoritos={favoritos}
+          toggleFavorito={toggleFavorito}
+          esFavorito={esFavorito}
+          categorias={categorias}
+          subcategorias={subcategorias}
+          tipos={tipos}
+        />
+
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          paddingTop: '80px',
+          width: '100%',
+          boxSizing: 'border-box'
+        }}>
+          <style>{`
+            @keyframes shimmerBlue {
+              0% { background-position: -200% center; }
+              100% { background-position: 200% center; }
+            }
+            @keyframes pulseGlow {
+              0% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.1); }
+              50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.2); }
+              100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.1); }
+            }
+          `}</style>
+
+          <div style={{
+            backgroundColor: darkMode ? '#0f1a3a' : '#ffffff',
+            borderRadius: '24px',
+            maxWidth: '600px',
+            width: '100%',
+            padding: '40px 35px',
+            border: darkMode ? '2px solid rgba(59, 130, 246, 0.3)' : '2px solid #e5e7eb',
+            boxShadow: darkMode 
+              ? '0 25px 80px rgba(0, 0, 0, 0.9), 0 0 60px rgba(59, 130, 246, 0.05)'
+              : '0 25px 80px rgba(0, 0, 0, 0.08)',
+            animation: 'pulseGlow 3s ease-in-out infinite'
+          }}>
+            <button
+              onClick={() => navigate(-1)}
+              style={{
+                float: 'right',
+                background: darkMode ? 'rgba(59, 130, 246, 0.1)' : '#f1f5f9',
+                border: darkMode ? '2px solid rgba(59, 130, 246, 0.2)' : '2px solid #e5e7eb',
+                color: darkMode ? '#fff' : '#111827',
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.3s ease',
+                fontSize: '20px',
+                marginBottom: '10px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1) rotate(90deg)';
+                e.currentTarget.style.background = darkMode ? 'rgba(59, 130, 246, 0.2)' : '#e2e8f0';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+                e.currentTarget.style.background = darkMode ? 'rgba(59, 130, 246, 0.1)' : '#f1f5f9';
+              }}
+            >
+              <FaTimes />
+            </button>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              marginBottom: '20px'
+            }}>
+              <div style={{
+                background: darkMode 
+                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1))'
+                  : 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05))',
+                padding: '20px',
+                borderRadius: '50%',
+                border: darkMode ? '2px solid rgba(59, 130, 246, 0.3)' : '2px solid #3b82f6',
+                fontSize: '48px'
+              }}>
+                📋
+              </div>
+            </div>
+
+            <h2 style={{
+              color: darkMode ? '#ffffff' : '#111827',
+              fontSize: '28px',
+              fontWeight: '800',
+              textAlign: 'center',
+              marginBottom: '16px',
+              background: darkMode 
+                ? 'linear-gradient(90deg, #60a5fa, #3b82f6, #1d4ed8)'
+                : 'linear-gradient(90deg, #2563eb, #3b82f6, #1d4ed8)',
+              backgroundSize: '200% auto',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              animation: 'shimmerBlue 3s linear infinite'
+            }}>
+              📦 Realiza tu Pedido
+            </h2>
+
+            <div style={{
+              background: darkMode ? 'rgba(59, 130, 246, 0.05)' : '#eff6ff',
+              borderRadius: '16px',
+              padding: '20px 24px',
+              marginBottom: '20px',
+              borderLeft: darkMode ? '4px solid #3b82f6' : '4px solid #3b82f6'
+            }}>
+              <p style={{
+                color: darkMode ? '#e0e7ff' : '#1e293b',
+                fontSize: '16px',
+                lineHeight: '1.7',
+                margin: 0,
+                fontWeight: '500'
+              }}>
+                A través de la plataforma podrás realizar pedidos para agilizar la entrega, 
+                la cual será directamente en <strong style={{ color: '#60a5fa' }}>tienda física</strong>.
+              </p>
+            </div>
+
+            <div style={{
+              background: darkMode ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2',
+              borderRadius: '12px',
+              padding: '16px 20px',
+              marginBottom: '24px',
+              border: darkMode ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid #fecaca'
+            }}>
+              <p style={{
+                color: darkMode ? '#fca5a5' : '#991b1b',
+                fontSize: '14px',
+                margin: 0,
+                fontWeight: '600'
+              }}>
+                ⚠️ <strong>No se realizan envíos a domicilio.</strong>
+              </p>
+              <p style={{
+                color: darkMode ? '#fca5a5' : '#991b1b',
+                fontSize: '14px',
+                margin: '6px 0 0 0'
+              }}>
+                Si requieres envío, por favor ponte en contacto con un asesor.
+              </p>
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '12px',
+              marginBottom: '20px'
+            }}>
+              <div style={{
+                background: darkMode ? 'rgba(37, 211, 102, 0.08)' : '#f0fdf4',
+                borderRadius: '12px',
+                padding: '14px 16px',
+                border: darkMode ? '1px solid rgba(37, 211, 102, 0.15)' : '1px solid #bbf7d0',
+                textAlign: 'center'
+              }}>
+                <FaWhatsapp style={{ color: '#25D366', fontSize: '22px', marginBottom: '6px' }} />
+                <p style={{
+                  color: darkMode ? '#86efac' : '#166534',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  margin: 0
+                }}>
+                  <a href="tel:+525511164545" style={{ color: darkMode ? '#86efac' : '#166534', textDecoration: 'none' }}>
+                    55 1116 4545
+                  </a>
+                </p>
+              </div>
+
+              <div style={{
+                background: darkMode ? 'rgba(59, 130, 246, 0.08)' : '#eff6ff',
+                borderRadius: '12px',
+                padding: '14px 16px',
+                border: darkMode ? '1px solid rgba(59, 130, 246, 0.15)' : '1px solid #bfdbfe',
+                textAlign: 'center'
+              }}>
+                <FaEnvelope style={{ color: '#60a5fa', fontSize: '22px', marginBottom: '6px' }} />
+                <p style={{
+                  color: darkMode ? '#93c5fd' : '#1e40af',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  margin: 0,
+                  wordBreak: 'break-all'
+                }}>
+                  <a href="mailto:frayflooring@gmail.com" style={{ color: darkMode ? '#93c5fd' : '#1e40af', textDecoration: 'none' }}>
+                    frayflooring@gmail.com
+                  </a>
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              background: darkMode ? 'rgba(251, 191, 36, 0.08)' : '#fffbeb',
+              borderRadius: '12px',
+              padding: '14px 18px',
+              border: darkMode ? '1px solid rgba(251, 191, 36, 0.15)' : '1px solid #fde68a',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              marginBottom: '24px'
+            }}>
+              <FaStore style={{ color: '#fbbf24', fontSize: '20px' }} />
+              <span style={{
+                color: darkMode ? '#fcd34d' : '#92400e',
+                fontSize: '14px',
+                fontWeight: '600'
+              }}>
+                También puedes acudir directamente a nuestra sucursal
+              </span>
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '12px'
+            }}>
+              <button
+                onClick={() => navigate(-1)}
+                style={{
+                  padding: '14px',
+                  background: darkMode ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
+                  color: darkMode ? '#fca5a5' : '#991b1b',
+                  border: darkMode ? '2px solid rgba(239, 68, 68, 0.2)' : '2px solid #fecaca',
+                  borderRadius: '12px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = darkMode ? 'rgba(239, 68, 68, 0.25)' : '#fee2e2';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = darkMode ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2';
+                }}
+              >
+                Cerrar
+              </button>
+              
+              <button
+                onClick={aceptarMensaje}
+                style={{
+                  padding: '14px',
+                  background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 30px rgba(59, 130, 246, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                  e.currentTarget.style.boxShadow = '0 6px 40px rgba(59, 130, 246, 0.6)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = '0 4px 30px rgba(59, 130, 246, 0.4)';
+                }}
+              >
+                Continuar <FaArrowRight />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <Footer darkMode={darkMode} />
+      </div>
+    );
+  }
+
+  // Formulario de pedido
+  return (
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: darkMode ? '#0a0a2a' : '#f8fafc',
+      color: darkMode ? '#fff' : '#111827',
+      fontFamily: "'Inter', sans-serif",
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: 0,
+      margin: 0,
+      boxSizing: 'border-box'
+    }}>
+      <Navbar
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        productos={productosDisponibles}
+        favoritos={favoritos}
+        toggleFavorito={toggleFavorito}
+        esFavorito={esFavorito}
+        categorias={categorias}
+        subcategorias={subcategorias}
+        tipos={tipos}
+      />
+
+      <div style={{
+        width: '100%',
+        maxWidth: '900px',
+        padding: '20px',
+        paddingTop: '100px',
+        paddingBottom: '40px',
+        boxSizing: 'border-box',
+        flex: 1
+      }}>
+        <div style={{
+          backgroundColor: darkMode ? '#0f1a3a' : '#ffffff',
+          borderRadius: '24px',
+          padding: '35px',
+          border: darkMode ? '2px solid rgba(59, 130, 246, 0.3)' : '2px solid #e5e7eb',
+          boxShadow: darkMode 
+            ? '0 25px 80px rgba(0, 0, 0, 0.9)'
+            : '0 25px 80px rgba(0, 0, 0, 0.08)',
+        }}>
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              background: darkMode ? 'rgba(59, 130, 246, 0.1)' : '#f1f5f9',
+              border: darkMode ? '2px solid rgba(59, 130, 246, 0.2)' : '2px solid #e5e7eb',
+              color: darkMode ? '#fff' : '#111827',
+              padding: '8px 16px',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.3s ease',
+              fontSize: '14px',
+              marginBottom: '20px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = darkMode ? 'rgba(59, 130, 246, 0.2)' : '#e2e8f0';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = darkMode ? 'rgba(59, 130, 246, 0.1)' : '#f1f5f9';
+            }}
+          >
+            <FaArrowLeft /> Volver
+          </button>
+
+          <h2 style={{
+            color: darkMode ? '#ffffff' : '#111827',
+            fontSize: '26px',
+            fontWeight: '800',
+            marginBottom: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <FaShoppingCart style={{ color: '#60a5fa' }} />
+            Crear Pedido
+          </h2>
+          <p style={{ 
+            color: darkMode ? '#94a3b8' : '#64748b', 
+            marginBottom: '24px', 
+            fontSize: '14px' 
+          }}>
+            Completa el formulario para realizar tu pedido. Un asesor te contactará para confirmar.
+          </p>
+
+          {/* MENSAJE DE ÉXITO MEJORADO */}
+          {mensajeExito && (
+            <div style={{
+              background: darkMode ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4',
+              border: darkMode ? '2px solid rgba(34, 197, 94, 0.3)' : '2px solid #bbf7d0',
+              borderRadius: '16px',
+              padding: '24px',
+              marginBottom: '20px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '10px' }}>✅</div>
+              <div style={{ 
+                fontSize: '22px', 
+                fontWeight: '800', 
+                color: darkMode ? '#86efac' : '#166534',
+                marginBottom: '6px'
+              }}>
+                ¡Pedido Creado Exitosamente!
+              </div>
+              <div style={{ 
+                fontSize: '32px', 
+                fontWeight: '900', 
+                color: '#fbbf24',
+                background: darkMode ? 'rgba(251, 191, 36, 0.1)' : '#fffbeb',
+                padding: '10px 20px',
+                borderRadius: '12px',
+                display: 'inline-block',
+                marginBottom: '12px',
+                letterSpacing: '1px'
+              }}>
+                📋 {numeroPedido}
+              </div>
+              <div style={{
+                background: darkMode ? 'rgba(251, 191, 36, 0.15)' : '#fffbeb',
+                border: darkMode ? '2px solid rgba(251, 191, 36, 0.3)' : '2px solid #fde68a',
+                borderRadius: '12px',
+                padding: '16px 20px',
+                margin: '12px 0',
+                color: darkMode ? '#fcd34d' : '#92400e'
+              }}>
+                ⚠️ <strong>¡IMPORTANTE!</strong> Anota tu número de pedido. 
+                <br />
+                <span style={{ fontSize: '14px' }}>Será necesario para la entrega en tienda física.</span>
+              </div>
+              <div style={{
+                color: darkMode ? '#94a3b8' : '#64748b',
+                fontSize: '14px',
+                marginTop: '8px'
+              }}>
+                Un asesor se pondrá en contacto contigo para confirmar tu pedido.
+              </div>
+              <button
+                onClick={() => navigate("/")}
+                style={{
+                  marginTop: '16px',
+                  padding: '12px 40px',
+                  background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                  e.currentTarget.style.boxShadow = '0 6px 30px rgba(59, 130, 246, 0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = '0 4px 20px rgba(59, 130, 246, 0.3)';
+                }}
+              >
+                Ir al Inicio
+              </button>
+            </div>
+          )}
+
+          {mensajeError && (
+            <div style={{
+              background: darkMode ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
+              border: darkMode ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #fecaca',
+              borderRadius: '12px',
+              padding: '14px 18px',
+              marginBottom: '16px',
+              color: darkMode ? '#fca5a5' : '#991b1b'
+            }}>
+              {mensajeError}
+            </div>
+          )}
+
+          {/* SOLO MOSTRAR EL FORMULARIO SI NO HAY MENSAJE DE ÉXITO */}
+          {!mensajeExito && (
+            <>
+              <div style={{
+                background: darkMode ? 'rgba(59, 130, 246, 0.05)' : '#f8fafc',
+                borderRadius: '16px',
+                padding: '20px',
+                marginBottom: '20px',
+                border: darkMode ? '1px solid rgba(59, 130, 246, 0.1)' : '1px solid #e5e7eb'
+              }}>
+                <h3 style={{ color: '#60a5fa', fontSize: '16px', marginBottom: '16px' }}>
+                  👤 Datos del Cliente
+                </h3>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div>
+                    <label style={{ 
+                      color: darkMode ? '#94a3b8' : '#64748b', 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      display: 'block', 
+                      marginBottom: '4px' 
+                    }}>
+                      Nombre completo *
+                    </label>
+                    <input
+                      type="text"
+                      value={cliente.nombre}
+                      onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })}
+                      placeholder="Ej: Juan Pérez"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
+                        background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
+                        color: darkMode ? '#fff' : '#111827',
+                        fontSize: '14px',
+                        outline: 'none',
+                        transition: 'all 0.3s ease',
+                        boxSizing: 'border-box'
+                      }}
+                      onFocus={(e) => e.currentTarget.style.borderColor = '#60a5fa'}
+                      onBlur={(e) => e.currentTarget.style.borderColor = darkMode ? 'rgba(59, 130, 246, 0.15)' : '#e5e7eb'}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ 
+                      color: darkMode ? '#94a3b8' : '#64748b', 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      display: 'block', 
+                      marginBottom: '4px' 
+                    }}>
+                      Correo Electrónico *
+                    </label>
+                    <input
+                      type="email"
+                      value={cliente.email}
+                      onChange={(e) => setCliente({ ...cliente, email: e.target.value })}
+                      placeholder="Ej: cliente@email.com"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
+                        background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
+                        color: darkMode ? '#fff' : '#111827',
+                        fontSize: '14px',
+                        outline: 'none',
+                        transition: 'all 0.3s ease',
+                        boxSizing: 'border-box'
+                      }}
+                      onFocus={(e) => e.currentTarget.style.borderColor = '#60a5fa'}
+                      onBlur={(e) => e.currentTarget.style.borderColor = darkMode ? 'rgba(59, 130, 246, 0.15)' : '#e5e7eb'}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '14px' }}>
+                  <div>
+                    <label style={{ 
+                      color: darkMode ? '#94a3b8' : '#64748b', 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      display: 'block', 
+                      marginBottom: '4px' 
+                    }}>
+                      Celular *
+                    </label>
+                    <input
+                      type="tel"
+                      value={cliente.celular}
+                      onChange={(e) => setCliente({ ...cliente, celular: e.target.value })}
+                      placeholder="Ej: 5512345678"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
+                        background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
+                        color: darkMode ? '#fff' : '#111827',
+                        fontSize: '14px',
+                        outline: 'none',
+                        transition: 'all 0.3s ease',
+                        boxSizing: 'border-box'
+                      }}
+                      onFocus={(e) => e.currentTarget.style.borderColor = '#60a5fa'}
+                      onBlur={(e) => e.currentTarget.style.borderColor = darkMode ? 'rgba(59, 130, 246, 0.15)' : '#e5e7eb'}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ 
+                      color: darkMode ? '#94a3b8' : '#64748b', 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      display: 'block', 
+                      marginBottom: '4px' 
+                    }}>
+                      Comentarios (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={cliente.comentarios}
+                      onChange={(e) => setCliente({ ...cliente, comentarios: e.target.value })}
+                      placeholder="Ej: Piso para sala"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
+                        background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
+                        color: darkMode ? '#fff' : '#111827',
+                        fontSize: '14px',
+                        outline: 'none',
+                        transition: 'all 0.3s ease',
+                        boxSizing: 'border-box'
+                      }}
+                      onFocus={(e) => e.currentTarget.style.borderColor = '#60a5fa'}
+                      onBlur={(e) => e.currentTarget.style.borderColor = darkMode ? 'rgba(59, 130, 246, 0.15)' : '#e5e7eb'}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{
+                background: darkMode ? 'rgba(59, 130, 246, 0.05)' : '#f8fafc',
+                borderRadius: '16px',
+                padding: '20px',
+                marginBottom: '20px',
+                border: darkMode ? '1px solid rgba(59, 130, 246, 0.1)' : '1px solid #e5e7eb'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ color: '#60a5fa', fontSize: '16px', margin: 0 }}>
+                    🛒 Carrito de Pedido ({carrito.length} productos)
+                  </h3>
+                  <button
+                    onClick={irAProductos}
+                    style={{
+                      padding: '8px 16px',
+                      background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '10px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 2px 20px rgba(59, 130, 246, 0.3)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                      e.currentTarget.style.boxShadow = '0 4px 30px rgba(59, 130, 246, 0.5)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.boxShadow = '0 2px 20px rgba(59, 130, 246, 0.3)';
+                    }}
+                  >
+                    <FaPlus size={12} /> Agregar Productos
+                  </button>
+                </div>
+                
+                {carrito.length === 0 ? (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '40px 20px',
+                    color: darkMode ? '#64748b' : '#94a3b8'
+                  }}>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>🛒</div>
+                    <p style={{ margin: 0 }}>No hay productos en el carrito</p>
+                    <p style={{ fontSize: '13px', marginTop: '4px' }}>Haz clic en "Agregar Productos" para seleccionar</p>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                      {carrito.map(item => (
+                        <div key={item.id} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '14px',
+                          padding: '10px 12px',
+                          borderBottom: darkMode ? '1px solid rgba(59,130,246,0.05)' : '1px solid #f1f5f9',
+                          flexWrap: 'wrap'
+                        }}>
+                          <div style={{
+                            width: '60px',
+                            height: '60px',
+                            flexShrink: 0,
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            background: darkMode ? '#1a1a3a' : '#f1f5f9',
+                            border: darkMode ? '1px solid rgba(59,130,246,0.1)' : '1px solid #e5e7eb'
+                          }}>
+                            <img 
+                              src={item.imagen || obtenerImagen(item)} 
+                              alt={item.nombre}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                              }}
+                              onError={(e) => {
+                                e.target.src = '/producto-default.jpg';
+                              }}
+                            />
+                          </div>
+                          
+                          <div style={{ flex: 2, minWidth: '120px' }}>
+                            <div style={{ color: darkMode ? '#fff' : '#111827', fontSize: '14px', fontWeight: '600' }}>{item.nombre}</div>
+                            <div style={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '12px' }}>SKU: {item.sku}</div>
+                          </div>
+                          
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button
+                              onClick={() => actualizarCantidad(item.id, item.cantidad - 1)}
+                              style={{
+                                width: '26px',
+                                height: '26px',
+                                borderRadius: '6px',
+                                border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
+                                background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
+                                color: darkMode ? '#fff' : '#111827',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '10px'
+                              }}
+                            >
+                              <FaMinus size={8} />
+                            </button>
+                            <span style={{ color: darkMode ? '#fff' : '#111827', fontSize: '14px', fontWeight: '600', minWidth: '25px', textAlign: 'center' }}>
+                              {item.cantidad}
+                            </span>
+                            <button
+                              onClick={() => actualizarCantidad(item.id, item.cantidad + 1)}
+                              style={{
+                                width: '26px',
+                                height: '26px',
+                                borderRadius: '6px',
+                                border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
+                                background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
+                                color: darkMode ? '#fff' : '#111827',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '10px'
+                              }}
+                            >
+                              <FaPlus size={8} />
+                            </button>
+                          </div>
+                          
+                          <div style={{ color: '#60a5fa', fontSize: '14px', fontWeight: '600', minWidth: '70px', textAlign: 'right' }}>
+                            ${item.subtotal}
+                          </div>
+                          
+                          <button
+                            onClick={() => eliminarDelCarrito(item.id)}
+                            style={{
+                              background: darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2',
+                              border: 'none',
+                              color: darkMode ? '#fca5a5' : '#991b1b',
+                              cursor: 'pointer',
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              transition: 'all 0.3s ease'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = darkMode ? 'rgba(239,68,68,0.2)' : '#fee2e2'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2'}
+                          >
+                            <FaTrash size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      padding: '14px 12px 0',
+                      borderTop: darkMode ? '2px solid rgba(59,130,246,0.1)' : '2px solid #f1f5f9',
+                      marginTop: '8px'
+                    }}>
+                      <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '16px' }}>Total:</span>
+                      <span style={{ color: '#60a5fa', fontSize: '20px', fontWeight: '800' }}>
+                        ${totalCarrito.toFixed(2)}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <button
+                onClick={enviarPedido}
+                disabled={cargando || carrito.length === 0}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '14px',
+                  border: 'none',
+                  background: carrito.length > 0 ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : darkMode ? 'rgba(59,130,246,0.2)' : '#e5e7eb',
+                  color: carrito.length > 0 ? '#fff' : darkMode ? '#64748b' : '#94a3b8',
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  cursor: carrito.length > 0 && !cargando ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.3s ease',
+                  boxShadow: carrito.length > 0 ? '0 4px 30px rgba(59, 130, 246, 0.4)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px'
+                }}
+                onMouseEnter={(e) => {
+                  if (carrito.length > 0 && !cargando) {
+                    e.currentTarget.style.transform = 'scale(1.02)';
+                    e.currentTarget.style.boxShadow = '0 6px 40px rgba(59, 130, 246, 0.6)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (carrito.length > 0 && !cargando) {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 4px 30px rgba(59, 130, 246, 0.4)';
+                  }
+                }}
+              >
+                {cargando ? (
+                  'Enviando...'
+                ) : (
+                  <>
+                    <FaCheck /> Enviar Pedido
+                  </>
+                )}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <Footer darkMode={darkMode} />
+    </div>
+  );
+}
