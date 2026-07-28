@@ -280,6 +280,10 @@ export default function Catalogo() {
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
   const obtenerImagen = (p) => {
+  if (p.imagenes) {
+    return `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`;
+  }
+
   if (p.imagen) {
     return `https://backend-zuib.onrender.com${p.imagen}`;
   }
