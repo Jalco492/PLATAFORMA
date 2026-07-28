@@ -465,15 +465,19 @@ export default function Catalogo() {
                 }}
               >
                 <div style={styles.ofertaBannerImageWrapper}>
-                  <img
-                    src={banner.imagen}
-                    alt={banner.titulo}
-                    style={styles.ofertaBannerImage}
-                    loading="lazy"
-                    onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/600x400/1e293b/60a5fa?text=Oferta";
-                    }}
-                  />
+                 <img
+  src={
+    banner.imagen
+      ? `https://backend-zuib.onrender.com${banner.imagen}`
+      : "https://via.placeholder.com/600x400/1e293b/60a5fa?text=Oferta"
+  }
+  alt={banner.titulo}
+  style={styles.ofertaBannerImage}
+  loading="lazy"
+  onError={(e) => {
+    e.target.src = "https://via.placeholder.com/600x400/1e293b/60a5fa?text=Oferta";
+  }}
+/>
                   <div style={styles.ofertaBannerOverlay}>
                     {banner.porcentaje && (
                       <span style={styles.ofertaBannerBadge}>🔥 {banner.porcentaje} OFF</span>
