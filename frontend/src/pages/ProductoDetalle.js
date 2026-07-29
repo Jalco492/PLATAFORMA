@@ -273,21 +273,38 @@ export default function ProductoDetalle() {
 
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
-  // 🔥 FUNCIÓN MODIFICADA - Agrega URL base si es necesario
-  const obtenerImagen = (producto) => {
-    if (!producto) return '';
-    
-    let imagenUrl = '';
-    if (producto.imagenes && producto.imagenes.trim() !== "") {
-      imagenUrl = producto.imagenes.split(",")[0];
-    } else if (producto.imagen) {
-      imagenUrl = producto.imagen;
-    } else {
-      return '';
-    }
-    
-    return getImageUrl(imagenUrl);
-  };
+  // 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/200";
+  }
+
+  // Si ya viene con una URL completa la usa directamente
+  if (imagen.startsWith("http")) {
+    return imagen;
+  }
+
+  // Si viene como ruta relativa agrega el backend
+  return `https://backend-zuib.onrender.com${imagen}`;
+};
+
+
+// 🔥 FUNCIÓN PARA OBTENER IMAGEN DEL PRODUCTO
+const obtenerImagen = (producto) => {
+  if (!producto) return "";
+
+  let imagenUrl = "";
+
+  if (producto.imagenes && producto.imagenes.trim() !== "") {
+    imagenUrl = producto.imagenes.split(",")[0].trim();
+  } else if (producto.imagen && producto.imagen.trim() !== "") {
+    imagenUrl = producto.imagen.trim();
+  } else {
+    return "https://via.placeholder.com/200";
+  }
+
+  return getImageUrl(imagenUrl);
+};
 
   const imagenes = producto?.imagenes
     ? producto.imagenes.split(",")
