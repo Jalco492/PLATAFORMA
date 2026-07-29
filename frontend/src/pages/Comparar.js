@@ -3,6 +3,23 @@ import Navbar from "./Navbar";
 import Footer from "./Footer";
 import api from "../services/api";
 
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/300x300?text=Sin+Imagen";
+  }
+
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
+    return imagen;
+  }
+
+  if (imagen.startsWith("/")) {
+    return `https://backend-zuib.onrender.com${imagen}`;
+  }
+
+  return `https://backend-zuib.onrender.com/${imagen}`;
+};
+
 export default function Comparar() {
   const [comparador, setComparador] = useState([]);
   const [productos, setProductos] = useState([]);
@@ -24,6 +41,23 @@ export default function Comparar() {
   }, []);
 
   const isMobile = windowWidth < 768;
+
+  // 🔥 FUNCIÓN PARA OBTENER IMAGEN DEL PRODUCTO
+  const obtenerImagen = (producto) => {
+    if (!producto) return "https://via.placeholder.com/300x300?text=Sin+Imagen";
+
+    let imagenUrl = "";
+
+    if (producto.imagenes && producto.imagenes.trim() !== "") {
+      imagenUrl = producto.imagenes.split(",")[0].trim();
+    } else if (producto.imagen && producto.imagen.trim() !== "") {
+      imagenUrl = producto.imagen.trim();
+    } else {
+      return "https://via.placeholder.com/300x300?text=Sin+Imagen";
+    }
+
+    return getImageUrl(imagenUrl);
+  };
 
   // 🔥 CARGAR PRODUCTOS DEL COMPARADOR
   useEffect(() => {
@@ -237,10 +271,10 @@ export default function Comparar() {
                 </div>
               </div>
               <img
-                src={mejorProducto.imagenes ? mejorProducto.imagenes.split(",")[0] : ""}
+                src={obtenerImagen(mejorProducto)}
                 alt={mejorProducto.nombre}
                 style={styles.bestImage(isMobile)}
-                onError={(e) => e.target.src = "https://via.placeholder.com/150"}
+                onError={(e) => e.target.src = "https://via.placeholder.com/150x150?text=Sin+Imagen"}
               />
             </div>
           </div>
@@ -324,10 +358,10 @@ export default function Comparar() {
                       <td key={p.id} style={styles.headerCell(darkMode, isMobile, index)}>
                         <div style={styles.productHeader}>
                           <img
-                            src={p.imagenes ? p.imagenes.split(",")[0] : ""}
+                            src={obtenerImagen(p)}
                             alt={p.nombre}
                             style={styles.thumbImage(isMobile)}
-                            onError={(e) => e.target.src = "https://via.placeholder.com/80"}
+                            onError={(e) => e.target.src = "https://via.placeholder.com/80x80?text=Sin+Imagen"}
                           />
                           <span style={styles.productName(isMobile)}>{p.nombre}</span>
                           <span style={styles.productSku}>SKU: {p.sku || 'N/A'}</span>
@@ -381,10 +415,10 @@ export default function Comparar() {
                               {/* 🖼 IMAGENES */}
                               {campo === "imagenes" ? (
                                 <img
-                                  src={p.imagenes ? p.imagenes.split(",")[0] : ""}
+                                  src={obtenerImagen(p)}
                                   alt={p.nombre}
                                   style={styles.image(isMobile)}
-                                  onError={(e) => e.target.src = "https://via.placeholder.com/120"}
+                                  onError={(e) => e.target.src = "https://via.placeholder.com/120x120?text=Sin+Imagen"}
                                 />
                               )
                               // 💲 PRECIOS
@@ -521,7 +555,7 @@ const styles = {
     maxWidth: "1400px",
     width: "100%",
     margin: "0 auto",
-    padding: "90px 20px 40px 20px",
+    padding: "140px 20px 40px 20px", // Aumentado el padding superior
     boxSizing: "border-box",
     flexGrow: 1
   },
@@ -687,7 +721,8 @@ const styles = {
     height: isMobile ? "100px" : "150px",
     objectFit: "cover",
     borderRadius: "16px",
-    border: "2px solid #e2e8f0"
+    border: "2px solid #e2e8f0",
+    background: "#f8fafc"
   }),
 
   // RECOMENDACIONES
@@ -827,7 +862,8 @@ const styles = {
     height: isMobile ? "50px" : "70px",
     objectFit: "cover",
     borderRadius: "10px",
-    border: "2px solid #e2e8f0"
+    border: "2px solid #e2e8f0",
+    background: "#f8fafc"
   }),
 
   productName: (isMobile) => ({
@@ -880,7 +916,8 @@ const styles = {
     width: isMobile ? "80px" : "120px",
     height: isMobile ? "80px" : "120px",
     objectFit: "cover",
-    borderRadius: "12px"
+    borderRadius: "12px",
+    background: "#f8fafc"
   }),
 
   longText: (isMobile) => ({

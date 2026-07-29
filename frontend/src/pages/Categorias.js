@@ -4,6 +4,23 @@ import { useNavigate } from "react-router-dom";
 import Footer from "./Footer";
 import Navbar from "./Navbar";
 
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/400x300/1e293b/60a5fa?text=Categoría";
+  }
+
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
+    return imagen;
+  }
+
+  if (imagen.startsWith("/")) {
+    return `https://backend-zuib.onrender.com${imagen}`;
+  }
+
+  return `https://backend-zuib.onrender.com/${imagen}`;
+};
+
 export default function Categorias() {
   const navigate = useNavigate();
   const [categorias, setCategorias] = useState([]);
@@ -44,11 +61,21 @@ export default function Categorias() {
       .catch((err) => console.log(err));
   }, []);
 
+  // 🖼 OBTENER IMAGEN - VERSIÓN CORREGIDA
   const obtenerImagen = (producto) => {
-    if (producto?.imagenes && producto.imagenes.trim() !== "") {
-      return producto.imagenes.split(",")[0];
+    if (!producto) return "https://via.placeholder.com/400x300/1e293b/60a5fa?text=Categoría";
+
+    let imagenUrl = "";
+
+    if (producto.imagenes && producto.imagenes.trim() !== "") {
+      imagenUrl = producto.imagenes.split(",")[0].trim();
+    } else if (producto.imagen && producto.imagen.trim() !== "") {
+      imagenUrl = producto.imagen.trim();
+    } else {
+      return "https://via.placeholder.com/400x300/1e293b/60a5fa?text=Categoría";
     }
-    return producto?.imagen || "https://via.placeholder.com/400x300/1e293b/60a5fa?text=Categoría";
+
+    return getImageUrl(imagenUrl);
   };
 
   const toggleFavorito = (producto) => {
@@ -93,6 +120,14 @@ export default function Categorias() {
               );
               const primerProducto = productosCategoria[0];
               
+              // Determinar la imagen a mostrar
+              let imagenUrl = "https://via.placeholder.com/400x300/1e293b/60a5fa?text=Categoría";
+              if (primerProducto) {
+                imagenUrl = obtenerImagen(primerProducto);
+              } else if (cat.imagen) {
+                imagenUrl = getImageUrl(cat.imagen);
+              }
+              
               return (
                 <div
                   key={cat.id}
@@ -101,10 +136,13 @@ export default function Categorias() {
                 >
                   <div style={styles.cardImageWrapper}>
                     <img
-                      src={primerProducto ? obtenerImagen(primerProducto) : "https://via.placeholder.com/400x300/1e293b/60a5fa?text=Categoría"}
+                      src={imagenUrl}
                       alt={cat.nombre}
                       style={styles.cardImage}
                       loading="lazy"
+                      onError={(e) => {
+                        e.target.src = "https://via.placeholder.com/400x300/1e293b/60a5fa?text=Categoría";
+                      }}
                     />
                     <div style={styles.cardOverlay}>
                       <span style={styles.cardIcon}>📂</span>
@@ -144,7 +182,7 @@ const styles = {
   }),
 
   container: (isMobile) => ({
-    padding: isMobile ? "16px" : "40px",
+    padding: isMobile ? "140px 16px 40px 16px" : "140px 40px 60px 40px", // Aumentado padding superior
     maxWidth: "1400px",
     margin: "0 auto",
   }),
@@ -192,7 +230,7 @@ const styles = {
     boxShadow: darkMode
       ? "0 4px 20px rgba(0,0,0,0.3)"
       : "0 4px 20px rgba(0,0,0,0.06)",
-    ":hover": {
+    "&:hover": {
       transform: "translateY(-8px)",
       boxShadow: "0 16px 50px rgba(59,130,246,0.25)",
     },
