@@ -17,7 +17,8 @@ import {
   FaCubes,
   FaRuler,
   FaLayerGroup,
-  FaPalette
+  FaPalette,
+  FaThLarge
 } from "react-icons/fa";
 import api from "../services/api";
 import Navbar from "./Navbar";
@@ -48,6 +49,7 @@ const obtenerImagenProducto = (producto) => {
 
   let imagenUrl = "";
 
+  // 🔥 IMPORTANTE: Priorizar 'imagenes' sobre 'imagen'
   if (producto.imagenes && producto.imagenes.trim() !== "") {
     imagenUrl = producto.imagenes.split(",")[0].trim();
   } else if (producto.imagen && producto.imagen.trim() !== "") {
@@ -75,14 +77,14 @@ const obtenerTipoVenta = (tipoVenta) => {
 // 🔥 FUNCIÓN PARA OBTENER EL ICONO DEL TIPO DE VENTA
 const obtenerIconoTipo = (tipoVenta) => {
   const iconos = {
-    'caja': <FaBox />,
-    'pieza': <FaCubes />,
-    'tramo': <FaRuler />,
-    'rollo': <FaLayerGroup />,
-    'unidad': <FaPalette />,
-    'otros': <FaBox />
+    'caja': <FaBox size={12} />,
+    'pieza': <FaCubes size={12} />,
+    'tramo': <FaRuler size={12} />,
+    'rollo': <FaLayerGroup size={12} />,
+    'unidad': <FaPalette size={12} />,
+    'otros': <FaThLarge size={12} />
   };
-  return iconos[tipoVenta] || <FaBox />;
+  return iconos[tipoVenta] || <FaBox size={12} />;
 };
 
 export default function Pedido() {
@@ -236,12 +238,21 @@ export default function Pedido() {
     productoAgregadoRef.current = true;
     ultimoProductoAgregadoRef.current = identificador;
     
-    const productoConImagen = {
-      ...producto,
-      imagen: obtenerImagenProducto(producto)
+    // 🔥 Asegurar que todos los datos del producto se guarden
+    const productoCompleto = {
+      id: producto.id,
+      nombre: producto.nombre,
+      sku: producto.sku || 'N/A',
+      precio: producto.precio || 0,
+      imagen: obtenerImagenProducto(producto),
+      tipoVenta: producto.tipoVenta || 'unidad',
+      presentacion: producto.presentacion || 'Unidad',
+      cobertura: producto.cobertura || 0,
+      categoria: producto.categoria || '',
+      subcategoria: producto.subcategoria || ''
     };
     
-    agregarProductoAlCarrito(productoConImagen, cantidad || 1);
+    agregarProductoAlCarrito(productoCompleto, cantidad || 1);
     
     setTimeout(() => {
       const cleanState = { ...location.state };
@@ -265,7 +276,7 @@ export default function Pedido() {
   // Función para verificar si un producto es favorito
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
-  // Función para agregar producto al carrito
+  // 🔥 FUNCIÓN PARA AGREGAR PRODUCTO AL CARRITO - MEJORADA
   const agregarProductoAlCarrito = (producto, cantidad = 1) => {
     setCarrito(prevCarrito => {
       const existe = prevCarrito.find(item => item.id === producto.id);
@@ -278,20 +289,27 @@ export default function Pedido() {
             ? { 
                 ...item, 
                 cantidad: nuevaCantidad, 
-                subtotal: item.precio * nuevaCantidad 
+                subtotal: (item.precio || 0) * nuevaCantidad 
               }
             : item
         );
       } else {
-        nuevoCarrito = [...prevCarrito, { 
-          ...producto, 
-          cantidad: cantidad,
-          subtotal: producto.precio * cantidad,
-          imagen: obtenerImagenProducto(producto),
+        // 🔥 Asegurar que todos los campos estén presentes
+        const nuevoProducto = {
+          id: producto.id,
+          nombre: producto.nombre || 'Producto',
+          sku: producto.sku || 'N/A',
+          precio: producto.precio || 0,
+          imagen: producto.imagen || obtenerImagenProducto(producto),
           tipoVenta: producto.tipoVenta || 'unidad',
           presentacion: producto.presentacion || 'Unidad',
-          cobertura: producto.cobertura || 0
-        }];
+          cobertura: producto.cobertura || 0,
+          categoria: producto.categoria || '',
+          subcategoria: producto.subcategoria || '',
+          cantidad: cantidad,
+          subtotal: (producto.precio || 0) * cantidad
+        };
+        nuevoCarrito = [...prevCarrito, nuevoProducto];
       }
       
       sessionStorage.setItem("carritoPedido", JSON.stringify(nuevoCarrito));
@@ -314,7 +332,7 @@ export default function Pedido() {
     setCarrito(prevCarrito => {
       const nuevoCarrito = prevCarrito.map(item => 
         item.id === id 
-          ? { ...item, cantidad: nuevaCantidad, subtotal: item.precio * nuevaCantidad }
+          ? { ...item, cantidad: nuevaCantidad, subtotal: (item.precio || 0) * nuevaCantidad }
           : item
       );
       sessionStorage.setItem("carritoPedido", JSON.stringify(nuevoCarrito));
@@ -346,7 +364,7 @@ export default function Pedido() {
     return true;
   };
 
-  // 🔥 ENVIAR PEDIDO CON RESEND EN LUGAR DE GMAIL
+  // Enviar pedido
   const enviarPedido = async () => {
     if (!validarFormulario()) return;
     
@@ -355,6 +373,7 @@ export default function Pedido() {
     setMensajeExito("");
     setNumeroPedido("");
 
+    // 🔥 Asegurar que todos los datos del producto estén completos
     const pedidoData = {
       cliente: {
         nombre: cliente.nombre,
@@ -364,21 +383,22 @@ export default function Pedido() {
       },
       productos: carrito.map(item => ({
         id: item.id,
-        nombre: item.nombre,
+        nombre: item.nombre || 'Producto',
         sku: item.sku || 'N/A',
-        cantidad: item.cantidad,
-        precio: item.precio,
-        subtotal: item.subtotal,
+        cantidad: item.cantidad || 1,
+        precio: item.precio || 0,
+        subtotal: item.subtotal || (item.precio * item.cantidad) || 0,
         imagen: item.imagen || obtenerImagenProducto(item),
         tipoVenta: item.tipoVenta || 'unidad',
         presentacion: item.presentacion || 'Unidad',
-        cobertura: item.cobertura || 0
+        cobertura: item.cobertura || 0,
+        categoria: item.categoria || '',
+        subcategoria: item.subcategoria || ''
       })),
       total: totalCarrito
     };
 
     try {
-      // 🔥 ENVÍA A BACKEND QUE USA RESEND
       const res = await api.post("/pedidos", pedidoData);
       
       if (res.status === 201) {
@@ -1103,132 +1123,142 @@ export default function Pedido() {
                 ) : (
                   <>
                     <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                      {carrito.map(item => (
-                        <div key={item.id} style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '14px',
-                          padding: '10px 12px',
-                          borderBottom: darkMode ? '1px solid rgba(59,130,246,0.05)' : '1px solid #f1f5f9',
-                          flexWrap: 'wrap'
-                        }}>
-                          <div style={{
-                            width: '60px',
-                            height: '60px',
-                            flexShrink: 0,
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            background: darkMode ? '#1a1a3a' : '#f1f5f9',
-                            border: darkMode ? '1px solid rgba(59,130,246,0.1)' : '1px solid #e5e7eb'
+                      {carrito.map(item => {
+                        // 🔥 OBTENER LA IMAGEN CORRECTAMENTE
+                        const imagenProducto = item.imagen || obtenerImagenProducto(item);
+                        
+                        return (
+                          <div key={item.id} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '14px',
+                            padding: '10px 12px',
+                            borderBottom: darkMode ? '1px solid rgba(59,130,246,0.05)' : '1px solid #f1f5f9',
+                            flexWrap: 'wrap'
                           }}>
-                            <img 
-                              src={item.imagen || obtenerImagenProducto(item)} 
-                              alt={item.nombre}
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover'
-                              }}
-                              onError={(e) => {
-                                e.target.src = 'https://via.placeholder.com/60?text=Sin+imagen';
-                              }}
-                            />
-                          </div>
-                          
-                          <div style={{ flex: 2, minWidth: '120px' }}>
-                            <div style={{ color: darkMode ? '#fff' : '#111827', fontSize: '14px', fontWeight: '600' }}>{item.nombre}</div>
-                            <div style={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '11px' }}>
-                              SKU: {item.sku || 'N/A'}
-                            </div>
-                            {/* 🔥 MOSTRAR TIPO DE VENTA */}
-                            <div style={{ 
-                              color: '#60a5fa', 
-                              fontSize: '10px', 
-                              fontWeight: '600',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              marginTop: '2px'
+                            {/* 🔥 IMAGEN DEL PRODUCTO */}
+                            <div style={{
+                              width: '60px',
+                              height: '60px',
+                              flexShrink: 0,
+                              borderRadius: '8px',
+                              overflow: 'hidden',
+                              background: darkMode ? '#1a1a3a' : '#f1f5f9',
+                              border: darkMode ? '1px solid rgba(59,130,246,0.1)' : '1px solid #e5e7eb'
                             }}>
-                              {obtenerIconoTipo(item.tipoVenta)} 
-                              {obtenerTipoVenta(item.tipoVenta)}
-                              {item.tipoVenta === 'otros' && item.presentacion && (
-                                <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: '400' }}>
-                                  ({item.presentacion})
-                                </span>
-                              )}
-                              {item.cobertura > 0 && (
-                                <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: '400' }}>
-                                  • {item.cobertura} m²
-                                </span>
-                              )}
+                              <img 
+                                src={imagenProducto}
+                                alt={item.nombre}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover'
+                                }}
+                                onError={(e) => {
+                                  console.error('Error cargando imagen:', imagenProducto);
+                                  e.target.src = 'https://via.placeholder.com/60?text=Sin+imagen';
+                                }}
+                              />
                             </div>
-                          </div>
-                          
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <button
-                              onClick={() => actualizarCantidad(item.id, item.cantidad - 1)}
-                              style={{
-                                width: '26px',
-                                height: '26px',
-                                borderRadius: '6px',
-                                border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
-                                background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
-                                color: darkMode ? '#fff' : '#111827',
-                                cursor: 'pointer',
+                            
+                            <div style={{ flex: 2, minWidth: '120px' }}>
+                              <div style={{ color: darkMode ? '#fff' : '#111827', fontSize: '14px', fontWeight: '600' }}>
+                                {item.nombre}
+                              </div>
+                              <div style={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '11px' }}>
+                                SKU: {item.sku || 'N/A'}
+                              </div>
+                              {/* 🔥 MOSTRAR TIPO DE VENTA */}
+                              <div style={{ 
+                                color: '#60a5fa', 
+                                fontSize: '10px', 
+                                fontWeight: '600',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '10px'
-                              }}
-                            >
-                              <FaMinus size={8} />
-                            </button>
-                            <span style={{ color: darkMode ? '#fff' : '#111827', fontSize: '14px', fontWeight: '600', minWidth: '25px', textAlign: 'center' }}>
-                              {item.cantidad}
-                            </span>
+                                gap: '4px',
+                                marginTop: '2px',
+                                flexWrap: 'wrap'
+                              }}>
+                                {obtenerIconoTipo(item.tipoVenta)} 
+                                <span>{obtenerTipoVenta(item.tipoVenta)}</span>
+                                {item.tipoVenta === 'otros' && item.presentacion && (
+                                  <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: '400' }}>
+                                    ({item.presentacion})
+                                  </span>
+                                )}
+                                {item.cobertura > 0 && (
+                                  <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: '400' }}>
+                                    • {item.cobertura} m²
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <button
+                                onClick={() => actualizarCantidad(item.id, item.cantidad - 1)}
+                                style={{
+                                  width: '26px',
+                                  height: '26px',
+                                  borderRadius: '6px',
+                                  border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
+                                  background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
+                                  color: darkMode ? '#fff' : '#111827',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '10px'
+                                }}
+                              >
+                                <FaMinus size={8} />
+                              </button>
+                              <span style={{ color: darkMode ? '#fff' : '#111827', fontSize: '14px', fontWeight: '600', minWidth: '25px', textAlign: 'center' }}>
+                                {item.cantidad}
+                              </span>
+                              <button
+                                onClick={() => actualizarCantidad(item.id, item.cantidad + 1)}
+                                style={{
+                                  width: '26px',
+                                  height: '26px',
+                                  borderRadius: '6px',
+                                  border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
+                                  background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
+                                  color: darkMode ? '#fff' : '#111827',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '10px'
+                                }}
+                              >
+                                <FaPlus size={8} />
+                              </button>
+                            </div>
+                            
+                            <div style={{ color: '#60a5fa', fontSize: '14px', fontWeight: '600', minWidth: '70px', textAlign: 'right' }}>
+                              ${(item.subtotal || (item.precio * item.cantidad)).toFixed(2)}
+                            </div>
+                            
                             <button
-                              onClick={() => actualizarCantidad(item.id, item.cantidad + 1)}
+                              onClick={() => eliminarDelCarrito(item.id)}
                               style={{
-                                width: '26px',
-                                height: '26px',
-                                borderRadius: '6px',
-                                border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
-                                background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
-                                color: darkMode ? '#fff' : '#111827',
+                                background: darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2',
+                                border: 'none',
+                                color: darkMode ? '#fca5a5' : '#991b1b',
                                 cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '10px'
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                transition: 'all 0.3s ease'
                               }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = darkMode ? 'rgba(239,68,68,0.2)' : '#fee2e2'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2'}
                             >
-                              <FaPlus size={8} />
+                              <FaTrash size={12} />
                             </button>
                           </div>
-                          
-                          <div style={{ color: '#60a5fa', fontSize: '14px', fontWeight: '600', minWidth: '70px', textAlign: 'right' }}>
-                            ${item.subtotal?.toFixed(2) || (item.precio * item.cantidad).toFixed(2)}
-                          </div>
-                          
-                          <button
-                            onClick={() => eliminarDelCarrito(item.id)}
-                            style={{
-                              background: darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2',
-                              border: 'none',
-                              color: darkMode ? '#fca5a5' : '#991b1b',
-                              cursor: 'pointer',
-                              padding: '4px 8px',
-                              borderRadius: '6px',
-                              transition: 'all 0.3s ease'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = darkMode ? 'rgba(239,68,68,0.2)' : '#fee2e2'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2'}
-                          >
-                            <FaTrash size={12} />
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     
                     <div style={{
