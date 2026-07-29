@@ -267,7 +267,7 @@ const styles = {
 
   hero: (darkMode) => {
     // 🔥 DETECTAR LA RUTA CORRECTA DE LA IMAGEN
-    const imagenFondo = "/CONTÁCTANOS.JPG";
+    const imagenFondo = "/CONTÁCTANOS.jpg";
     
     return {
       minHeight: "100vh",
