@@ -19,6 +19,29 @@ import {
 } from "react-icons/fa";
 import api from "../services/api";
 
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - IGUAL QUE EN COTIZADOR Y PEDIDO
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/200?text=Sin+imagen";
+  }
+
+  // Si ya viene con una URL completa la usa directamente
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
+    return imagen;
+  }
+
+  // 🔥 IMPORTANTE: Usar la misma URL del backend
+  const API_BASE = process.env.REACT_APP_API_URL || 'https://backend-zuib.onrender.com';
+  
+  // Si la imagen comienza con /, la concatena con el backend
+  if (imagen.startsWith("/")) {
+    return `${API_BASE}${imagen}`;
+  }
+
+  // Si no comienza con /, la agrega
+  return `${API_BASE}/${imagen}`;
+};
+
 export default function Navbar({
   darkMode,
   setDarkMode,
@@ -75,7 +98,6 @@ export default function Navbar({
 
   // ========== EFECTO PARA RESETEAR ESTADOS AL CAMBIAR DE RUTA ==========
   useEffect(() => {
-    // Cerrar todos los menús cuando cambia la ruta
     setMenuProductosAbierto(false);
     setMenuCategoriasAbierto(false);
     setMostrarTiposHover(false);
@@ -90,7 +112,6 @@ export default function Navbar({
     setMostrarSubcategorias(false);
     setMostrarTipos(false);
     
-    // Limpiar timeouts pendientes
     if (tiposHoverTimeoutRef.current) {
       clearTimeout(tiposHoverTimeoutRef.current);
       tiposHoverTimeoutRef.current = null;
@@ -224,11 +245,23 @@ export default function Navbar({
     );
   });
 
+  // 🔥 FUNCIÓN OBTENER IMAGEN - CORREGIDA CON getImageUrl
   const obtenerImagen = (producto) => {
+    if (!producto) return "https://via.placeholder.com/200?text=Sin+imagen";
+
+    let imagenUrl = "";
+
+    // Prioriza 'imagenes' (puede tener múltiples separadas por coma)
     if (producto.imagenes && producto.imagenes.trim() !== "") {
-      return producto.imagenes.split(",")[0];
+      imagenUrl = producto.imagenes.split(",")[0].trim();
+    } else if (producto.imagen && producto.imagen.trim() !== "") {
+      imagenUrl = producto.imagen.trim();
+    } else {
+      return "https://via.placeholder.com/200?text=Sin+imagen";
     }
-    return producto.imagen;
+
+    // 🔥 APLICA getImageUrl PARA OBTENER LA URL COMPLETA
+    return getImageUrl(imagenUrl);
   };
 
   // ========== COMPONENTE SOCIAL ICON ==========
@@ -2103,7 +2136,14 @@ export default function Navbar({
                 {productosFiltrados.slice(0, 8).map((p) => (
                   <div key={p.id} className="search-result-item"
                     onClick={() => { navigate(`/producto/${p.id}`); toggleBuscador(); }}>
-                    <img src={obtenerImagen(p)} alt={p.nombre} />
+                    {/* 🔥 IMAGEN CORREGIDA */}
+                    <img 
+                      src={obtenerImagen(p)} 
+                      alt={p.nombre}
+                      onError={(e) => {
+                        e.target.src = "https://via.placeholder.com/200?text=Sin+imagen";
+                      }}
+                    />
                     <div>
                       <h4>{p.nombre}</h4>
                       <p>${p.precio}</p>
