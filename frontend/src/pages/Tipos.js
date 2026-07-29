@@ -5,14 +5,30 @@ import api from "../services/api";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/200";
+  }
+
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
+    return imagen;
+  }
+
+  if (imagen.startsWith("/")) {
+    return `https://backend-zuib.onrender.com${imagen}`;
+  }
+
+  return `https://backend-zuib.onrender.com/${imagen}`;
+};
+
 export default function Tipos() {
-  const { id } = useParams(); // Obtiene el ID del tipo desde la URL
+  const { id } = useParams();
   const navigate = useNavigate();
   const [productos, setProductos] = useState([]);
   const [tipoInfo, setTipoInfo] = useState(null);
   const [cargando, setCargando] = useState(true);
 
-  // Estados para el navbar (si los necesitas, puedes pasarlos desde App o manejarlos localmente)
   const [favoritos, setFavoritos] = useState(() => {
     const guardados = localStorage.getItem("favoritos");
     return guardados ? JSON.parse(guardados) : [];
@@ -22,14 +38,12 @@ export default function Tipos() {
     return localStorage.getItem("darkMode") === "true";
   });
 
-  // Cargar categorías y subcategorías para el navbar (si no vienen de App)
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
   const [tipos, setTipos] = useState([]);
   const [productosNavbar, setProductosNavbar] = useState([]);
 
   useEffect(() => {
-    // Cargar datos para el navbar
     const cargarDatosNavbar = async () => {
       try {
         const [catRes, subRes, tipRes, prodRes] = await Promise.all([
@@ -49,16 +63,13 @@ export default function Tipos() {
     cargarDatosNavbar();
   }, []);
 
-  // Cargar productos del tipo seleccionado
   useEffect(() => {
     const cargarProductos = async () => {
       try {
         setCargando(true);
-        // Obtener el tipo y sus productos
         const tipoRes = await api.get(`/tipos/${id}`);
         setTipoInfo(tipoRes.data);
 
-        // Obtener productos filtrados por tipo_id
         const prodRes = await api.get(`/productos/tipo/${id}`);
         setProductos(prodRes.data);
       } catch (error) {
@@ -73,12 +84,10 @@ export default function Tipos() {
     }
   }, [id]);
 
-  // Guardar favoritos en localStorage
   useEffect(() => {
     localStorage.setItem("favoritos", JSON.stringify(favoritos));
   }, [favoritos]);
 
-  // Funciones de favoritos
   const toggleFavorito = (producto) => {
     const existe = favoritos.find((fav) => fav.id === producto.id);
     if (existe) {
@@ -92,15 +101,23 @@ export default function Tipos() {
     return favoritos.some((f) => f.id === id);
   };
 
-  // Obtener la primera imagen del producto
+  // Obtener la primera imagen del producto - VERSIÓN CORREGIDA
   const obtenerImagen = (producto) => {
+    if (!producto) return "https://via.placeholder.com/300x300?text=Sin+Imagen";
+
+    let imagenUrl = "";
+
     if (producto.imagenes && producto.imagenes.trim() !== "") {
-      return producto.imagenes.split(",")[0];
+      imagenUrl = producto.imagenes.split(",")[0].trim();
+    } else if (producto.imagen && producto.imagen.trim() !== "") {
+      imagenUrl = producto.imagen.trim();
+    } else {
+      return "https://via.placeholder.com/300x300?text=Sin+Imagen";
     }
-    return producto.imagen || "https://via.placeholder.com/300x300?text=Sin+Imagen";
+
+    return getImageUrl(imagenUrl);
   };
 
-  // Navegar al detalle del producto
   const irAlProducto = (id) => {
     navigate(`/producto/${id}`);
   };
@@ -112,7 +129,6 @@ export default function Tipos() {
       display: "flex",
       flexDirection: "column"
     }}>
-      {/* NAVBAR */}
       <Navbar
         darkMode={darkMode}
         setDarkMode={setDarkMode}
@@ -125,16 +141,14 @@ export default function Tipos() {
         esFavorito={esFavorito}
       />
 
-      {/* CONTENIDO PRINCIPAL - CON PADDING SUPERIOR PARA BAJAR EL CONTENIDO */}
       <div style={{ 
         flex: 1, 
         maxWidth: "1400px", 
         margin: "0 auto", 
-        padding: "140px 20px 30px 20px", // Aumentado el padding superior
+        padding: "140px 20px 30px 20px",
         width: "100%",
         boxSizing: "border-box"
       }}>
-        {/* Encabezado */}
         {tipoInfo && (
           <div style={{ 
             marginBottom: "30px",
@@ -166,7 +180,6 @@ export default function Tipos() {
           </div>
         )}
 
-        {/* Grid de productos */}
         {cargando ? (
           <div style={{ 
             textAlign: "center", 
@@ -223,7 +236,6 @@ export default function Tipos() {
                   e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.06)";
                 }}
               >
-                {/* Botón favorito */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -252,7 +264,6 @@ export default function Tipos() {
                   ❤️
                 </button>
 
-                {/* Badges de oferta/rebaja */}
                 <div style={{
                   position: "absolute",
                   top: "10px",
@@ -288,7 +299,6 @@ export default function Tipos() {
                   )}
                 </div>
 
-                {/* Imagen */}
                 <img
                   src={obtenerImagen(producto)}
                   alt={producto.nombre}
@@ -305,7 +315,6 @@ export default function Tipos() {
                   }}
                 />
 
-                {/* Nombre */}
                 <h3 style={{
                   margin: "0 0 6px 0",
                   fontSize: "clamp(0.95rem, 1.2vw, 1.1rem)",
@@ -321,7 +330,6 @@ export default function Tipos() {
                   {producto.nombre}
                 </h3>
 
-                {/* Precio */}
                 {(producto.oferta === 1 || producto.oferta === true) && producto.precioOferta ? (
                   <div style={{ marginTop: "auto" }}>
                     <span style={{
@@ -356,7 +364,6 @@ export default function Tipos() {
         )}
       </div>
 
-      {/* FOOTER */}
       <Footer darkMode={darkMode} />
     </div>
   );
