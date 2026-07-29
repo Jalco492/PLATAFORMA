@@ -17,6 +17,8 @@ console.log("EMAIL_PASS =", process.env.EMAIL_PASS ? "CARGADA" : "NO CARGADA");
 
 const nodemailer = require("nodemailer");
 
+console.log("Antes de crear transporter");
+
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
@@ -24,8 +26,10 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  },
+  }
 });
+
+console.log("Transporter creado");
 
 transporter.verify((error, success) => {
   if (error) {
