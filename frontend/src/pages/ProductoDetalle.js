@@ -661,295 +661,262 @@ export default function ProductoDetalle() {
 
   const formatMeters = (cm) => (Number(cm) / 100).toFixed(2);
 
-  // ========== 🔥 FUNCIÓN GENERAR PDF MEJORADA ==========
-  const generarPDF = async () => {
-    try {
-      setEnviando(true);
-      setMensajeEnviado("");
-      
-      console.log('📄 Iniciando generación de PDF...');
-      
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
+ // ========== 🔥 FUNCIÓN GENERAR PDF MEJORADA ==========
+const generarPDF = async () => {
+  try {
+    setEnviando(true);
+    setMensajeEnviado("");
+    
+    console.log('📄 Iniciando generación de PDF...');
+    
+    // 1. Crear el PDF con jsPDF
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
 
-      // Intentar cargar imágenes de membrete (si fallan, continuar sin ellas)
-      let membrete1 = null;
-      let membrete2 = null;
-      
-      try {
-        console.log('🖼️ Cargando membrete...');
-        // Usar URLs directas desde el backend
-        membrete1 = await convertirImagenBase64('https://backend-zuib.onrender.com/uploads/membreteuno.jpg');
-        membrete2 = await convertirImagenBase64('https://backend-zuib.onrender.com/uploads/membretedos.jpg');
-        console.log('✅ Membrete cargado:', !!membrete1, !!membrete2);
-      } catch (error) {
-        console.warn('⚠️ No se pudieron cargar los membrete:', error);
-      }
+    // --- ENCABEZADO ---
+    pdf.setFontSize(22);
+    pdf.setTextColor(22, 163, 74);
+    pdf.text("FRAY FLOORING", pageWidth / 2, 30, { align: "center" });
 
-      const ponerFondo = (pdf, img) => {
-        if (!img) {
-          console.warn('⚠️ No hay imagen de fondo para poner');
-          return;
-        }
-        try {
-          pdf.addImage(img, "JPEG", 0, 0, pageWidth, pageHeight);
-        } catch (error) {
-          console.warn('⚠️ Error al añadir imagen de fondo:', error);
-        }
-      };
+    pdf.setFontSize(12);
+    pdf.setTextColor(75, 85, 99);
+    pdf.text("Pisos de Alta Calidad", pageWidth / 2, 40, { align: "center" });
 
-      // Fondo de la primera página
-      if (membrete1) {
-        ponerFondo(pdf, membrete1);
-      } else {
-        // Fondo simple si no hay membrete
-        pdf.setFillColor(245, 247, 250);
-        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-      }
+    pdf.setDrawColor(22, 163, 74);
+    pdf.setLineWidth(1.5);
+    pdf.line(20, 48, pageWidth - 20, 48);
 
-      let y = 50;
-      const numeroCotizacion = Math.floor(100000 + Math.random() * 900000);
-      const fechaActual = new Date().toLocaleDateString("es-MX");
-      
-      pdf.setFontSize(10);
-      pdf.setTextColor(80);
-      pdf.text(`Fecha: ${fechaActual}`, pageWidth - 60, 35);
-      pdf.text(`Cotización #${numeroCotizacion}`, pageWidth - 60, 42);
-      pdf.setDrawColor(200);
-      pdf.line(15, 55, pageWidth - 15, 55);
-      y = 70;
+    pdf.setFontSize(9);
+    pdf.setTextColor(107, 114, 128);
+    pdf.text("📍 Dirección: Calle Principal #123, Colonia Centro, CDMX", pageWidth / 2, 57, { align: "center" });
+    pdf.text("📞 Teléfono: 55 1116 4545 | ✉️ Email: frayflooring@gmail.com", pageWidth / 2, 65, { align: "center" });
 
-      // Imagen del producto
-      const imagenUrl = getImagenActual();
-      console.log('🖼️ Cargando imagen del producto:', imagenUrl);
-      
-      let imagenBase64 = null;
-      try {
-        imagenBase64 = await convertirImagenBase64(imagenUrl);
-      } catch (error) {
-        console.warn('⚠️ No se pudo cargar la imagen del producto:', error);
-      }
-      
-      if (imagenBase64) {
-        try {
-          pdf.addImage(imagenBase64, "JPEG", 15, y, 60, 60);
-        } catch (error) {
-          console.warn('⚠️ Error al añadir imagen del producto:', error);
-        }
-      } else {
-        pdf.setFontSize(10);
-        pdf.setTextColor(150);
-        pdf.text("Imagen no disponible", 15, y + 30);
-      }
+    pdf.setDrawColor(229, 231, 235);
+    pdf.setLineWidth(0.5);
+    pdf.line(20, 72, pageWidth - 20, 72);
 
-      // Información del producto
-      pdf.setFontSize(14);
-      pdf.setTextColor(40);
-      pdf.text(`Producto: ${getNombreActual()}`, 85, y + 10);
-      pdf.text(`Categoría: ${producto.categoria || "-"}`, 85, y + 20);
-      pdf.text(`Subcategoría: ${producto.subcategoria || "-"}`, 85, y + 30);
-      pdf.text(`SKU: ${producto.sku || "-"}`, 85, y + 40);
-      pdf.setFontSize(20);
-      pdf.setTextColor(22, 163, 74);
-      pdf.text(`Total: $${total}`, 85, y + 55);
+    let y = 88;
 
-      y += 90;
-      pdf.setFontSize(18);
-      pdf.setTextColor(0);
-      pdf.text("Resumen de Cotización", 15, y);
-      y += 10;
-      pdf.setFillColor(245, 247, 250);
-      pdf.roundedRect(15, y, pageWidth - 30, 45, 3, 3, "F");
-      pdf.setFontSize(11);
-      pdf.setTextColor(60);
+    // --- TÍTULO ---
+    pdf.setFontSize(18);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(31, 41, 55);
+    pdf.text("COTIZACIÓN", pageWidth / 2, y, { align: "center" });
+    y += 15;
 
-      if (producto?.tipoVenta === "otros") {
-        pdf.text(`Área a cubrir: ${areaIngresada.toFixed(2)} m²`, 20, y + 8);
-        pdf.text(`Cobertura por unidad: ${coberturaPorUnidad.toFixed(2)} m²`, 20, y + 18);
-        pdf.text(`Unidades necesarias: ${cantidadNecesaria}`, 20, y + 28);
-        pdf.text(`Área total cubierta: ${areaCubierta.toFixed(2)} m²`, 20, y + 38);
-      } else if (producto?.tipoVenta === "unidad") {
-        pdf.text(`Cantidad total de unidades: ${cantidadNecesaria}`, 20, y + 8);
-      } else {
-        pdf.text(
-          `Modo de cotización: ${
-            modoCotizacion === "todas" ? "Todas las áreas" : "Área seleccionada"
-          }`,
-          20,
-          y + 8
-        );
-        pdf.text(`Área total: ${areaIngresada.toFixed(2)} m²`, 20, y + 18);
-        pdf.text(`Desperdicio: ${desperdicio}%`, 20, y + 28);
-        pdf.text(`Área final: ${areaConDesperdicio.toFixed(2)} m²`, 20, y + 38);
-      }
+    // --- NÚMERO Y FECHA ---
+    const numeroCotizacion = `COT-${Date.now().toString().slice(-8)}`;
+    const fechaActual = new Date().toLocaleDateString('es-MX', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
 
-      y += 60;
-      pdf.setFontSize(14);
-      pdf.setTextColor(30);
-      pdf.text("Detalle de Medidas", 15, y);
-      y += 10;
-      
-      const detalleMedidas = obtenerDetalleMedidas();
-      detalleMedidas.forEach((item) => {
-        pdf.setFontSize(11);
-        if (producto.tipoVenta === "unidad") {
-          pdf.text(`Cantidad ${item.numero}: ${item.cantidad}`, 20, y);
-        } else if (producto.tipoVenta === "tramo") {
-          pdf.text(`Perímetro ${item.numero}: ${item.perimetro} m`, 20, y);
-        } else if (producto.tipoVenta === "otros") {
-          pdf.text(`Área a cubrir: ${item.area.toFixed(2)} m²`, 20, y);
-        } else {
-          pdf.text(
-            `Área ${item.numero}: ${item.largo} x ${item.ancho} = ${item.area.toFixed(2)} m²`,
-            20,
-            y
-          );
-        }
-        y += 8;
-      });
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(55, 65, 81);
+    pdf.text(`Número: ${numeroCotizacion}`, 20, y);
+    pdf.text(`Fecha: ${fechaActual}`, pageWidth - 60, y);
+    y += 20;
 
-      let notaProducto = "";
-      if (producto.tipoVenta === "rollo") {
-        notaProducto =
-          `Este producto se vende por rollo. ` +
-          `Cada rollo mide ${formatMeters(producto.ancho)} m x ${formatMeters(
-            producto.alto
-          )} m y cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
-          `Para cubrir ${areaConDesperdicio.toFixed(2)} m² necesitas aproximadamente ${metrosLineales.toFixed(
-            2
-          )} metros lineales.`;
-      } else if (producto.tipoVenta === "caja") {
-        notaProducto =
-          `Este producto se vende por caja. ` +
-          `Cada caja contiene ${producto.piezasCaja} piezas y cubre ${coberturaPorUnidad.toFixed(
-            2
-          )} m². ` +
-          `Para cubrir ${areaConDesperdicio.toFixed(2)} m² necesitas aproximadamente ${cantidadNecesaria} cajas.`;
-      } else if (producto.tipoVenta === "pieza") {
-        notaProducto =
-          `Cada pieza cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
-          `Para cubrir ${areaConDesperdicio.toFixed(2)} m² necesitas aproximadamente ${cantidadNecesaria} piezas.`;
-      } else if (producto.tipoVenta === "unidad") {
-        notaProducto = `Se requieren aproximadamente ${cantidadNecesaria} unidades para este proyecto.`;
-      } else if (producto.tipoVenta === "tramo") {
-        notaProducto = `Para cubrir ${cantidadNecesaria.toFixed(2)} metros necesitas aproximadamente ${cantidadNecesaria.toFixed(
-          2
-        )} metros lineales.`;
-      } else if (producto.tipoVenta === "otros") {
-        notaProducto =
-          `Este producto se vende por presentación (${producto.presentacion || "unidad"}). ` +
-          `Cada unidad cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
-          `Para cubrir ${areaIngresada.toFixed(2)} m² necesitas aproximadamente ${cantidadNecesaria} unidades. ` +
-          `Esto cubrirá ${areaCubierta.toFixed(2)} m².`;
-      }
+    // --- DATOS DEL CLIENTE ---
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(31, 41, 55);
+    pdf.text("DATOS DEL CLIENTE", 20, y);
+    y += 12;
 
-      const lineasNota = pdf.splitTextToSize(notaProducto, pageWidth - 45);
-      const altoNota = lineasNota.length * 5 + 12;
-      
-      if (y + altoNota > pageHeight - 50) {
-        pdf.addPage();
-        if (membrete2) ponerFondo(pdf, membrete2);
-        y = 50;
-      }
-      
-      pdf.setFillColor(255, 248, 200);
-      pdf.roundedRect(15, y, pageWidth - 30, altoNota, 3, 3, "F");
-      pdf.setFontSize(10);
-      pdf.setTextColor(90);
-      pdf.text(lineasNota, 20, y + 8);
-      y += altoNota + 15;
-
-      if (y > pageHeight - 90) {
-        pdf.addPage();
-        y = 20;
-        if (membrete2) ponerFondo(pdf, membrete2);
-      }
-      
-      pdf.setFontSize(14);
-      pdf.setTextColor(30);
-      pdf.text("Condiciones Comerciales", 15, y);
-      y += 10;
-      
-      const condiciones = [
-        "• Precios sujetos a cambios sin previo aviso.",
-        "• Vigencia de la cotización: 15 días.",
-        "• Material sujeto a disponibilidad.",
-        "• No incluye instalación ni envío salvo indicación expresa.",
-      ];
-      pdf.setFontSize(10);
-      pdf.setTextColor(90);
-      condiciones.forEach((item) => {
-        pdf.text(item, 20, y);
-        y += 7;
-      });
-      y += 10;
-
-      if (y > pageHeight - 80) {
-        pdf.addPage();
-        if (membrete2) ponerFondo(pdf, membrete2);
-        y = 50;
-      }
-      
-      pdf.setFillColor(22, 163, 74);
-      pdf.roundedRect(15, y, pageWidth - 30, 18, 3, 3, "F");
-      pdf.setTextColor(255);
-      pdf.setFontSize(18);
-      pdf.text(`TOTAL ESTIMADO: $${total}`, 20, y + 12);
-      y += 30;
-      
-      pdf.setFontSize(16);
-      pdf.setTextColor(0);
-      pdf.text("Datos del Cliente", 15, y);
-      y += 12;
-      pdf.setFillColor(248, 250, 252);
-      pdf.roundedRect(15, y, pageWidth - 30, 28, 3, 3, "F");
-      pdf.setFontSize(11);
-      pdf.setTextColor(0);
-      pdf.text(`Nombre: ${cliente.nombre || "-"}`, 20, y + 8);
-      pdf.text(`Correo: ${cliente.correo || "-"}`, 20, y + 16);
-      pdf.text(`Celular: ${cliente.celular || "-"}`, 20, y + 24);
-      y += 40;
-
-      // Generar el PDF en base64
-      const pdfBase64 = pdf.output('datauristring');
-      console.log('✅ PDF generado correctamente');
-
-      // Enviar al backend
-      console.log('📧 Enviando cotización al backend...');
-      
-      const response = await fetch('https://backend-zuib.onrender.com/enviar-cotizacion', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          nombre: cliente.nombre,
-          correo: cliente.correo,
-          celular: cliente.celular,
-          producto: producto.nombre,
-          total: total,
-          pdf: pdfBase64,
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al enviar la cotización');
-      }
-
-      console.log('✅ Cotización enviada correctamente:', data);
-      setMensajeEnviado("✅ La cotización fue enviada a tu correo electrónico");
-      
-    } catch (error) {
-      console.error('❌ Error detallado al generar/enviar cotización:', error);
-      setMensajeEnviado(`❌ Error: ${error.message || 'No se pudo enviar la cotización'}`);
-      alert(`Error al enviar la cotización: ${error.message}`);
-    } finally {
-      setEnviando(false);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(55, 65, 81);
+    pdf.text(`Nombre: ${cliente.nombre || "No especificado"}`, 20, y);
+    y += 8;
+    pdf.text(`Correo: ${cliente.correo || "No especificado"}`, 20, y);
+    y += 8;
+    if (cliente.celular) {
+      pdf.text(`Teléfono: ${cliente.celular}`, 20, y);
+      y += 8;
     }
-  };
+    y += 8;
+
+    // --- LÍNEA SEPARADORA ---
+    pdf.setDrawColor(229, 231, 235);
+    pdf.line(20, y, pageWidth - 20, y);
+    y += 12;
+
+    // --- TABLA DE PRODUCTOS ---
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(31, 41, 55);
+    pdf.text("DETALLE DE PRODUCTO", 20, y);
+    y += 10;
+
+    // Encabezados de tabla
+    const col1 = 20;
+    const col2 = 100;
+    const col3 = 150;
+    const col4 = 190;
+
+    pdf.setFillColor(22, 163, 74);
+    pdf.rect(col1, y - 4, pageWidth - 40, 10, "F");
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(255, 255, 255);
+    pdf.text("Producto", col1 + 5, y + 2);
+    pdf.text("Cant.", col2 + 5, y + 2);
+    pdf.text("Precio", col3 + 5, y + 2);
+    pdf.text("Subtotal", col4 + 5, y + 2);
+    y += 14;
+
+    let totalCalculado = 0;
+
+    // Productos
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(31, 41, 55);
+
+    // Si hay productos en la cotización, usar esos
+    const productosParaPDF = productos || [{ 
+      nombre: producto.nombre, 
+      cantidad: 1, 
+      precio: parseFloat(total) || 0, 
+      subtotal: parseFloat(total) || 0 
+    }];
+
+    for (const item of productosParaPDF) {
+      const nombreProd = item.nombre || producto.nombre;
+      const cant = item.cantidad || 1;
+      const precio = item.precio || parseFloat(total) || 0;
+      const subtotal = item.subtotal || (precio * cant);
+      totalCalculado += subtotal;
+
+      // Verificar espacio en página
+      if (y > 250) {
+        pdf.addPage();
+        y = 30;
+        // Reimprimir encabezados
+        pdf.setFillColor(22, 163, 74);
+        pdf.rect(col1, y - 4, pageWidth - 40, 10, "F");
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(255, 255, 255);
+        pdf.text("Producto", col1 + 5, y + 2);
+        pdf.text("Cant.", col2 + 5, y + 2);
+        pdf.text("Precio", col3 + 5, y + 2);
+        pdf.text("Subtotal", col4 + 5, y + 2);
+        y += 14;
+      }
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(31, 41, 55);
+      pdf.text(nombreProd.length > 25 ? nombreProd.substring(0, 25) + "..." : nombreProd, col1 + 5, y + 2);
+      pdf.text(cant.toString(), col2 + 5, y + 2);
+      pdf.text(`$${precio.toFixed(2)}`, col3 + 5, y + 2);
+      pdf.text(`$${subtotal.toFixed(2)}`, col4 + 5, y + 2);
+      y += 10;
+    }
+
+    // --- TOTAL ---
+    y += 6;
+    pdf.setDrawColor(229, 231, 235);
+    pdf.line(pageWidth - 80, y, pageWidth - 20, y);
+    y += 6;
+
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(22, 163, 74);
+    pdf.text(`TOTAL: $${totalCalculado.toFixed(2)}`, pageWidth - 80, y, { align: "right" });
+    y += 20;
+
+    // --- NOTAS ---
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(107, 114, 128);
+    pdf.text("NOTAS IMPORTANTES:", 20, y);
+    y += 6;
+    pdf.setFont("helvetica", "italic");
+    pdf.setTextColor(156, 163, 175);
+    pdf.text("• Esta cotización tiene una validez de 15 días a partir de la fecha de emisión.", 20, y);
+    y += 6;
+    pdf.text("• Los precios están sujetos a cambios sin previo aviso.", 20, y);
+    y += 6;
+    pdf.text("• El pago deberá realizarse en tienda física.", 20, y);
+    y += 6;
+    pdf.text("• Para más información, contáctanos al 55 1116 4545.", 20, y);
+    y += 12;
+
+    // --- FIRMA ---
+    pdf.text("_________________________", pageWidth - 80, y);
+    pdf.setFontSize(8);
+    pdf.setTextColor(55, 65, 81);
+    pdf.text("Firma y Sello", pageWidth - 80, y + 10, { align: "center" });
+
+    // --- PIE DE PÁGINA ---
+    const pageCount = pdf.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(8);
+      pdf.setTextColor(156, 163, 175);
+      pdf.text(`Página ${i} de ${pageCount}`, pageWidth / 2, pageHeight - 15, { align: "center" });
+    }
+
+    // 2. Generar el PDF en base64
+    const pdfBase64 = pdf.output('datauristring');
+    console.log('✅ PDF generado correctamente, tamaño:', pdfBase64.length);
+
+    // 3. Validar que el cliente tenga datos
+    if (!cliente.nombre || !cliente.correo) {
+      setMensajeEnviado("⚠️ Por favor completa tus datos (nombre y correo)");
+      setEnviando(false);
+      return;
+    }
+
+    // 4. Enviar al backend
+    console.log('📧 Enviando cotización al backend...');
+    console.log('📤 Datos a enviar:', {
+      nombre: cliente.nombre,
+      correo: cliente.correo,
+      celular: cliente.celular,
+      producto: producto.nombre,
+      total: totalCalculado.toFixed(2),
+      tienePDF: !!pdfBase64
+    });
+
+    const response = await fetch('https://backend-zuib.onrender.com/enviar-cotizacion', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        nombre: cliente.nombre,
+        correo: cliente.correo,
+        celular: cliente.celular || '',
+        producto: producto.nombre,
+        total: totalCalculado.toFixed(2),
+        pdf: pdfBase64,
+        productos: productosParaPDF
+      }),
+    });
+
+    const data = await response.json();
+    console.log('📥 Respuesta del backend:', data);
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al enviar la cotización');
+    }
+
+    console.log('✅ Cotización enviada correctamente:', data);
+    setMensajeEnviado("✅ La cotización fue enviada a tu correo electrónico");
+    setCliente({ nombre: "", correo: "", celular: "" });
+    
+  } catch (error) {
+    console.error('❌ Error detallado al generar/enviar cotización:', error);
+    setMensajeEnviado(`❌ Error: ${error.message || 'No se pudo enviar la cotización'}`);
+  } finally {
+    setEnviando(false);
+  }
+};
 
   // ========== RENDER ==========
   if (!producto) return <h2 style={{ padding: "20px" }}>Cargando...</h2>;
