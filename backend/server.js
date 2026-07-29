@@ -8,6 +8,7 @@ const db = require("./config/db");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const axios = require("axios"); // <--- SOLO UNA VEZ, al inicio
 
 require("dotenv").config();
 console.log("🚀 SERVER INICIADO");
@@ -36,7 +37,6 @@ resend.emails.send({
 // 📄 GENERAR PDF CON HOJA MEMBRETADA E IMÁGENES
 // =================================================
 const PDFDocument = require('pdfkit');
-const axios = require('axios');
 
 // Función para descargar imagen desde URL
 const descargarImagen = async (url) => {
@@ -2270,8 +2270,6 @@ app.delete("/contactos/:id", async (req, res) => {
 // =================================================
 // 🖼️ PROXY PARA IMÁGENES
 // =================================================
-const axios = require("axios");
-
 app.get("/proxy-image", async (req, res) => {
   try {
     const imageUrl = req.query.url;
