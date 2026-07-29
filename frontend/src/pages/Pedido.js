@@ -18,13 +18,15 @@ import {
   FaRuler,
   FaLayerGroup,
   FaPalette,
-  FaThLarge
+  FaThLarge,
+  FaEdit,
+  FaSave
 } from "react-icons/fa";
 import api from "../services/api";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
-// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - IGUAL QUE EN COTIZADOR
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
 const getImageUrl = (imagen) => {
   if (!imagen) {
     return "https://via.placeholder.com/200?text=Sin+imagen";
@@ -49,7 +51,6 @@ const obtenerImagenProducto = (producto) => {
 
   let imagenUrl = "";
 
-  // 🔥 IMPORTANTE: Priorizar 'imagenes' sobre 'imagen'
   if (producto.imagenes && producto.imagenes.trim() !== "") {
     imagenUrl = producto.imagenes.split(",")[0].trim();
   } else if (producto.imagen && producto.imagen.trim() !== "") {
@@ -66,8 +67,8 @@ const obtenerTipoVenta = (tipoVenta) => {
   const tipos = {
     'caja': 'Caja',
     'pieza': 'Pieza',
-    'tramo': 'Tramo',
-    'rollo': 'Rollo',
+    'tramo': 'Tramo (metros)',
+    'rollo': 'Rollo (metros)',
     'unidad': 'Unidad',
     'otros': 'Otros'
   };
@@ -85,6 +86,25 @@ const obtenerIconoTipo = (tipoVenta) => {
     'otros': <FaThLarge size={12} />
   };
   return iconos[tipoVenta] || <FaBox size={12} />;
+};
+
+// 🔥 FUNCIÓN PARA SABER SI EL PRODUCTO SE VENDE POR METROS
+const esVentaPorMetros = (tipoVenta) => {
+  return tipoVenta === 'tramo' || tipoVenta === 'rollo';
+};
+
+// 🔥 FUNCIÓN PARA OBTENER LA UNIDAD DE MEDIDA
+const obtenerUnidadMedida = (tipoVenta) => {
+  if (tipoVenta === 'tramo' || tipoVenta === 'rollo') {
+    return 'metros';
+  }
+  if (tipoVenta === 'caja') {
+    return 'cajas';
+  }
+  if (tipoVenta === 'pieza') {
+    return 'piezas';
+  }
+  return 'unidades';
 };
 
 export default function Pedido() {
@@ -148,6 +168,10 @@ export default function Pedido() {
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
   const [tipos, setTipos] = useState([]);
+
+  // 🔥 ESTADO PARA MODO DE EDICIÓN DE CANTIDAD
+  const [editandoCantidad, setEditandoCantidad] = useState(null);
+  const [cantidadInput, setCantidadInput] = useState("");
 
   // REF para evitar duplicados
   const productoAgregadoRef = useRef(false);
@@ -238,7 +262,6 @@ export default function Pedido() {
     productoAgregadoRef.current = true;
     ultimoProductoAgregadoRef.current = identificador;
     
-    // 🔥 Asegurar que todos los datos del producto se guarden
     const productoCompleto = {
       id: producto.id,
       nombre: producto.nombre,
@@ -249,7 +272,9 @@ export default function Pedido() {
       presentacion: producto.presentacion || 'Unidad',
       cobertura: producto.cobertura || 0,
       categoria: producto.categoria || '',
-      subcategoria: producto.subcategoria || ''
+      subcategoria: producto.subcategoria || '',
+      ancho: producto.ancho || 0,
+      alto: producto.alto || 0
     };
     
     agregarProductoAlCarrito(productoCompleto, cantidad || 1);
@@ -276,7 +301,7 @@ export default function Pedido() {
   // Función para verificar si un producto es favorito
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
-  // 🔥 FUNCIÓN PARA AGREGAR PRODUCTO AL CARRITO - MEJORADA
+  // 🔥 FUNCIÓN PARA AGREGAR PRODUCTO AL CARRITO
   const agregarProductoAlCarrito = (producto, cantidad = 1) => {
     setCarrito(prevCarrito => {
       const existe = prevCarrito.find(item => item.id === producto.id);
@@ -294,7 +319,6 @@ export default function Pedido() {
             : item
         );
       } else {
-        // 🔥 Asegurar que todos los campos estén presentes
         const nuevoProducto = {
           id: producto.id,
           nombre: producto.nombre || 'Producto',
@@ -306,6 +330,8 @@ export default function Pedido() {
           cobertura: producto.cobertura || 0,
           categoria: producto.categoria || '',
           subcategoria: producto.subcategoria || '',
+          ancho: producto.ancho || 0,
+          alto: producto.alto || 0,
           cantidad: cantidad,
           subtotal: (producto.precio || 0) * cantidad
         };
@@ -326,9 +352,9 @@ export default function Pedido() {
     });
   };
 
-  // Actualizar cantidad de un producto en el carrito
+  // 🔥 ACTUALIZAR CANTIDAD - Soporte para metros
   const actualizarCantidad = (id, nuevaCantidad) => {
-    if (nuevaCantidad < 1) return;
+    if (nuevaCantidad < 0.1) return;
     setCarrito(prevCarrito => {
       const nuevoCarrito = prevCarrito.map(item => 
         item.id === id 
@@ -338,6 +364,60 @@ export default function Pedido() {
       sessionStorage.setItem("carritoPedido", JSON.stringify(nuevoCarrito));
       return nuevoCarrito;
     });
+  };
+
+  // 🔥 INICIAR EDICIÓN DE CANTIDAD
+  const iniciarEdicionCantidad = (item) => {
+    setEditandoCantidad(item.id);
+    setCantidadInput(String(item.cantidad));
+  };
+
+  // 🔥 GUARDAR CANTIDAD EDITADA
+  const guardarEdicionCantidad = (id) => {
+    const valor = parseFloat(cantidadInput);
+    if (isNaN(valor) || valor <= 0) {
+      setMensajeError("Por favor ingresa una cantidad válida");
+      return;
+    }
+    actualizarCantidad(id, valor);
+    setEditandoCantidad(null);
+    setCantidadInput("");
+  };
+
+  // 🔥 CANCELAR EDICIÓN
+  const cancelarEdicionCantidad = () => {
+    setEditandoCantidad(null);
+    setCantidadInput("");
+  };
+
+  // 🔥 INCREMENTAR CANTIDAD
+  const incrementarCantidad = (id, paso = 1) => {
+    const item = carrito.find(i => i.id === id);
+    if (!item) return;
+    const nuevaCantidad = item.cantidad + paso;
+    actualizarCantidad(id, nuevaCantidad);
+  };
+
+  // 🔥 DECREMENTAR CANTIDAD
+  const decrementarCantidad = (id, paso = 1) => {
+    const item = carrito.find(i => i.id === id);
+    if (!item) return;
+    if (item.cantidad <= paso) {
+      if (window.confirm(`¿Eliminar "${item.nombre}" del carrito?`)) {
+        eliminarDelCarrito(id);
+      }
+      return;
+    }
+    const nuevaCantidad = item.cantidad - paso;
+    actualizarCantidad(id, nuevaCantidad);
+  };
+
+  // 🔥 OBTENER EL PASO PARA CADA TIPO DE PRODUCTO
+  const obtenerPaso = (tipoVenta) => {
+    if (esVentaPorMetros(tipoVenta)) {
+      return 0.5; // Para metros, incrementos de 0.5
+    }
+    return 1; // Para unidades, incrementos de 1
   };
 
   // Calcular total del carrito
@@ -373,7 +453,6 @@ export default function Pedido() {
     setMensajeExito("");
     setNumeroPedido("");
 
-    // 🔥 Asegurar que todos los datos del producto estén completos
     const pedidoData = {
       cliente: {
         nombre: cliente.nombre,
@@ -393,7 +472,8 @@ export default function Pedido() {
         presentacion: item.presentacion || 'Unidad',
         cobertura: item.cobertura || 0,
         categoria: item.categoria || '',
-        subcategoria: item.subcategoria || ''
+        subcategoria: item.subcategoria || '',
+        unidadMedida: esVentaPorMetros(item.tipoVenta) ? 'metros' : 'unidades'
       })),
       total: totalCarrito
     };
@@ -1124,8 +1204,11 @@ export default function Pedido() {
                   <>
                     <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                       {carrito.map(item => {
-                        // 🔥 OBTENER LA IMAGEN CORRECTAMENTE
                         const imagenProducto = item.imagen || obtenerImagenProducto(item);
+                        const esPorMetros = esVentaPorMetros(item.tipoVenta);
+                        const unidad = esPorMetros ? 'm' : 'uds';
+                        const paso = obtenerPaso(item.tipoVenta);
+                        const esDecimal = paso < 1;
                         
                         return (
                           <div key={item.id} style={{
@@ -1136,7 +1219,7 @@ export default function Pedido() {
                             borderBottom: darkMode ? '1px solid rgba(59,130,246,0.05)' : '1px solid #f1f5f9',
                             flexWrap: 'wrap'
                           }}>
-                            {/* 🔥 IMAGEN DEL PRODUCTO */}
+                            {/* IMAGEN */}
                             <div style={{
                               width: '60px',
                               height: '60px',
@@ -1155,12 +1238,12 @@ export default function Pedido() {
                                   objectFit: 'cover'
                                 }}
                                 onError={(e) => {
-                                  console.error('Error cargando imagen:', imagenProducto);
                                   e.target.src = 'https://via.placeholder.com/60?text=Sin+imagen';
                                 }}
                               />
                             </div>
                             
+                            {/* INFO PRODUCTO */}
                             <div style={{ flex: 2, minWidth: '120px' }}>
                               <div style={{ color: darkMode ? '#fff' : '#111827', fontSize: '14px', fontWeight: '600' }}>
                                 {item.nombre}
@@ -1168,7 +1251,7 @@ export default function Pedido() {
                               <div style={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '11px' }}>
                                 SKU: {item.sku || 'N/A'}
                               </div>
-                              {/* 🔥 MOSTRAR TIPO DE VENTA */}
+                              {/* TIPO DE VENTA */}
                               <div style={{ 
                                 color: '#60a5fa', 
                                 fontSize: '10px', 
@@ -1181,9 +1264,15 @@ export default function Pedido() {
                               }}>
                                 {obtenerIconoTipo(item.tipoVenta)} 
                                 <span>{obtenerTipoVenta(item.tipoVenta)}</span>
-                                {item.tipoVenta === 'otros' && item.presentacion && (
-                                  <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: '400' }}>
-                                    ({item.presentacion})
+                                {esPorMetros && (
+                                  <span style={{ 
+                                    color: darkMode ? '#94a3b8' : '#64748b', 
+                                    fontWeight: '400',
+                                    background: darkMode ? 'rgba(59,130,246,0.1)' : '#eef2ff',
+                                    padding: '0 8px',
+                                    borderRadius: '4px'
+                                  }}>
+                                    📏 {item.ancho || 0}cm x {item.alto || 0}cm
                                   </span>
                                 )}
                                 {item.cobertura > 0 && (
@@ -1194,47 +1283,142 @@ export default function Pedido() {
                               </div>
                             </div>
                             
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <button
-                                onClick={() => actualizarCantidad(item.id, item.cantidad - 1)}
-                                style={{
-                                  width: '26px',
-                                  height: '26px',
-                                  borderRadius: '6px',
-                                  border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
-                                  background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
-                                  color: darkMode ? '#fff' : '#111827',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '10px'
-                                }}
-                              >
-                                <FaMinus size={8} />
-                              </button>
-                              <span style={{ color: darkMode ? '#fff' : '#111827', fontSize: '14px', fontWeight: '600', minWidth: '25px', textAlign: 'center' }}>
-                                {item.cantidad}
-                              </span>
-                              <button
-                                onClick={() => actualizarCantidad(item.id, item.cantidad + 1)}
-                                style={{
-                                  width: '26px',
-                                  height: '26px',
-                                  borderRadius: '6px',
-                                  border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
-                                  background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
-                                  color: darkMode ? '#fff' : '#111827',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '10px'
-                                }}
-                              >
-                                <FaPlus size={8} />
-                              </button>
-                            </div>
+                            {/* 🔥 CONTROLES DE CANTIDAD - MEJORADOS PARA METROS */}
+                            {editandoCantidad === item.id ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <input
+                                  type="number"
+                                  value={cantidadInput}
+                                  onChange={(e) => setCantidadInput(e.target.value)}
+                                  step={esDecimal ? "0.5" : "1"}
+                                  min="0"
+                                  style={{
+                                    width: '80px',
+                                    padding: '6px 8px',
+                                    borderRadius: '6px',
+                                    border: '2px solid #60a5fa',
+                                    background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff',
+                                    color: darkMode ? '#fff' : '#111827',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    textAlign: 'center',
+                                    outline: 'none'
+                                  }}
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') guardarEdicionCantidad(item.id);
+                                    if (e.key === 'Escape') cancelarEdicionCantidad();
+                                  }}
+                                />
+                                <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600' }}>
+                                  {esPorMetros ? 'm' : 'uds'}
+                                </span>
+                                <button
+                                  onClick={() => guardarEdicionCantidad(item.id)}
+                                  style={{
+                                    background: '#16a34a',
+                                    border: 'none',
+                                    color: '#fff',
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '12px'
+                                  }}
+                                >
+                                  <FaSave size={12} />
+                                </button>
+                                <button
+                                  onClick={cancelarEdicionCantidad}
+                                  style={{
+                                    background: '#6b7280',
+                                    border: 'none',
+                                    color: '#fff',
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '12px'
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <button
+                                  onClick={() => decrementarCantidad(item.id, paso)}
+                                  style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
+                                    background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
+                                    color: darkMode ? '#fff' : '#111827',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '10px'
+                                  }}
+                                >
+                                  <FaMinus size={8} />
+                                </button>
+                                
+                                <span 
+                                  style={{ 
+                                    color: darkMode ? '#fff' : '#111827', 
+                                    fontSize: '14px', 
+                                    fontWeight: '600', 
+                                    minWidth: '40px', 
+                                    textAlign: 'center',
+                                    cursor: 'pointer',
+                                    borderBottom: '2px dashed #60a5fa',
+                                    padding: '0 4px'
+                                  }}
+                                  onClick={() => iniciarEdicionCantidad(item)}
+                                  title="Haz clic para editar la cantidad"
+                                >
+                                  {item.cantidad}
+                                </span>
+                                
+                                <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600' }}>
+                                  {esPorMetros ? 'm' : 'uds'}
+                                </span>
+                                
+                                <button
+                                  onClick={() => incrementarCantidad(item.id, paso)}
+                                  style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
+                                    background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
+                                    color: darkMode ? '#fff' : '#111827',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '10px'
+                                  }}
+                                >
+                                  <FaPlus size={8} />
+                                </button>
+                                
+                                <button
+                                  onClick={() => iniciarEdicionCantidad(item)}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#60a5fa',
+                                    cursor: 'pointer',
+                                    padding: '2px 4px',
+                                    fontSize: '12px'
+                                  }}
+                                  title="Editar cantidad"
+                                >
+                                  <FaEdit size={10} />
+                                </button>
+                              </div>
+                            )}
                             
                             <div style={{ color: '#60a5fa', fontSize: '14px', fontWeight: '600', minWidth: '70px', textAlign: 'right' }}>
                               ${(item.subtotal || (item.precio * item.cantidad)).toFixed(2)}

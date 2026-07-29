@@ -123,7 +123,8 @@ export default function Admin() {
     material: "",
     acabado: "",
     tipo_instalacion: "",
-    espesor_capa_desgaste: ""
+    espesor_capa_desgaste: "",
+    unidadGrueso: "mm"
   });
   
   // 🟡 FORM BANNERS
@@ -163,7 +164,8 @@ export default function Admin() {
   
   const cargar = () => {
     api.get("/admin/productos")
-      .then(res => setProductos(res.data));
+      .then(res => setProductos(res.data))
+      .catch(err => console.log("Error cargando productos:", err));
   };
 
   const cargarPedidos = () => {
@@ -174,7 +176,8 @@ export default function Admin() {
   
   const cargarBanners = () => {
     api.get("/banners")
-      .then(res => setBanners(res.data));
+      .then(res => setBanners(res.data))
+      .catch(err => console.log(err));
   };
   
   const cargarBannersOfertas = () => {
@@ -185,12 +188,14 @@ export default function Admin() {
   
   const cargarCategorias = () => {
     api.get("/categorias")
-      .then(res => setCategorias(res.data));
+      .then(res => setCategorias(res.data))
+      .catch(err => console.log(err));
   };
   
   const cargarSubcategorias = () => {
     api.get("/subcategorias")
-      .then(res => setSubcategorias(res.data));
+      .then(res => setSubcategorias(res.data))
+      .catch(err => console.log(err));
   };
   
   const cargarTipos = () => {
@@ -502,6 +507,7 @@ export default function Admin() {
       subcategoria_id: producto.subcategoria_id || "",
       tipo_id: producto.tipo_id || "",
       destacado: producto.destacado === 1 || producto.destacado === true,
+      nuevo: producto.nuevo === 1 || producto.nuevo === true,
       fichaTecnica: producto.fichaTecnica || "",
       especificaciones: producto.especificaciones || "",
       informacionAdicional: producto.informacionAdicional || "",
@@ -521,7 +527,8 @@ export default function Admin() {
       material: producto.material || "",
       acabado: producto.acabado || "",
       tipo_instalacion: producto.tipo_instalacion || "",
-      espesor_capa_desgaste: producto.espesor_capa_desgaste || ""
+      espesor_capa_desgaste: producto.espesor_capa_desgaste || "",
+      unidadGrueso: producto.unidadGrueso || "mm"
     });
     setSugerencias(producto.sugerencias ? JSON.parse(producto.sugerencias) : []);
     setPreviewPrincipal(principal);
@@ -554,6 +561,7 @@ export default function Admin() {
       subcategoria_id: producto.subcategoria_id || "",
       tipo_id: producto.tipo_id || "",
       destacado: producto.destacado === 1 || producto.destacado === true,
+      nuevo: producto.nuevo === 1 || producto.nuevo === true,
       fichaTecnica: producto.fichaTecnica || "",
       especificaciones: producto.especificaciones || "",
       informacionAdicional: producto.informacionAdicional || "",
@@ -573,7 +581,8 @@ export default function Admin() {
       material: producto.material || "",
       acabado: producto.acabado || "",
       tipo_instalacion: producto.tipo_instalacion || "",
-      espesor_capa_desgaste: producto.espesor_capa_desgaste || ""
+      espesor_capa_desgaste: producto.espesor_capa_desgaste || "",
+      unidadGrueso: producto.unidadGrueso || "mm"
     });
     setSugerencias(producto.sugerencias ? JSON.parse(producto.sugerencias) : []);
     setPreviewPrincipal(principal);
@@ -626,7 +635,8 @@ export default function Admin() {
       material: "",
       acabado: "",
       tipo_instalacion: "",
-      espesor_capa_desgaste: ""
+      espesor_capa_desgaste: "",
+      unidadGrueso: "mm"
     });
     setSugerencias([]);
     setPreviewPrincipal("");
@@ -692,12 +702,23 @@ export default function Admin() {
     }
   };
   
-  // 🟣 ACTUALIZAR PRODUCTO
+  // 🔥 🔥 🔥 ACTUALIZAR PRODUCTO - CORREGIDO 🔥 🔥 🔥
   const actualizarProducto = async () => {
     try {
+      // Validar que tenemos un ID
+      if (!productoId) {
+        alert("❌ No se encontró el ID del producto");
+        return;
+      }
+
+      console.log("📦 Actualizando producto ID:", productoId);
+      console.log("📦 Datos del formulario:", form);
+
+      // 1. Preparar las imágenes
       let todasLasImagenes = [];
       const imagenesExistentes = form.imagenes ? form.imagenes.split(",") : [];
       
+      // Si hay una nueva imagen principal, subirla
       if (archivoPrincipal) {
         const formData = new FormData();
         formData.append("imagenes", archivoPrincipal);
@@ -706,9 +727,11 @@ export default function Admin() {
         });
         todasLasImagenes.push(uploadRes.data[0]);
       } else if (imagenesExistentes.length > 0) {
+        // Mantener la imagen principal existente
         todasLasImagenes.push(imagenesExistentes[0]);
       }
       
+      // Si hay nuevas imágenes de galería, subirlas
       if (archivosGaleria.length > 0) {
         const formData = new FormData();
         archivosGaleria.forEach(imagen => formData.append("imagenes", imagen));
@@ -717,11 +740,13 @@ export default function Admin() {
         });
         todasLasImagenes = todasLasImagenes.concat(uploadRes.data);
       } else {
+        // Mantener la galería existente (sin la primera que es la principal)
         const galeriaExistente = imagenesExistentes.slice(1);
         todasLasImagenes = todasLasImagenes.concat(galeriaExistente);
       }
       
-      let fichaUrl = form.fichaTecnica;
+      // 2. Subir ficha técnica si hay nueva
+      let fichaUrl = form.fichaTecnica || "";
       if (archivoFicha) {
         const formData = new FormData();
         formData.append("ficha", archivoFicha);
@@ -731,20 +756,72 @@ export default function Admin() {
         fichaUrl = uploadRes.data.url;
       }
       
-      const imagenesString = todasLasImagenes.join(",");
-      
-      await api.put(`/productos/${productoId}`, {
-        ...form,
-        imagenes: imagenesString,
+      // 3. Crear el objeto de datos para enviar
+      const datosParaEnviar = {
+        nombre: form.nombre,
+        descripcion: form.descripcion,
+        precio: form.precio,
+        precioOferta: form.precioOferta || "",
+        oferta: form.oferta ? 1 : 0,
+        rebaja: form.rebaja ? 1 : 0,
+        stock: form.stock || 0,
+        imagenes: todasLasImagenes.join(","),
+        categoria_id: form.categoria_id || null,
+        subcategoria_id: form.subcategoria_id || null,
+        tipo_id: form.tipo_id || null,
+        destacado: form.destacado ? 1 : 0,
+        nuevo: form.nuevo ? 1 : 0,
         fichaTecnica: fichaUrl,
-        sugerencias
-      });
-      cargar();
+        sku: form.sku || "",
+        presentacion: form.presentacion || "",
+        ancho: form.ancho || "",
+        alto: form.alto || "",
+        grueso: form.grueso || "",
+        cobertura: form.cobertura || "",
+        tipoVenta: form.tipoVenta || "pieza",
+        tipoCobertura: form.tipoCobertura || "m2",
+        piezasCaja: form.piezasCaja || "",
+        especificaciones: form.especificaciones || "",
+        informacionAdicional: form.informacionAdicional || "",
+        variante: form.variante || "",
+        uso: form.uso || "",
+        aplicacion: form.aplicacion || "",
+        tipo_diseno: form.tipo_diseno || "",
+        material: form.material || "",
+        acabado: form.acabado || "",
+        tipo_instalacion: form.tipo_instalacion || "",
+        espesor_capa_desgaste: form.espesor_capa_desgaste || "",
+        unidadGrueso: form.unidadGrueso || "mm",
+        sugerencias: sugerencias
+      };
+
+      console.log("📤 Enviando datos:", datosParaEnviar);
+
+      // 4. Hacer la petición PUT
+      const response = await api.put(`/productos/${productoId}`, datosParaEnviar);
+      
+      console.log("✅ Respuesta del servidor:", response.data);
+      
+      // 5. Recargar la lista de productos
+      await cargar();
+      
+      // 6. Cerrar el modal y mostrar mensaje
       cerrarModal();
-      alert("✅ Producto actualizado");
+      alert("✅ Producto actualizado correctamente");
+      
     } catch (err) {
-      console.log(err);
-      alert("❌ Error al actualizar");
+      console.error("❌ Error al actualizar producto:", err);
+      
+      // Mostrar mensaje de error más detallado
+      if (err.response) {
+        console.error("📡 Error response:", err.response.data);
+        alert(`❌ Error al actualizar: ${err.response.data.message || err.response.statusText || "Error del servidor"}`);
+      } else if (err.request) {
+        console.error("📡 No se recibió respuesta:", err.request);
+        alert("❌ Error de conexión. Verifica que el servidor esté funcionando.");
+      } else {
+        alert(`❌ Error al actualizar: ${err.message}`);
+      }
     }
   };
   
@@ -822,7 +899,6 @@ export default function Admin() {
       if (res.data.success) {
         alert(`✅ Estado actualizado a "${estado}". Se envió correo al cliente.`);
         cargarPedidos();
-        // Si el detalle está abierto, actualizarlo
         if (mostrarDetallePedido && pedidoSeleccionado && pedidoSeleccionado.id === id) {
           const detalleRes = await api.get(`/pedidos/${id}`);
           setPedidoSeleccionado(detalleRes.data);
@@ -845,30 +921,22 @@ export default function Admin() {
     }
   };
 
-  // 🗑️ FUNCIÓN PARA ELIMINAR PEDIDOS
   const eliminarPedido = async (id) => {
-    if (!window.confirm("⚠️ ¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.")) return;
-    
+    if (!window.confirm("⚠️ ¿Estás seguro de eliminar este pedido?")) return;
     try {
       await api.delete(`/pedidos/${id}`);
-      
-      // Actualizar la lista de pedidos
       setPedidos(pedidos.filter(pedido => pedido.id !== id));
-      
-      // Si el pedido eliminado es el que se está viendo en detalle, cerrar el detalle
       if (pedidoSeleccionado && pedidoSeleccionado.id === id) {
         setMostrarDetallePedido(false);
         setPedidoSeleccionado(null);
       }
-      
       alert("✅ Pedido eliminado correctamente");
     } catch (err) {
-      console.error("Error al eliminar pedido:", err);
-      alert("❌ Error al eliminar el pedido. Intenta nuevamente.");
+      console.error(err);
+      alert("❌ Error al eliminar el pedido");
     }
   };
 
-  // Función para obtener la imagen de un producto
   const obtenerImagenProducto = (producto) => {
     if (!producto) return "https://via.placeholder.com/60";
     if (producto.imagenes && producto.imagenes.trim() !== "") {
@@ -887,505 +955,9 @@ export default function Admin() {
     return nombre.includes(term) || sku.includes(term);
   });
 
-  // 🎨 Función para renderizar el formulario de producto
-  const renderFormularioProducto = () => (
-    <div className="form-grid">
-      <input
-        name="nombre"
-        placeholder="Nombre"
-        value={form.nombre}
-        onChange={handleChange}
-        className="form-input"
-      />
-      <textarea
-        name="descripcion"
-        placeholder="Descripción"
-        value={form.descripcion}
-        onChange={handleChange}
-        className="form-textarea"
-      />
-      <input
-        name="precio"
-        placeholder="Precio"
-        value={form.precio}
-        onChange={handleChange}
-        className="form-input"
-      />
-      <input
-        name="precioOferta"
-        placeholder="Precio oferta"
-        value={form.precioOferta}
-        onChange={handleChange}
-        className="form-input"
-      />
-      <input
-        name="stock"
-        placeholder="Stock"
-        value={form.stock}
-        onChange={handleChange}
-        className="form-input"
-      />
-      <input
-        name="sku"
-        placeholder="SKU del producto"
-        value={form.sku}
-        onChange={handleChange}
-        className="form-input"
-      />
-      
-      <select
-        name="tipoVenta"
-        value={form.tipoVenta}
-        onChange={handleChange}
-        className="form-input"
-      >
-        <option value="pieza">Pieza</option>
-        <option value="caja">Caja</option>
-        <option value="rollo">Rollo</option>
-        <option value="tramo">Tramo</option>
-        <option value="unidad">Unidad</option>
-        <option value="otros">Otros</option>
-      </select>
-
-      {form.tipoVenta === "caja" && (
-        <input
-          name="piezasCaja"
-          placeholder="¿Cuántas piezas trae la caja?"
-          value={form.piezasCaja}
-          onChange={handleChange}
-          className="form-input"
-        />
-      )}
-
-      {form.tipoVenta === "otros" ? (
-        <div>
-          <label className="form-label">🧴 Presentación</label>
-          <select
-            name="presentacion"
-            value={form.presentacion}
-            onChange={handleChange}
-            className="form-input"
-          >
-            <option value="">Selecciona presentación</option>
-            <option value="250ml">250 ml</option>
-            <option value="500ml">500 ml</option>
-            <option value="1L">1 Litro</option>
-            <option value="3.6L">3.6 Litros</option>
-            <option value="4L">4 Litros</option>
-            <option value="19L">19 Litros</option>
-          </select>
-        </div>
-      ) : (
-        <div className="input-group">
-          <div>
-            <label className="form-label">📏 Ancho (cm)</label>
-            <input
-              name="ancho"
-              placeholder="Ej: 50"
-              value={form.ancho}
-              onChange={handleChange}
-              className="form-input"
-            />
-          </div>
-          <div>
-            <label className="form-label">📏 Alto (cm)</label>
-            <input
-              name="alto"
-              placeholder="Ej: 50"
-              value={form.alto}
-              onChange={handleChange}
-              className="form-input"
-            />
-          </div>
-          <div>
-            <label className="form-label">📏 Grueso</label>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <input
-                name="grueso"
-                placeholder="Ej: 0.5, 1, 2, 3"
-                value={form.grueso}
-                onChange={handleChange}
-                className="form-input"
-                style={{ flex: 1 }}
-              />
-              <select
-                name="unidadGrueso"
-                value={form.unidadGrueso || 'mm'}
-                onChange={handleChange}
-                className="form-input"
-                style={{ width: '80px', flexShrink: 0 }}
-              >
-                <option value="mm">mm</option>
-                <option value="cm">cm</option>
-                <option value="m">m</option>
-              </select>
-            </div>
-            <small style={{ color: '#6b7280', fontSize: '12px' }}>
-              💡 Ejemplos: 0.5mm (para pisos vinílicos), 2mm (para SPC), 3mm (para LVT)
-            </small>
-          </div>
-        </div>
-      )}
-
-      <div className="input-group">
-        <div>
-          <label className="form-label">📦 Cobertura</label>
-          <input
-            name="cobertura"
-            placeholder="Ej: 1.5"
-            value={form.cobertura}
-            onChange={handleChange}
-            className="form-input"
-          />
-        </div>
-        <div>
-          <label className="form-label">📏 Unidad</label>
-          <select
-            name="tipoCobertura"
-            value={form.tipoCobertura}
-            onChange={handleChange}
-            className="form-input"
-          >
-            <option value="m2">m²</option>
-            <option value="ml">Lineal (ml)</option>
-          </select>
-        </div>
-      </div>
-
-      <select
-        name="categoria_id"
-        value={form.categoria_id}
-        onChange={handleChange}
-        className="form-input"
-      >
-        <option value="">Selecciona categoría</option>
-        {categorias.map(cat => (
-          <option key={cat.id} value={cat.id}>{cat.nombre}</option>
-        ))}
-      </select>
-
-      <select
-        name="subcategoria_id"
-        value={form.subcategoria_id}
-        onChange={handleChange}
-        className="form-input"
-      >
-        <option value="">Selecciona subcategoría</option>
-        {subcategorias
-          .filter(sub => String(sub.categoria_id) === String(form.categoria_id))
-          .map(sub => (
-            <option key={sub.id} value={sub.id}>{sub.nombre}</option>
-          ))}
-      </select>
-
-      <select
-        name="tipo_id"
-        value={form.tipo_id}
-        onChange={handleChange}
-        className="form-input"
-      >
-        <option value="">Selecciona Tipo</option>
-        {tipos
-          .filter(tipo => String(tipo.subcategoria_id) === String(form.subcategoria_id))
-          .map(tipo => (
-            <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
-          ))}
-      </select>
-
-      <input
-        name="variante"
-        placeholder="Variante (opcional)"
-        value={form.variante}
-        onChange={handleChange}
-        className="form-input"
-      />
-
-      <select
-        name="uso"
-        value={form.uso}
-        onChange={handleChange}
-        className="form-input"
-      >
-        <option value="">Selecciona uso</option>
-        <option value="interior">Interior</option>
-        <option value="exterior">Exterior</option>
-      </select>
-
-      <select
-        name="aplicacion"
-        value={form.aplicacion}
-        onChange={handleChange}
-        className="form-input"
-      >
-        <option value="">Selecciona aplicación</option>
-        <option value="Escolar">Escolar</option>
-        <option value="Médico">Médico</option>
-        <option value="Hotelero">Hotelero</option>
-        <option value="Industrial">Industrial</option>
-        <option value="Recreativo">Recreativo</option>
-        <option value="Corporativo">Corporativo</option>
-        <option value="Residencial">Residencial</option>
-        <option value="Comercial">Comercial</option>
-        <option value="Vivienda social">Hogar</option>
-      </select>
-
-      <select
-        name="tipo_diseno"
-        value={form.tipo_diseno}
-        onChange={handleChange}
-        className="form-input"
-      >
-        <option value="">Selecciona tipo de diseño</option>
-        <option value="Madera">Madera</option>
-        <option value="Mármol">Mármol</option>
-        <option value="Piedra">Piedra</option>
-        <option value="Cemento">Cemento</option>
-        <option value="Concreto">Concreto</option>
-        <option value="Granito">Granito</option>
-        <option value="Terrazo">Terrazo</option>
-        <option value="Liso">Liso</option>
-        <option value="Geométrico">Geométrico</option>
-        <option value="Lineal">Lineal</option>
-        <option value="Rayado">Rayado</option>
-        <option value="Tejido">Tejido</option>
-        <option value="Natural">Natural</option>
-        <option value="Rústico">Rústico</option>
-        <option value="Moderno">Moderno</option>
-        <option value="Vintage">Vintage</option>
-        <option value="Fantasía">Fantasía</option>
-        <option value="Baldosa">Baldosa</option>
-      </select>
-
-      <select
-        name="material"
-        value={form.material}
-        onChange={handleChange}
-        className="form-input"
-      >
-        <option value="">Selecciona material</option>
-        <option value="PVC">PVC</option>
-        <option value="SPC">SPC</option>
-        <option value="LVT">LVT</option>
-        <option value="Vinílico">Vinílico</option>
-        <option value="Laminado">Laminado</option>
-        <option value="MDF">MDF</option>
-        <option value="HDF">HDF</option>
-        <option value="Madera">Madera</option>
-        <option value="Aluminio">Aluminio</option>
-        <option value="Poliéster">Poliéster</option>
-        <option value="Tela">Tela</option>
-        <option value="Fibra sintética">Fibra sintética</option>
-        <option value="Nylon">Nylon</option>
-        <option value="Polipropileno">Polipropileno</option>
-        <option value="Polietileno">Polietileno</option>
-        <option value="Cerámica">Cerámica</option>
-        <option value="Porcelanato">Porcelanato</option>
-        <option value="Caucho">Caucho</option>
-        <option value="Bambú">Bambú</option>
-      </select>
-
-      <select
-        name="acabado"
-        value={form.acabado}
-        onChange={handleChange}
-        className="form-input"
-      >
-        <option value="">Selecciona acabado</option>
-        <option value="Mate">Mate</option>
-        <option value="Brillante">Brillante</option>
-        <option value="Satinado">Satinado</option>
-        <option value="Texturizado">Texturizado</option>
-        <option value="Natural">Natural</option>
-        <option value="Rústico">Rústico</option>
-        <option value="Pulido">Pulido</option>
-        <option value="Cepillado">Cepillado</option>
-        <option value="Antideslizante">Antideslizante</option>
-        <option value="Impermeable">Impermeable</option>
-        <option value="Resistente a rayos UV">Resistente a rayos UV</option>
-      </select>
-
-      <select
-        name="tipo_instalacion"
-        value={form.tipo_instalacion}
-        onChange={handleChange}
-        className="form-input"
-      >
-        <option value="">Selecciona tipo de instalación</option>
-        <option value="Click">Click</option>
-        <option value="Pegado">Pegado</option>
-        <option value="Autoadherible">Autoadherible</option>
-        <option value="Flotante">Flotante</option>
-        <option value="En rollo">En rollo</option>
-        <option value="Atornillado">Atornillado</option>
-        <option value="Clavado">Clavado</option>
-        <option value="Con riel">Con riel</option>
-        <option value="Con soportes">Con soportes</option>
-        <option value="Empotrado">Empotrado</option>
-        <option value="Manual">Manual</option>
-        <option value="Motorizado">Motorizado</option>
-      </select>
-
-      <div>
-        <label className="form-label">📏 Espesor capa de desgaste (mm)</label>
-        <input
-          name="espesor_capa_desgaste"
-          placeholder="Ej: 0.3, 0.5, 1.0, 2.0"
-          value={form.espesor_capa_desgaste}
-          onChange={handleChange}
-          className="form-input"
-        />
-        <small style={{ color: '#6b7280', fontSize: '12px' }}>
-          💡 Valores comunes: 0.3mm, 0.5mm, 0.7mm, 1.0mm, 1.5mm, 2.0mm
-        </small>
-      </div>
-
-      <div className="form-group">
-        <label className="form-label">Productos sugeridos</label>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <select
-            multiple
-            value={sugerencias}
-            onChange={(e) =>
-              setSugerencias([...e.target.selectedOptions].map(option => option.value))
-            }
-            className="form-multiselect"
-            style={{ flex: 1 }}
-          >
-            {productos.map((p) => (
-              <option key={p.id} value={p.id}>{p.nombre}</option>
-            ))}
-          </select>
-          <button
-            className="btn-delete"
-            onClick={() => setSugerencias([])}
-            style={{ padding: '8px 16px', height: 'fit-content' }}
-          >
-            🗑 Limpiar
-          </button>
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label className="form-label">🖼 Imagen principal (miniatura)</label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleImagenPrincipal}
-          className="form-input"
-        />
-        {previewPrincipal && (
-          <div>
-            <p className="form-label">Vista previa (principal)</p>
-            <img src={previewPrincipal} alt="Principal" className="preview-image" style={{ maxHeight: '150px' }} />
-          </div>
-        )}
-      </div>
-
-      <div className="form-group">
-        <label className="form-label">🖼 Galería de imágenes (adicionales)</label>
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={handleGaleria}
-          className="form-input"
-        />
-        {previewsGaleria.length > 0 && (
-          <div>
-            <p className="form-label">Vista previa (galería)</p>
-            <div className="image-grid">
-              {previewsGaleria.map((img, i) => (
-                <img key={i} src={img} alt={`galeria-${i}`} className="preview-thumb" />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="form-group">
-        <label className="form-label">📄 Ficha técnica</label>
-        <input
-          type="file"
-          accept="image/*,.pdf"
-          onChange={handleFichaTecnica}
-          className="form-input"
-        />
-        {previewFicha && (
-          <div>
-            <p className="form-label">Vista previa ficha técnica</p>
-            {previewFicha.endsWith(".pdf") ? (
-              <object data={previewFicha} type="application/pdf" width="100%" height="300px">
-                <p>No se puede mostrar el PDF, <a href={previewFicha} target="_blank" rel="noopener noreferrer">descárgalo aquí</a></p>
-              </object>
-            ) : (
-              <img src={previewFicha} alt="Ficha" className="preview-image" />
-            )}
-          </div>
-        )}
-      </div>
-
-      <textarea
-        name="especificaciones"
-        placeholder="Especificaciones"
-        value={form.especificaciones}
-        onChange={handleChange}
-        className="form-textarea"
-      />
-
-      <textarea
-        name="informacionAdicional"
-        placeholder="Información adicional"
-        value={form.informacionAdicional}
-        onChange={handleChange}
-        className="form-textarea"
-      />
-
-      <div className="checkbox-group">
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            name="destacado"
-            checked={form.destacado}
-            onChange={handleChange}
-          />
-          Producto destacado
-        </label>
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            name="oferta"
-            checked={form.oferta}
-            onChange={handleChange}
-          />
-          Producto en oferta
-        </label>
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            name="rebaja"
-            checked={form.rebaja}
-            onChange={handleChange}
-          />
-          Producto en rebaja
-        </label>
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            name="nuevo"
-            checked={form.nuevo}
-            onChange={handleChange}
-          />
-          Producto nuevo
-        </label>
-      </div>
-
-      <button className="btn-primary" onClick={handleGuardarModal}>
-        {modoEdicion ? "Actualizar producto" : "Crear producto"}
-      </button>
-    </div>
-  );
-
-  // Renderizado principal
+  // ======================
+  // RENDERIZADO PRINCIPAL
+  // ======================
   return (
     <div className="admin-container">
       <header className="admin-header">
@@ -1646,7 +1218,494 @@ export default function Admin() {
       {!modalAbierto && (
         <section className="section-card">
           <h2>➕ Crear producto</h2>
-          {renderFormularioProducto()}
+          <div className="form-grid">
+            <input
+              name="nombre"
+              placeholder="Nombre"
+              value={form.nombre}
+              onChange={handleChange}
+              className="form-input"
+            />
+            <textarea
+              name="descripcion"
+              placeholder="Descripción"
+              value={form.descripcion}
+              onChange={handleChange}
+              className="form-textarea"
+            />
+            <input
+              name="precio"
+              placeholder="Precio"
+              value={form.precio}
+              onChange={handleChange}
+              className="form-input"
+            />
+            <input
+              name="precioOferta"
+              placeholder="Precio oferta"
+              value={form.precioOferta}
+              onChange={handleChange}
+              className="form-input"
+            />
+            <input
+              name="stock"
+              placeholder="Stock"
+              value={form.stock}
+              onChange={handleChange}
+              className="form-input"
+            />
+            <input
+              name="sku"
+              placeholder="SKU del producto"
+              value={form.sku}
+              onChange={handleChange}
+              className="form-input"
+            />
+            
+            <select
+              name="tipoVenta"
+              value={form.tipoVenta}
+              onChange={handleChange}
+              className="form-input"
+            >
+              <option value="pieza">Pieza</option>
+              <option value="caja">Caja</option>
+              <option value="rollo">Rollo</option>
+              <option value="tramo">Tramo</option>
+              <option value="unidad">Unidad</option>
+              <option value="otros">Otros</option>
+            </select>
+
+            {form.tipoVenta === "caja" && (
+              <input
+                name="piezasCaja"
+                placeholder="¿Cuántas piezas trae la caja?"
+                value={form.piezasCaja}
+                onChange={handleChange}
+                className="form-input"
+              />
+            )}
+
+            {form.tipoVenta === "otros" ? (
+              <div>
+                <label className="form-label">🧴 Presentación</label>
+                <select
+                  name="presentacion"
+                  value={form.presentacion}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="">Selecciona presentación</option>
+                  <option value="250ml">250 ml</option>
+                  <option value="500ml">500 ml</option>
+                  <option value="1L">1 Litro</option>
+                  <option value="3.6L">3.6 Litros</option>
+                  <option value="4L">4 Litros</option>
+                  <option value="19L">19 Litros</option>
+                </select>
+              </div>
+            ) : (
+              <div className="input-group">
+                <div>
+                  <label className="form-label">📏 Ancho (cm)</label>
+                  <input
+                    name="ancho"
+                    placeholder="Ej: 50"
+                    value={form.ancho}
+                    onChange={handleChange}
+                    className="form-input"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">📏 Alto (cm)</label>
+                  <input
+                    name="alto"
+                    placeholder="Ej: 50"
+                    value={form.alto}
+                    onChange={handleChange}
+                    className="form-input"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">📏 Grueso</label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      name="grueso"
+                      placeholder="Ej: 0.5, 1, 2, 3"
+                      value={form.grueso}
+                      onChange={handleChange}
+                      className="form-input"
+                      style={{ flex: 1 }}
+                    />
+                    <select
+                      name="unidadGrueso"
+                      value={form.unidadGrueso || 'mm'}
+                      onChange={handleChange}
+                      className="form-input"
+                      style={{ width: '80px', flexShrink: 0 }}
+                    >
+                      <option value="mm">mm</option>
+                      <option value="cm">cm</option>
+                      <option value="m">m</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="input-group">
+              <div>
+                <label className="form-label">📦 Cobertura</label>
+                <input
+                  name="cobertura"
+                  placeholder="Ej: 1.5"
+                  value={form.cobertura}
+                  onChange={handleChange}
+                  className="form-input"
+                />
+              </div>
+              <div>
+                <label className="form-label">📏 Unidad</label>
+                <select
+                  name="tipoCobertura"
+                  value={form.tipoCobertura}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="m2">m²</option>
+                  <option value="ml">Lineal (ml)</option>
+                </select>
+              </div>
+            </div>
+
+            <select
+              name="categoria_id"
+              value={form.categoria_id}
+              onChange={handleChange}
+              className="form-input"
+            >
+              <option value="">Selecciona categoría</option>
+              {categorias.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+              ))}
+            </select>
+
+            <select
+              name="subcategoria_id"
+              value={form.subcategoria_id}
+              onChange={handleChange}
+              className="form-input"
+            >
+              <option value="">Selecciona subcategoría</option>
+              {subcategorias
+                .filter(sub => String(sub.categoria_id) === String(form.categoria_id))
+                .map(sub => (
+                  <option key={sub.id} value={sub.id}>{sub.nombre}</option>
+                ))}
+            </select>
+
+            <select
+              name="tipo_id"
+              value={form.tipo_id}
+              onChange={handleChange}
+              className="form-input"
+            >
+              <option value="">Selecciona Tipo</option>
+              {tipos
+                .filter(tipo => String(tipo.subcategoria_id) === String(form.subcategoria_id))
+                .map(tipo => (
+                  <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
+                ))}
+            </select>
+
+            <input
+              name="variante"
+              placeholder="Variante (opcional)"
+              value={form.variante}
+              onChange={handleChange}
+              className="form-input"
+            />
+
+            <select
+              name="uso"
+              value={form.uso}
+              onChange={handleChange}
+              className="form-input"
+            >
+              <option value="">Selecciona uso</option>
+              <option value="interior">Interior</option>
+              <option value="exterior">Exterior</option>
+            </select>
+
+            <select
+              name="aplicacion"
+              value={form.aplicacion}
+              onChange={handleChange}
+              className="form-input"
+            >
+              <option value="">Selecciona aplicación</option>
+              <option value="Escolar">Escolar</option>
+              <option value="Médico">Médico</option>
+              <option value="Hotelero">Hotelero</option>
+              <option value="Industrial">Industrial</option>
+              <option value="Recreativo">Recreativo</option>
+              <option value="Corporativo">Corporativo</option>
+              <option value="Residencial">Residencial</option>
+              <option value="Comercial">Comercial</option>
+              <option value="Vivienda social">Hogar</option>
+            </select>
+
+            <select
+              name="tipo_diseno"
+              value={form.tipo_diseno}
+              onChange={handleChange}
+              className="form-input"
+            >
+              <option value="">Selecciona tipo de diseño</option>
+              <option value="Madera">Madera</option>
+              <option value="Mármol">Mármol</option>
+              <option value="Piedra">Piedra</option>
+              <option value="Cemento">Cemento</option>
+              <option value="Concreto">Concreto</option>
+              <option value="Granito">Granito</option>
+              <option value="Terrazo">Terrazo</option>
+              <option value="Liso">Liso</option>
+              <option value="Geométrico">Geométrico</option>
+              <option value="Lineal">Lineal</option>
+              <option value="Rayado">Rayado</option>
+              <option value="Tejido">Tejido</option>
+              <option value="Natural">Natural</option>
+              <option value="Rústico">Rústico</option>
+              <option value="Moderno">Moderno</option>
+              <option value="Vintage">Vintage</option>
+              <option value="Fantasía">Fantasía</option>
+              <option value="Baldosa">Baldosa</option>
+            </select>
+
+            <select
+              name="material"
+              value={form.material}
+              onChange={handleChange}
+              className="form-input"
+            >
+              <option value="">Selecciona material</option>
+              <option value="PVC">PVC</option>
+              <option value="SPC">SPC</option>
+              <option value="LVT">LVT</option>
+              <option value="Vinílico">Vinílico</option>
+              <option value="Laminado">Laminado</option>
+              <option value="MDF">MDF</option>
+              <option value="HDF">HDF</option>
+              <option value="Madera">Madera</option>
+              <option value="Aluminio">Aluminio</option>
+              <option value="Poliéster">Poliéster</option>
+              <option value="Tela">Tela</option>
+              <option value="Fibra sintética">Fibra sintética</option>
+              <option value="Nylon">Nylon</option>
+              <option value="Polipropileno">Polipropileno</option>
+              <option value="Polietileno">Polietileno</option>
+              <option value="Cerámica">Cerámica</option>
+              <option value="Porcelanato">Porcelanato</option>
+              <option value="Caucho">Caucho</option>
+              <option value="Bambú">Bambú</option>
+            </select>
+
+            <select
+              name="acabado"
+              value={form.acabado}
+              onChange={handleChange}
+              className="form-input"
+            >
+              <option value="">Selecciona acabado</option>
+              <option value="Mate">Mate</option>
+              <option value="Brillante">Brillante</option>
+              <option value="Satinado">Satinado</option>
+              <option value="Texturizado">Texturizado</option>
+              <option value="Natural">Natural</option>
+              <option value="Rústico">Rústico</option>
+              <option value="Pulido">Pulido</option>
+              <option value="Cepillado">Cepillado</option>
+              <option value="Antideslizante">Antideslizante</option>
+              <option value="Impermeable">Impermeable</option>
+              <option value="Resistente a rayos UV">Resistente a rayos UV</option>
+            </select>
+
+            <select
+              name="tipo_instalacion"
+              value={form.tipo_instalacion}
+              onChange={handleChange}
+              className="form-input"
+            >
+              <option value="">Selecciona tipo de instalación</option>
+              <option value="Click">Click</option>
+              <option value="Pegado">Pegado</option>
+              <option value="Autoadherible">Autoadherible</option>
+              <option value="Flotante">Flotante</option>
+              <option value="En rollo">En rollo</option>
+              <option value="Atornillado">Atornillado</option>
+              <option value="Clavado">Clavado</option>
+              <option value="Con riel">Con riel</option>
+              <option value="Con soportes">Con soportes</option>
+              <option value="Empotrado">Empotrado</option>
+              <option value="Manual">Manual</option>
+              <option value="Motorizado">Motorizado</option>
+            </select>
+
+            <div>
+              <label className="form-label">📏 Espesor capa de desgaste (mm)</label>
+              <input
+                name="espesor_capa_desgaste"
+                placeholder="Ej: 0.3, 0.5, 1.0, 2.0"
+                value={form.espesor_capa_desgaste}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Productos sugeridos</label>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <select
+                  multiple
+                  value={sugerencias}
+                  onChange={(e) =>
+                    setSugerencias([...e.target.selectedOptions].map(option => option.value))
+                  }
+                  className="form-multiselect"
+                  style={{ flex: 1 }}
+                >
+                  {productos.map((p) => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                  ))}
+                </select>
+                <button
+                  className="btn-delete"
+                  onClick={() => setSugerencias([])}
+                  style={{ padding: '8px 16px', height: 'fit-content' }}
+                >
+                  🗑 Limpiar
+                </button>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">🖼 Imagen principal (miniatura)</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImagenPrincipal}
+                className="form-input"
+              />
+              {previewPrincipal && (
+                <div>
+                  <p className="form-label">Vista previa (principal)</p>
+                  <img src={previewPrincipal} alt="Principal" className="preview-image" style={{ maxHeight: '150px' }} />
+                </div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">🖼 Galería de imágenes (adicionales)</label>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleGaleria}
+                className="form-input"
+              />
+              {previewsGaleria.length > 0 && (
+                <div>
+                  <p className="form-label">Vista previa (galería)</p>
+                  <div className="image-grid">
+                    {previewsGaleria.map((img, i) => (
+                      <img key={i} src={img} alt={`galeria-${i}`} className="preview-thumb" />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">📄 Ficha técnica</label>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={handleFichaTecnica}
+                className="form-input"
+              />
+              {previewFicha && (
+                <div>
+                  <p className="form-label">Vista previa ficha técnica</p>
+                  {previewFicha.endsWith(".pdf") ? (
+                    <object data={previewFicha} type="application/pdf" width="100%" height="300px">
+                      <p>No se puede mostrar el PDF, <a href={previewFicha} target="_blank" rel="noopener noreferrer">descárgalo aquí</a></p>
+                    </object>
+                  ) : (
+                    <img src={previewFicha} alt="Ficha" className="preview-image" />
+                  )}
+                </div>
+              )}
+            </div>
+
+            <textarea
+              name="especificaciones"
+              placeholder="Especificaciones"
+              value={form.especificaciones}
+              onChange={handleChange}
+              className="form-textarea"
+            />
+
+            <textarea
+              name="informacionAdicional"
+              placeholder="Información adicional"
+              value={form.informacionAdicional}
+              onChange={handleChange}
+              className="form-textarea"
+            />
+
+            <div className="checkbox-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="destacado"
+                  checked={form.destacado}
+                  onChange={handleChange}
+                />
+                Producto destacado
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="oferta"
+                  checked={form.oferta}
+                  onChange={handleChange}
+                />
+                Producto en oferta
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="rebaja"
+                  checked={form.rebaja}
+                  onChange={handleChange}
+                />
+                Producto en rebaja
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="nuevo"
+                  checked={form.nuevo}
+                  onChange={handleChange}
+                />
+                Producto nuevo
+              </label>
+            </div>
+
+            <button className="btn-primary" onClick={crearProducto}>
+              Crear producto
+            </button>
+          </div>
         </section>
       )}
 
@@ -1659,7 +1718,494 @@ export default function Admin() {
               <button className="modal-close" onClick={cerrarModal}>✕</button>
             </div>
             <div className="modal-body">
-              {renderFormularioProducto()}
+              <div className="form-grid">
+                <input
+                  name="nombre"
+                  placeholder="Nombre"
+                  value={form.nombre}
+                  onChange={handleChange}
+                  className="form-input"
+                />
+                <textarea
+                  name="descripcion"
+                  placeholder="Descripción"
+                  value={form.descripcion}
+                  onChange={handleChange}
+                  className="form-textarea"
+                />
+                <input
+                  name="precio"
+                  placeholder="Precio"
+                  value={form.precio}
+                  onChange={handleChange}
+                  className="form-input"
+                />
+                <input
+                  name="precioOferta"
+                  placeholder="Precio oferta"
+                  value={form.precioOferta}
+                  onChange={handleChange}
+                  className="form-input"
+                />
+                <input
+                  name="stock"
+                  placeholder="Stock"
+                  value={form.stock}
+                  onChange={handleChange}
+                  className="form-input"
+                />
+                <input
+                  name="sku"
+                  placeholder="SKU del producto"
+                  value={form.sku}
+                  onChange={handleChange}
+                  className="form-input"
+                />
+                
+                <select
+                  name="tipoVenta"
+                  value={form.tipoVenta}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="pieza">Pieza</option>
+                  <option value="caja">Caja</option>
+                  <option value="rollo">Rollo</option>
+                  <option value="tramo">Tramo</option>
+                  <option value="unidad">Unidad</option>
+                  <option value="otros">Otros</option>
+                </select>
+
+                {form.tipoVenta === "caja" && (
+                  <input
+                    name="piezasCaja"
+                    placeholder="¿Cuántas piezas trae la caja?"
+                    value={form.piezasCaja}
+                    onChange={handleChange}
+                    className="form-input"
+                  />
+                )}
+
+                {form.tipoVenta === "otros" ? (
+                  <div>
+                    <label className="form-label">🧴 Presentación</label>
+                    <select
+                      name="presentacion"
+                      value={form.presentacion}
+                      onChange={handleChange}
+                      className="form-input"
+                    >
+                      <option value="">Selecciona presentación</option>
+                      <option value="250ml">250 ml</option>
+                      <option value="500ml">500 ml</option>
+                      <option value="1L">1 Litro</option>
+                      <option value="3.6L">3.6 Litros</option>
+                      <option value="4L">4 Litros</option>
+                      <option value="19L">19 Litros</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div className="input-group">
+                    <div>
+                      <label className="form-label">📏 Ancho (cm)</label>
+                      <input
+                        name="ancho"
+                        placeholder="Ej: 50"
+                        value={form.ancho}
+                        onChange={handleChange}
+                        className="form-input"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">📏 Alto (cm)</label>
+                      <input
+                        name="alto"
+                        placeholder="Ej: 50"
+                        value={form.alto}
+                        onChange={handleChange}
+                        className="form-input"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">📏 Grueso</label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          name="grueso"
+                          placeholder="Ej: 0.5, 1, 2, 3"
+                          value={form.grueso}
+                          onChange={handleChange}
+                          className="form-input"
+                          style={{ flex: 1 }}
+                        />
+                        <select
+                          name="unidadGrueso"
+                          value={form.unidadGrueso || 'mm'}
+                          onChange={handleChange}
+                          className="form-input"
+                          style={{ width: '80px', flexShrink: 0 }}
+                        >
+                          <option value="mm">mm</option>
+                          <option value="cm">cm</option>
+                          <option value="m">m</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="input-group">
+                  <div>
+                    <label className="form-label">📦 Cobertura</label>
+                    <input
+                      name="cobertura"
+                      placeholder="Ej: 1.5"
+                      value={form.cobertura}
+                      onChange={handleChange}
+                      className="form-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">📏 Unidad</label>
+                    <select
+                      name="tipoCobertura"
+                      value={form.tipoCobertura}
+                      onChange={handleChange}
+                      className="form-input"
+                    >
+                      <option value="m2">m²</option>
+                      <option value="ml">Lineal (ml)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <select
+                  name="categoria_id"
+                  value={form.categoria_id}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="">Selecciona categoría</option>
+                  {categorias.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+                  ))}
+                </select>
+
+                <select
+                  name="subcategoria_id"
+                  value={form.subcategoria_id}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="">Selecciona subcategoría</option>
+                  {subcategorias
+                    .filter(sub => String(sub.categoria_id) === String(form.categoria_id))
+                    .map(sub => (
+                      <option key={sub.id} value={sub.id}>{sub.nombre}</option>
+                    ))}
+                </select>
+
+                <select
+                  name="tipo_id"
+                  value={form.tipo_id}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="">Selecciona Tipo</option>
+                  {tipos
+                    .filter(tipo => String(tipo.subcategoria_id) === String(form.subcategoria_id))
+                    .map(tipo => (
+                      <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
+                    ))}
+                </select>
+
+                <input
+                  name="variante"
+                  placeholder="Variante (opcional)"
+                  value={form.variante}
+                  onChange={handleChange}
+                  className="form-input"
+                />
+
+                <select
+                  name="uso"
+                  value={form.uso}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="">Selecciona uso</option>
+                  <option value="interior">Interior</option>
+                  <option value="exterior">Exterior</option>
+                </select>
+
+                <select
+                  name="aplicacion"
+                  value={form.aplicacion}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="">Selecciona aplicación</option>
+                  <option value="Escolar">Escolar</option>
+                  <option value="Médico">Médico</option>
+                  <option value="Hotelero">Hotelero</option>
+                  <option value="Industrial">Industrial</option>
+                  <option value="Recreativo">Recreativo</option>
+                  <option value="Corporativo">Corporativo</option>
+                  <option value="Residencial">Residencial</option>
+                  <option value="Comercial">Comercial</option>
+                  <option value="Vivienda social">Hogar</option>
+                </select>
+
+                <select
+                  name="tipo_diseno"
+                  value={form.tipo_diseno}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="">Selecciona tipo de diseño</option>
+                  <option value="Madera">Madera</option>
+                  <option value="Mármol">Mármol</option>
+                  <option value="Piedra">Piedra</option>
+                  <option value="Cemento">Cemento</option>
+                  <option value="Concreto">Concreto</option>
+                  <option value="Granito">Granito</option>
+                  <option value="Terrazo">Terrazo</option>
+                  <option value="Liso">Liso</option>
+                  <option value="Geométrico">Geométrico</option>
+                  <option value="Lineal">Lineal</option>
+                  <option value="Rayado">Rayado</option>
+                  <option value="Tejido">Tejido</option>
+                  <option value="Natural">Natural</option>
+                  <option value="Rústico">Rústico</option>
+                  <option value="Moderno">Moderno</option>
+                  <option value="Vintage">Vintage</option>
+                  <option value="Fantasía">Fantasía</option>
+                  <option value="Baldosa">Baldosa</option>
+                </select>
+
+                <select
+                  name="material"
+                  value={form.material}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="">Selecciona material</option>
+                  <option value="PVC">PVC</option>
+                  <option value="SPC">SPC</option>
+                  <option value="LVT">LVT</option>
+                  <option value="Vinílico">Vinílico</option>
+                  <option value="Laminado">Laminado</option>
+                  <option value="MDF">MDF</option>
+                  <option value="HDF">HDF</option>
+                  <option value="Madera">Madera</option>
+                  <option value="Aluminio">Aluminio</option>
+                  <option value="Poliéster">Poliéster</option>
+                  <option value="Tela">Tela</option>
+                  <option value="Fibra sintética">Fibra sintética</option>
+                  <option value="Nylon">Nylon</option>
+                  <option value="Polipropileno">Polipropileno</option>
+                  <option value="Polietileno">Polietileno</option>
+                  <option value="Cerámica">Cerámica</option>
+                  <option value="Porcelanato">Porcelanato</option>
+                  <option value="Caucho">Caucho</option>
+                  <option value="Bambú">Bambú</option>
+                </select>
+
+                <select
+                  name="acabado"
+                  value={form.acabado}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="">Selecciona acabado</option>
+                  <option value="Mate">Mate</option>
+                  <option value="Brillante">Brillante</option>
+                  <option value="Satinado">Satinado</option>
+                  <option value="Texturizado">Texturizado</option>
+                  <option value="Natural">Natural</option>
+                  <option value="Rústico">Rústico</option>
+                  <option value="Pulido">Pulido</option>
+                  <option value="Cepillado">Cepillado</option>
+                  <option value="Antideslizante">Antideslizante</option>
+                  <option value="Impermeable">Impermeable</option>
+                  <option value="Resistente a rayos UV">Resistente a rayos UV</option>
+                </select>
+
+                <select
+                  name="tipo_instalacion"
+                  value={form.tipo_instalacion}
+                  onChange={handleChange}
+                  className="form-input"
+                >
+                  <option value="">Selecciona tipo de instalación</option>
+                  <option value="Click">Click</option>
+                  <option value="Pegado">Pegado</option>
+                  <option value="Autoadherible">Autoadherible</option>
+                  <option value="Flotante">Flotante</option>
+                  <option value="En rollo">En rollo</option>
+                  <option value="Atornillado">Atornillado</option>
+                  <option value="Clavado">Clavado</option>
+                  <option value="Con riel">Con riel</option>
+                  <option value="Con soportes">Con soportes</option>
+                  <option value="Empotrado">Empotrado</option>
+                  <option value="Manual">Manual</option>
+                  <option value="Motorizado">Motorizado</option>
+                </select>
+
+                <div>
+                  <label className="form-label">📏 Espesor capa de desgaste (mm)</label>
+                  <input
+                    name="espesor_capa_desgaste"
+                    placeholder="Ej: 0.3, 0.5, 1.0, 2.0"
+                    value={form.espesor_capa_desgaste}
+                    onChange={handleChange}
+                    className="form-input"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Productos sugeridos</label>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <select
+                      multiple
+                      value={sugerencias}
+                      onChange={(e) =>
+                        setSugerencias([...e.target.selectedOptions].map(option => option.value))
+                      }
+                      className="form-multiselect"
+                      style={{ flex: 1 }}
+                    >
+                      {productos.map((p) => (
+                        <option key={p.id} value={p.id}>{p.nombre}</option>
+                      ))}
+                    </select>
+                    <button
+                      className="btn-delete"
+                      onClick={() => setSugerencias([])}
+                      style={{ padding: '8px 16px', height: 'fit-content' }}
+                    >
+                      🗑 Limpiar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">🖼 Imagen principal (miniatura)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImagenPrincipal}
+                    className="form-input"
+                  />
+                  {previewPrincipal && (
+                    <div>
+                      <p className="form-label">Vista previa (principal)</p>
+                      <img src={previewPrincipal} alt="Principal" className="preview-image" style={{ maxHeight: '150px' }} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">🖼 Galería de imágenes (adicionales)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleGaleria}
+                    className="form-input"
+                  />
+                  {previewsGaleria.length > 0 && (
+                    <div>
+                      <p className="form-label">Vista previa (galería)</p>
+                      <div className="image-grid">
+                        {previewsGaleria.map((img, i) => (
+                          <img key={i} src={img} alt={`galeria-${i}`} className="preview-thumb" />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">📄 Ficha técnica</label>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={handleFichaTecnica}
+                    className="form-input"
+                  />
+                  {previewFicha && (
+                    <div>
+                      <p className="form-label">Vista previa ficha técnica</p>
+                      {previewFicha.endsWith(".pdf") ? (
+                        <object data={previewFicha} type="application/pdf" width="100%" height="300px">
+                          <p>No se puede mostrar el PDF, <a href={previewFicha} target="_blank" rel="noopener noreferrer">descárgalo aquí</a></p>
+                        </object>
+                      ) : (
+                        <img src={previewFicha} alt="Ficha" className="preview-image" />
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <textarea
+                  name="especificaciones"
+                  placeholder="Especificaciones"
+                  value={form.especificaciones}
+                  onChange={handleChange}
+                  className="form-textarea"
+                />
+
+                <textarea
+                  name="informacionAdicional"
+                  placeholder="Información adicional"
+                  value={form.informacionAdicional}
+                  onChange={handleChange}
+                  className="form-textarea"
+                />
+
+                <div className="checkbox-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      name="destacado"
+                      checked={form.destacado}
+                      onChange={handleChange}
+                    />
+                    Producto destacado
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      name="oferta"
+                      checked={form.oferta}
+                      onChange={handleChange}
+                    />
+                    Producto en oferta
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      name="rebaja"
+                      checked={form.rebaja}
+                      onChange={handleChange}
+                    />
+                    Producto en rebaja
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      name="nuevo"
+                      checked={form.nuevo}
+                      onChange={handleChange}
+                    />
+                    Producto nuevo
+                  </label>
+                </div>
+
+                <button className="btn-primary" onClick={handleGuardarModal}>
+                  {modoEdicion ? "💾 Actualizar producto" : "📋 Crear producto"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1955,7 +2501,6 @@ export default function Admin() {
                               <option value="entregado">🚚 Entregado</option>
                               <option value="cancelado">❌ Cancelado</option>
                             </select>
-                            {/* 👇 BOTÓN ELIMINAR PEDIDO */}
                             <button
                               className="btn-delete"
                               onClick={() => eliminarPedido(pedido.id)}
@@ -1974,9 +2519,7 @@ export default function Admin() {
         )}
       </section>
 
-      {/* ================================================= */}
-      {/* 📋 MODAL DE DETALLE DE PEDIDO CON IMÁGENES */}
-      {/* ================================================= */}
+      {/* 📋 MODAL DE DETALLE DE PEDIDO */}
       {mostrarDetallePedido && pedidoSeleccionado && (
         <div className="modal-overlay" onClick={() => setMostrarDetallePedido(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '750px' }}>
@@ -1985,7 +2528,6 @@ export default function Admin() {
               <button className="modal-close" onClick={() => setMostrarDetallePedido(false)}>✕</button>
             </div>
             <div className="modal-body">
-              {/* Información del pedido */}
               <div style={{
                 background: 'linear-gradient(135deg, #eef2ff, #ffffff)',
                 borderRadius: '16px',
@@ -2066,7 +2608,6 @@ export default function Admin() {
                 </div>
               </div>
 
-              {/* Productos del pedido CON IMÁGENES */}
               <h3 style={{ marginTop: '16px', marginBottom: '12px', fontSize: '18px' }}>🛒 Productos</h3>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{
@@ -2124,7 +2665,6 @@ export default function Admin() {
                 </table>
               </div>
 
-              {/* Botones de acción */}
               <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
                 <select
                   value={pedidoSeleccionado.estado}
@@ -2206,9 +2746,7 @@ export default function Admin() {
         )}
       </section>
 
-      {/* ================================================= */}
       {/* 🟠 BANNERS DE OFERTAS ESPECIALES */}
-      {/* ================================================= */}
       <section className="section-card" style={{ borderTop: '4px solid #f59e0b' }}>
         <h2>🏷️ Banners de ofertas especiales</h2>
         <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>
@@ -2429,9 +2967,7 @@ export default function Admin() {
         )}
       </section>
 
-      {/* ================================================= */}
       {/* 🔵 BANNERS PRINCIPALES */}
-      {/* ================================================= */}
       <section className="section-card">
         <h2>🔥 Banner promociones principales</h2>
         <div className="form-grid">
@@ -2509,7 +3045,7 @@ export default function Admin() {
         ))}
       </section>
 
-      {/* ESTILOS (CSS inyectado) */}
+      {/* ESTILOS */}
       <style jsx>{`
         * { box-sizing: border-box; }
 
