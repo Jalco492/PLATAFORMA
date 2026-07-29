@@ -82,11 +82,37 @@ export default function ProductosPorTipo() {
 
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
+  // ✅ FUNCIÓN MEJORADA PARA RUTAS RELATIVAS
   const obtenerImagen = (producto) => {
-    if (producto.imagenes && producto.imagenes.trim() !== "") {
-      return producto.imagenes.split(",")[0];
+    // Si no hay imagen, retornar placeholder
+    if (!producto.imagenes && !producto.imagen) {
+      return "/placeholder.png";
     }
-    return producto.imagen || "/placeholder.png";
+
+    let imagenPath = "";
+    
+    // Obtener la primera imagen si hay múltiples
+    if (producto.imagenes && producto.imagenes.trim() !== "") {
+      imagenPath = producto.imagenes.split(",")[0].trim();
+    } else if (producto.imagen) {
+      imagenPath = producto.imagen.trim();
+    } else {
+      return "/placeholder.png";
+    }
+
+    // Si la imagen ya tiene una ruta relativa (empieza con / o ./), mantenerla
+    if (imagenPath.startsWith('/') || imagenPath.startsWith('./') || imagenPath.startsWith('../')) {
+      return imagenPath;
+    }
+
+    // Si la imagen tiene una URL completa (http/https), mantenerla
+    if (imagenPath.startsWith('http://') || imagenPath.startsWith('https://')) {
+      return imagenPath;
+    }
+
+    // Si la imagen es un nombre de archivo o ruta sin / al inicio, agregar /assets/images/
+    // Asumiendo que las imágenes están en la carpeta public/images o src/assets/images
+    return `/assets/images/${imagenPath}`;
   };
 
   // Guardar favoritos en localStorage
@@ -307,6 +333,10 @@ export default function ProductosPorTipo() {
                     borderRadius: "12px",
                     background: "#f9fafb",
                     marginBottom: "12px"
+                  }}
+                  onError={(e) => {
+                    // Si la imagen falla al cargar, mostrar placeholder
+                    e.target.src = "/placeholder.png";
                   }}
                 />
                 <h4 style={{
