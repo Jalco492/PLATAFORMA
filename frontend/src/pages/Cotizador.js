@@ -5,6 +5,57 @@ import Footer from "./Footer";
 import jsPDF from "jspdf";
 import api from "../services/api";
 
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - VERSIÓN CORREGIDA (igual que en ProductoDetalle)
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/200";
+  }
+
+  // Si ya viene con una URL completa la usa directamente
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
+    return imagen;
+  }
+
+  // Si la imagen comienza con /, la concatena con el backend
+  if (imagen.startsWith("/")) {
+    const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    return `${API_BASE}${imagen}`;
+  }
+
+  // Si no comienza con /, la agrega
+  const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  return `${API_BASE}/${imagen}`;
+};
+
+// 🔥 FUNCIÓN PARA CONVERTIR IMAGEN A BASE64 (igual que en ProductoDetalle)
+const convertirImagenBase64 = async (url) => {
+  try {
+    if (!url) return null;
+    
+    // Si la URL está vacía o es placeholder, retorna null
+    if (url === "https://via.placeholder.com/200") return null;
+    
+    const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    // Si la URL es relativa, la completa con el backend
+    const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+    
+    const response = await fetch(fullUrl);
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+    const blob = await response.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error convirtiendo imagen a base64:', error);
+    return null;
+  }
+};
+
 export default function Cotizador() {
   const navigate = useNavigate();
 
@@ -36,58 +87,6 @@ export default function Cotizador() {
   useEffect(() => {
     localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
-
-  // 🔥 FUNCIÓN PARA OBTENER LA URL CORRECTA DE LA IMAGEN
-  const getImageUrl = (url) => {
-    if (!url) return null;
-    
-    // Eliminar espacios en blanco
-    const cleanUrl = url.trim();
-    
-    // Si ya es URL completa
-    if (cleanUrl.startsWith('http://') || 
-        cleanUrl.startsWith('https://') || 
-        cleanUrl.startsWith('data:')) {
-      return cleanUrl;
-    }
-    
-    // Si comienza con /, es ruta absoluta desde la raíz
-    if (cleanUrl.startsWith('/')) {
-      return cleanUrl;
-    }
-    
-    // Si es un nombre de archivo, asumimos que está en uploads
-    if (cleanUrl.includes('.') && !cleanUrl.includes(' ')) {
-      // Si tu backend usa una ruta específica para imágenes
-      return `http://localhost:5000/uploads/${cleanUrl}`;
-    }
-    
-    return cleanUrl;
-  };
-
-  // 🔥 FUNCIÓN PARA OBTENER LA PRIMERA IMAGEN DEL PRODUCTO
-  const getPrimaryImage = (producto) => {
-    if (producto.imagen) return producto.imagen;
-    if (producto.imagenes) {
-      const imagenesArray = producto.imagenes.split(',');
-      return imagenesArray[0]?.trim();
-    }
-    return null;
-  };
-
-  // 🔥 FUNCIÓN PARA VERIFICAR SI TIENE MÚLTIPLES IMÁGENES
-  const hasMultipleImages = (producto) => {
-    if (!producto.imagenes) return false;
-    const imagenesArray = producto.imagenes.split(',');
-    return imagenesArray.length > 1;
-  };
-
-  // 🔥 FUNCIÓN PARA CONTAR IMÁGENES ADICIONALES
-  const getAdditionalImagesCount = (producto) => {
-    if (!producto.imagenes) return 0;
-    const imagenesArray = producto.imagenes.split(',');
-    return imagenesArray.length - 1;
-  };
 
   useEffect(() => {
     const cargarProductos = async () => {
@@ -187,7 +186,7 @@ export default function Cotizador() {
       };
     }
 
-    // CÁLCULO PARA LOS DEMÁS TIPOS
+    // CÁLCULO PARA LOS DEMÁS TIPOS (sin cambios)
     const area = (p.areas || []).reduce((acc, a) => {
       if (!a.usar) return acc;
       return acc + ((Number(a.largo) || 0) * (Number(a.ancho) || 0));
@@ -263,75 +262,62 @@ export default function Cotizador() {
     return acc + calcular(p).total;
   }, 0);
 
-  const getBase64Image = (url) => {
-    return new Promise((resolve) => {
-      if (!url) return resolve(null);
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-          const base64 = canvas.toDataURL("image/png");
-          resolve(base64);
-        } catch {
-          resolve(null);
-        }
-      };
-      img.onerror = () => resolve(null);
-      img.src = "http://localhost:5000/proxy-image?url=" + encodeURIComponent(url);
-    });
-  };
+  // 🔥 FUNCIÓN MODIFICADA - Usa getImageUrl para obtener la URL correcta
+  const obtenerImagenProducto = (producto) => {
+    if (!producto) return "https://via.placeholder.com/200";
 
-  const convertirImagenBase64 = async (url) => {
-    try {
-      const proxyUrl = `http://localhost:5000/proxy-image?url=${encodeURIComponent(url)}`;
-      const response = await fetch(proxyUrl);
-      const blob = await response.blob();
-      return await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(blob);
-      });
-    } catch (error) {
-      console.log(error);
-      return null;
+    let imagenUrl = "";
+
+    // Prioriza 'imagenes' (puede tener múltiples separadas por coma)
+    if (producto.imagenes && producto.imagenes.trim() !== "") {
+      imagenUrl = producto.imagenes.split(",")[0].trim();
+    } 
+    // Si no tiene 'imagenes', usa 'imagen'
+    else if (producto.imagen && producto.imagen.trim() !== "") {
+      imagenUrl = producto.imagen.trim();
+    } 
+    // Si no tiene ninguna, usa placeholder
+    else {
+      return "https://via.placeholder.com/200";
     }
+
+    // Aplica la función getImageUrl para obtener la URL completa
+    return getImageUrl(imagenUrl);
   };
 
+  // 🔥 FUNCIÓN PARA AGREGAR MEMBRETADO DE PORTADA (igual que en ProductoDetalle)
   const agregarMembretadoPortada = async (pdf) => {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     try {
-      const fondo = await convertirImagenBase64(window.location.origin + "/membreteuno.jpg");
+      const fondo = await convertirImagenBase64(
+        window.location.origin + "/membreteuno.jpg"
+      );
       if (fondo) {
         pdf.addImage(fondo, "JPEG", 0, 0, pageWidth, pageHeight);
       }
     } catch (error) {
-      console.log(error);
+      console.log("Error cargando membrete de portada:", error);
     }
   };
 
+  // 🔥 FUNCIÓN PARA AGREGAR MEMBRETADO INTERNO (igual que en ProductoDetalle)
   const agregarMembretadoInterno = async (pdf) => {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     try {
-      const fondo = await convertirImagenBase64(window.location.origin + "/membretedos.jpg");
+      const fondo = await convertirImagenBase64(
+        window.location.origin + "/membretedos.jpg"
+      );
       if (fondo) {
         pdf.addImage(fondo, "JPEG", 0, 0, pageWidth, pageHeight);
       }
     } catch (error) {
-      console.log(error);
+      console.log("Error cargando membrete interno:", error);
     }
   };
 
-  const formatMeters = (cm) => {
-    return (Number(cm) / 100).toFixed(2);
-  };
-
+  // 🔥 FUNCIÓN PARA VERIFICAR SALTO DE PÁGINA (igual que en ProductoDetalle)
   const verificarSaltoPagina = async (pdf, y, espacioNecesario) => {
     const pageHeight = pdf.internal.pageSize.getHeight();
     if (y + espacioNecesario > pageHeight - 25) {
@@ -342,57 +328,85 @@ export default function Cotizador() {
     return y;
   };
 
+  const formatMeters = (cm) => {
+    return (Number(cm) / 100).toFixed(2);
+  };
+
+  // 🔥 FUNCIÓN GENERAR PDF - COMPLETAMENTE MEJORADA
   const generarPDF = async () => {
     try {
       setEnviando(true);
       const pdf = new jsPDF("p", "mm", "a4");
+      
+      // 🔥 Agregar membrete de portada (primera página)
       await agregarMembretadoPortada(pdf);
+      
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
       const numeroCotizacion = Math.floor(100000 + Math.random() * 900000);
       const fechaActual = new Date().toLocaleDateString("es-MX");
 
+      // 🔥 Texto de cabecera (igual que en ProductoDetalle)
       pdf.text(`Cotización #${numeroCotizacion}`, pageWidth - 60, 23);
       let y = 65;
       pdf.setFontSize(10);
       pdf.setTextColor(80);
       pdf.text(`Fecha: ${fechaActual}`, pageWidth - 55, 58);
+      
+      // Línea separadora
+      pdf.setDrawColor(200);
+      pdf.line(15, 55, pageWidth - 15, 55);
+      y = 70;
 
+      // 🔥 RECORRER CADA PRODUCTO
       for (let i = 0; i < productos.length; i++) {
         const producto = productos[i];
         const r = calcular(producto);
 
+        // Verificar salto de página antes de cada producto
         if (y > 220) {
           pdf.addPage();
           await agregarMembretadoInterno(pdf);
           y = 20;
         }
 
+        // 🔥 IMAGEN DEL PRODUCTO - Usa la función mejorada
         try {
-          const imgUrl = producto.imagen || producto.imagenes?.split(",")[0];
+          const imgUrl = obtenerImagenProducto(producto);
           const imagenBase64 = await convertirImagenBase64(imgUrl);
           if (imagenBase64) {
             pdf.addImage(imagenBase64, "JPEG", 15, y, 50, 50);
+          } else {
+            // Si no hay imagen, mostramos un placeholder
+            pdf.setFontSize(10);
+            pdf.setTextColor(150);
+            pdf.text("Imagen no disponible", 15, y + 25);
           }
         } catch (error) {
           console.log("Error imagen producto", error);
+          pdf.setFontSize(10);
+          pdf.setTextColor(150);
+          pdf.text("Imagen no disponible", 15, y + 25);
         }
 
+        // 🔥 DATOS DEL PRODUCTO (igual que en ProductoDetalle)
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(14);
         pdf.setTextColor(40);
-        y = await verificarSaltoPagina(pdf, y, 10);
         pdf.text(`Producto: ${producto.nombre}`, 75, y + 10);
         pdf.text(`Categoría: ${producto.categoria || "-"}`, 75, y + 20);
         pdf.text(`Subcategoría: ${producto.subcategoria || "-"}`, 75, y + 30);
         pdf.text(`SKU: ${producto.sku || "-"}`, 75, y + 40);
+        
+        // 🔥 PRECIO (igual que en ProductoDetalle)
         y = await verificarSaltoPagina(pdf, y, 70);
-        pdf.setFontSize(18);
+        pdf.setFontSize(20);
         pdf.setTextColor(22, 163, 74);
-        pdf.text(`$${r.total.toFixed(2)}`, 75, y + 52);
+        pdf.text(`$${r.total.toFixed(2)}`, 75, y + 55);
         y += 65;
 
+        // 🔥 RESUMEN DE COTIZACIÓN (igual que en ProductoDetalle)
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(18);
         pdf.setTextColor(0);
@@ -425,7 +439,7 @@ export default function Cotizador() {
         }
         y += 60;
 
-        // DETALLE DE MEDIDAS
+        // 🔥 DETALLE DE MEDIDAS
         pdf.setFontSize(14);
         pdf.setTextColor(30);
         pdf.text("Detalle de Medidas", 15, y);
@@ -458,7 +472,7 @@ export default function Cotizador() {
         }
         y += 5;
 
-        // NOTA PRODUCTO
+        // 🔥 NOTA DEL PRODUCTO (igual que en ProductoDetalle)
         let notaProducto = "";
         if (producto.tipoVenta === "rollo") {
           const anchoRollo = Math.min(Number(producto.ancho || 0), Number(producto.alto || 0)) / 100;
@@ -492,6 +506,14 @@ export default function Cotizador() {
 
         const lineasNota = pdf.splitTextToSize(notaProducto, pageWidth - 45);
         const altoNota = lineasNota.length * 5 + 12;
+        
+        // Verificar salto de página para la nota
+        if (y + altoNota > pageHeight - 50) {
+          pdf.addPage();
+          await agregarMembretadoInterno(pdf);
+          y = 50;
+        }
+        
         pdf.setFillColor(255, 248, 200);
         pdf.roundedRect(15, y, pageWidth - 30, altoNota, 3, 3, "F");
         y = await verificarSaltoPagina(pdf, y, 70);
@@ -500,6 +522,13 @@ export default function Cotizador() {
         pdf.text(lineasNota, 20, y + 8);
         y += altoNota + 15;
 
+        // 🔥 CONDICIONES COMERCIALES (igual que en ProductoDetalle)
+        if (y > pageHeight - 90) {
+          pdf.addPage();
+          await agregarMembretadoInterno(pdf);
+          y = 20;
+        }
+        
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(14);
         pdf.setTextColor(30);
@@ -519,17 +548,21 @@ export default function Cotizador() {
           y += 7;
         });
         y += 10;
+        
+        // Línea separadora
         pdf.setDrawColor(220);
         pdf.line(15, y, pageWidth - 15, y);
         y += 12;
       }
 
+      // 🔥 TOTAL GENERAL (igual que en ProductoDetalle)
       const totalGeneral = productos.reduce((acc, p) => acc + calcular(p).total, 0);
       if (y > pageHeight - 80) {
         pdf.addPage();
         await agregarMembretadoInterno(pdf);
         y = 20;
       }
+      
       pdf.setFillColor(22, 163, 74);
       pdf.roundedRect(15, y, pageWidth - 30, 18, 3, 3, "F");
       pdf.setTextColor(255);
@@ -538,11 +571,18 @@ export default function Cotizador() {
       pdf.text(`TOTAL GENERAL: $${totalGeneral.toFixed(2)}`, 20, y + 12);
       y += 35;
 
+      // 🔥 DATOS DEL CLIENTE (igual que en ProductoDetalle)
+      if (y > pageHeight - 80) {
+        pdf.addPage();
+        await agregarMembretadoInterno(pdf);
+        y = 20;
+      }
+      
       y = await verificarSaltoPagina(pdf, y, 70);
       pdf.setFontSize(16);
       pdf.setTextColor(0);
       pdf.text("Datos del Cliente", 15, y);
-      y += 10;
+      y += 12;
       pdf.setFillColor(248, 250, 252);
       pdf.roundedRect(15, y, pageWidth - 30, 28, 3, 3, "F");
       y = await verificarSaltoPagina(pdf, y, 70);
@@ -550,7 +590,9 @@ export default function Cotizador() {
       pdf.text(`Nombre: ${cliente.nombre || "-"}`, 20, y + 8);
       pdf.text(`Correo: ${cliente.correo || "-"}`, 20, y + 16);
       pdf.text(`Celular: ${cliente.celular || "-"}`, 20, y + 24);
+      y += 40;
 
+      // 🔥 ENVIAR POR CORREO
       const pdfBase64 = pdf.output("datauristring");
       await api.post("/enviar-cotizacion", {
         nombre: cliente.nombre,
@@ -561,14 +603,20 @@ export default function Cotizador() {
         pdf: pdfBase64
       });
 
-      setMensajeEnviado("La cotización fue enviada a tu correo");
+      setMensajeEnviado("✅ La cotización fue enviada a tu correo");
       setCliente({ nombre: "", correo: "", celular: "" });
+      
+      // Cerrar el modal después de 3 segundos
+      setTimeout(() => {
+        setMostrarFormulario(false);
+        setMensajeEnviado("");
+      }, 3000);
+      
     } catch (error) {
       console.log(error);
-      alert("Error generando cotización");
+      alert("❌ Error generando cotización. Por favor, intenta de nuevo.");
     } finally {
       setEnviando(false);
-      setMostrarFormulario(false);
     }
   };
 
@@ -688,9 +736,6 @@ export default function Cotizador() {
                 cursor: "zoom-in"
               }}
               onClick={() => setImagenGuiaZoom("/areasplanas.png")}
-              onError={(e) => {
-                e.target.src = "https://via.placeholder.com/300x200?text=Áreas+Planas";
-              }}
             />
             <img
               src="/paredes.png"
@@ -704,9 +749,6 @@ export default function Cotizador() {
                 cursor: "zoom-in"
               }}
               onClick={() => setImagenGuiaZoom("/paredes.png")}
-              onError={(e) => {
-                e.target.src = "https://via.placeholder.com/300x200?text=Paredes";
-              }}
             />
           </div>
         </div>
@@ -736,13 +778,7 @@ export default function Cotizador() {
         {/* LISTA DE PRODUCTOS */}
         {productos.map((p, i) => {
           const r = calcular(p);
-          // Filtrar áreas activas para mostrar en "Datos guardados"
           const areasActivas = (p.areas || []).filter(a => a.usar !== false);
-          
-          // 🔥 OBTENER LA IMAGEN PRINCIPAL
-          const imagenUrl = getImageUrl(getPrimaryImage(p));
-          const tieneMultiples = hasMultipleImages(p);
-          const imagenesAdicionales = getAdditionalImagesCount(p);
 
           return (
             <div
@@ -757,7 +793,7 @@ export default function Cotizador() {
                 border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb"
               }}
             >
-              {/* HEADER PRODUCTO CON IMAGEN MEJORADA */}
+              {/* HEADER PRODUCTO */}
               <div
                 style={{
                   display: "flex",
@@ -767,42 +803,21 @@ export default function Cotizador() {
                   flexWrap: "wrap"
                 }}
               >
-                <div style={{ position: "relative", flexShrink: 0 }}>
-                  <img
-                    src={imagenUrl || "https://via.placeholder.com/90x90?text=Producto"}
-                    alt={p.nombre}
-                    style={{
-                      width: "clamp(70px, 12vw, 90px)",
-                      height: "clamp(70px, 12vw, 90px)",
-                      objectFit: "cover",
-                      borderRadius: "12px",
-                      border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb",
-                      backgroundColor: darkMode ? "#1f2937" : "#f3f4f6"
-                    }}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = "https://via.placeholder.com/90x90?text=" + encodeURIComponent(p.nombre?.substring(0, 15) || "Producto");
-                    }}
-                    loading="lazy"
-                  />
-                  {tieneMultiples && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        bottom: "2px",
-                        right: "2px",
-                        background: "rgba(0,0,0,0.7)",
-                        color: "white",
-                        borderRadius: "50%",
-                        padding: "2px 6px",
-                        fontSize: "10px",
-                        fontWeight: "bold"
-                      }}
-                    >
-                      +{imagenesAdicionales}
-                    </span>
-                  )}
-                </div>
+                <img
+                  src={obtenerImagenProducto(p)}
+                  alt={p.nombre}
+                  style={{
+                    width: "clamp(70px, 12vw, 90px)",
+                    height: "clamp(70px, 12vw, 90px)",
+                    objectFit: "cover",
+                    borderRadius: "12px",
+                    border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb",
+                    flexShrink: 0
+                  }}
+                  onError={(e) => {
+                    e.target.src = "https://via.placeholder.com/90x90?text=Producto";
+                  }}
+                />
                 <div style={{ flex: 1, minWidth: "140px" }}>
                   <h3
                     style={{
@@ -833,19 +848,6 @@ export default function Cotizador() {
                       }}
                     >
                       Presentación: {p.presentacion} · Cobertura: {p.cobertura} m²
-                    </p>
-                  )}
-                  {/* 🔥 MOSTRAR URL DE LA IMAGEN PARA DEPURACIÓN (opcional) */}
-                  {process.env.NODE_ENV === "development" && (
-                    <p
-                      style={{
-                        margin: "5px 0 0",
-                        color: darkMode ? "#9ca3af" : "#6b7280",
-                        fontSize: "clamp(0.6rem, 1vw, 0.7rem)",
-                        wordBreak: "break-all"
-                      }}
-                    >
-                      URL: {imagenUrl || "No disponible"}
                     </p>
                   )}
                 </div>
@@ -1096,7 +1098,6 @@ export default function Cotizador() {
                 }}
               >
                 {p.tipoVenta === "otros" ? (
-                  // 🔥 RESULTADOS PARA "OTROS"
                   <>
                     <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
                       <strong>Presentación:</strong> {p.presentacion || "No definida"}
@@ -1116,7 +1117,6 @@ export default function Cotizador() {
                     </p>
                   </>
                 ) : (
-                  // RESULTADOS PARA OTROS TIPOS
                   <>
                     <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
                       <strong>Medida:</strong> {(Number(p.ancho || 0) / 100).toFixed(2)} m × {(Number(p.alto || 0) / 100).toFixed(2)} m
@@ -1318,99 +1318,120 @@ export default function Cotizador() {
                 Datos del Cliente
               </h2>
 
-              <input
-                placeholder="Nombre"
-                value={cliente.nombre}
-                onChange={(e) =>
-                  setCliente({ ...cliente, nombre: e.target.value })
-                }
-                style={{
-                  width: "100%",
-                  padding: "clamp(12px, 1.8vw, 16px)",
-                  marginBottom: "12px",
-                  borderRadius: "10px",
-                  border: "1px solid #d1d5db",
-                  fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
-                  boxSizing: "border-box"
-                }}
-              />
-              <input
-                placeholder="Correo"
-                value={cliente.correo}
-                onChange={(e) =>
-                  setCliente({ ...cliente, correo: e.target.value })
-                }
-                style={{
-                  width: "100%",
-                  padding: "clamp(12px, 1.8vw, 16px)",
-                  marginBottom: "12px",
-                  borderRadius: "10px",
-                  border: "1px solid #d1d5db",
-                  fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
-                  boxSizing: "border-box"
-                }}
-              />
-              <input
-                placeholder="Celular"
-                value={cliente.celular}
-                onChange={(e) =>
-                  setCliente({ ...cliente, celular: e.target.value })
-                }
-                style={{
-                  width: "100%",
-                  padding: "clamp(12px, 1.8vw, 16px)",
-                  marginBottom: "20px",
-                  borderRadius: "10px",
-                  border: "1px solid #d1d5db",
-                  fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
-                  boxSizing: "border-box"
-                }}
-              />
+              {mensajeEnviado ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "20px",
+                    background: "#dcfce7",
+                    borderRadius: "12px",
+                    color: "#166534",
+                    fontWeight: "600",
+                    fontSize: "clamp(1rem, 1.6vw, 1.1rem)"
+                  }}
+                >
+                  {mensajeEnviado}
+                </div>
+              ) : (
+                <>
+                  <input
+                    placeholder="Nombre"
+                    value={cliente.nombre}
+                    onChange={(e) =>
+                      setCliente({ ...cliente, nombre: e.target.value })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "clamp(12px, 1.8vw, 16px)",
+                      marginBottom: "12px",
+                      borderRadius: "10px",
+                      border: "1px solid #d1d5db",
+                      fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                  <input
+                    placeholder="Correo"
+                    value={cliente.correo}
+                    onChange={(e) =>
+                      setCliente({ ...cliente, correo: e.target.value })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "clamp(12px, 1.8vw, 16px)",
+                      marginBottom: "12px",
+                      borderRadius: "10px",
+                      border: "1px solid #d1d5db",
+                      fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                  <input
+                    placeholder="Celular"
+                    value={cliente.celular}
+                    onChange={(e) =>
+                      setCliente({ ...cliente, celular: e.target.value })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "clamp(12px, 1.8vw, 16px)",
+                      marginBottom: "20px",
+                      borderRadius: "10px",
+                      border: "1px solid #d1d5db",
+                      fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
+                      boxSizing: "border-box"
+                    }}
+                  />
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: "10px",
-                  flexDirection: window.innerWidth < 480 ? "column" : "row"
-                }}
-              >
-                <button
-                  onClick={() => setMostrarFormulario(false)}
-                  style={{
-                    flex: 1,
-                    padding: "clamp(12px, 1.8vw, 16px)",
-                    border: "none",
-                    borderRadius: "10px",
-                    background: "#6b7280",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
-                    fontWeight: "600",
-                    touchAction: "manipulation"
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={generarPDF}
-                  disabled={enviando}
-                  style={{
-                    flex: 1,
-                    padding: "clamp(12px, 1.8vw, 16px)",
-                    border: "none",
-                    borderRadius: "10px",
-                    background: "#16a34a",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                    fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
-                    touchAction: "manipulation",
-                    opacity: enviando ? 0.7 : 1
-                  }}
-                >
-                  {enviando ? "Enviando..." : "Enviar Cotización"}
-                </button>
-              </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      flexDirection: window.innerWidth < 480 ? "column" : "row"
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        setMostrarFormulario(false);
+                        setMensajeEnviado("");
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: "clamp(12px, 1.8vw, 16px)",
+                        border: "none",
+                        borderRadius: "10px",
+                        background: "#6b7280",
+                        color: "#fff",
+                        cursor: "pointer",
+                        fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
+                        fontWeight: "600",
+                        touchAction: "manipulation"
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={generarPDF}
+                      disabled={enviando}
+                      style={{
+                        flex: 1,
+                        padding: "clamp(12px, 1.8vw, 16px)",
+                        border: "none",
+                        borderRadius: "10px",
+                        background: "#16a34a",
+                        color: "#fff",
+                        cursor: "pointer",
+                        fontWeight: "600",
+                        fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
+                        touchAction: "manipulation",
+                        opacity: enviando ? 0.7 : 1
+                      }}
+                    >
+                      {enviando ? "Enviando..." : "Enviar Cotización"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
