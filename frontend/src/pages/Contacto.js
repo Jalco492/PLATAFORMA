@@ -265,38 +265,45 @@ const styles = {
     boxSizing: "border-box"
   }),
 
-  hero: (darkMode) => ({
-    minHeight: "100vh",
-    width: "100%",
-    maxWidth: "100%",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-    overflow: "hidden",
-    padding: "140px 20px 80px",
-    backgroundImage: `
-      linear-gradient(
-        to right,
-        rgba(0,0,0,0.55),
-        rgba(0,0,0,0.30)
-      ),
-      url('/CONTÁCTANOS.JPG')
-    `,
-    backgroundSize: "cover",
-    backgroundPosition: "center center",
-    backgroundRepeat: "no-repeat",
-    filter: "saturate(1.2) contrast(1.08)",
-    boxSizing: "border-box",
-    "@media (max-width: 768px)": {
-      padding: "120px 16px 60px",
-      minHeight: "80vh"
-    },
-    "@media (max-width: 480px)": {
-      padding: "100px 12px 40px",
-      minHeight: "70vh"
-    }
-  }),
+  hero: (darkMode) => {
+    // 🔥 DETECTAR LA RUTA CORRECTA DE LA IMAGEN
+    const imagenFondo = "/CONTÁCTANOS.JPG";
+    
+    return {
+      minHeight: "100vh",
+      width: "100%",
+      maxWidth: "100%",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      position: "relative",
+      overflow: "hidden",
+      padding: "140px 20px 80px",
+      backgroundImage: `
+        linear-gradient(
+          to right,
+          rgba(0,0,0,0.65),
+          rgba(0,0,0,0.40)
+        ),
+        url(${imagenFondo})
+      `,
+      backgroundSize: "cover",
+      backgroundPosition: "center center",
+      backgroundRepeat: "no-repeat",
+      filter: "saturate(1.2) contrast(1.08)",
+      boxSizing: "border-box",
+      // 🔥 FALLBACK si la imagen no carga
+      backgroundColor: darkMode ? "#0f172a" : "#1e293b",
+      "@media (max-width: 768px)": {
+        padding: "120px 16px 60px",
+        minHeight: "80vh"
+      },
+      "@media (max-width: 480px)": {
+        padding: "100px 12px 40px",
+        minHeight: "70vh"
+      }
+    };
+  },
 
   overlay: {
     position: "absolute",
@@ -304,8 +311,8 @@ const styles = {
     background: `
       linear-gradient(
         to bottom,
-        rgba(0,0,0,0.15),
-        rgba(0,0,0,0.35)
+        rgba(0,0,0,0.20),
+        rgba(0,0,0,0.40)
       )
     `
   },
