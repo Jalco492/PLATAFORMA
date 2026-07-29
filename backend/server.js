@@ -8,7 +8,6 @@ const db = require("./config/db");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const axios = require("axios");
 
 require("dotenv").config();
 console.log("🚀 SERVER INICIADO");
@@ -32,17 +31,6 @@ resend.emails.send({
 }).catch(error => {
   console.error("❌ Error al configurar Resend:", error);
 });
-
-const app = express();
-
-app.use(cors());
-app.use(express.json({
-  limit: "50mb"
-}));
-app.use(express.urlencoded({
-  limit: "50mb",
-  extended: true
-}));
 
 // =================================================
 // 📄 GENERAR PDF CON HOJA MEMBRETADA
@@ -313,6 +301,17 @@ const generarPDFCotizacion = (datos) => {
   });
 };
 
+const app = express();
+
+app.use(cors());
+app.use(express.json({
+  limit: "50mb"
+}));
+app.use(express.urlencoded({
+  limit: "50mb",
+  extended: true
+}));
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = "uploads/productos";
@@ -356,82 +355,70 @@ app.post("/upload-banner", upload.single("imagen"), (req, res) => {
 // =================================================
 app.post("/enviar-cotizacion", async (req, res) => {
   try {
-    console.log('📥 Body recibido:', req.body);
-    
     const { nombre, correo, celular, producto, total, pdf, productos } = req.body;
     
-    console.log('📧 Datos extraídos:');
+    console.log('📧 Recibida solicitud de cotización:');
     console.log(`   - Nombre: ${nombre}`);
     console.log(`   - Correo: ${correo}`);
     console.log(`   - Producto: ${producto}`);
     console.log(`   - Total: $${total}`);
-    console.log(`   - Productos: ${productos ? productos.length : 0} items`);
-    console.log(`   - Tiene PDF base64: ${pdf ? 'Sí' : 'No'}`);
+    console.log(`   - Tiene PDF: ${pdf ? 'Sí' : 'No'}`);
     
     // Validar datos
     if (!nombre || !correo || !producto || !total) {
       return res.status(400).json({ 
-        error: 'Faltan datos requeridos: nombre, correo, producto y total son obligatorios',
-        recibido: req.body 
+        error: 'Faltan datos requeridos: nombre, correo, producto y total son obligatorios' 
       });
     }
     
     let attachments = [];
 
     // =============================================
-    // 📄 PROCESAR EL PDF
+    // 📄 GENERAR PDF CON HOJA MEMBRETADA
     // =============================================
-    if (pdf) {
-      try {
-        let base64Data = pdf;
-        // Limpiar el base64 si viene con prefijo
-        if (pdf.includes('base64,')) {
-          base64Data = pdf.split('base64,')[1];
-        } else if (pdf.includes(',')) {
-          base64Data = pdf.split(',')[1];
+    try {
+      // Preparar datos para el PDF
+      const datosPDF = {
+        nombre,
+        correo,
+        celular,
+        producto,
+        total: parseFloat(total),
+        productos: productos || [{ nombre: producto, cantidad: 1, precio: parseFloat(total), subtotal: parseFloat(total) }]
+      };
+
+      // Generar PDF con hoja membretada
+      const pdfBuffer = await generarPDFCotizacion(datosPDF);
+      console.log(`✅ PDF generado con hoja membretada (${pdfBuffer.length} bytes)`);
+
+      // Adjuntar PDF al correo
+      attachments.push({
+        filename: `cotizacion_${Date.now()}.pdf`,
+        content: pdfBuffer.toString('base64'),
+        contentType: 'application/pdf',
+      });
+    } catch (error) {
+      console.warn('⚠️ Error al generar PDF con membretado:', error.message);
+      // Si falla la generación del PDF, intentar usar el PDF enviado por el cliente
+      if (pdf) {
+        try {
+          let base64Data = pdf;
+          if (pdf.includes('base64,')) {
+            base64Data = pdf.split('base64,')[1];
+          } else if (pdf.includes(',')) {
+            base64Data = pdf.split(',')[1];
+          }
+          
+          const pdfBufferFallback = Buffer.from(base64Data, 'base64');
+          attachments.push({
+            filename: `cotizacion_${Date.now()}.pdf`,
+            content: pdfBufferFallback.toString('base64'),
+            contentType: 'application/pdf',
+          });
+          console.log(`✅ PDF alternativo preparado (${pdfBufferFallback.length} bytes)`);
+        } catch (error) {
+          console.warn('⚠️ Error al procesar el PDF alternativo:', error.message);
         }
-        
-        // Limpiar espacios y caracteres especiales
-        base64Data = base64Data.trim().replace(/\s/g, '');
-        
-        const pdfBuffer = Buffer.from(base64Data, 'base64');
-        console.log(`✅ PDF preparado (${pdfBuffer.length} bytes)`);
-        
-        attachments.push({
-          filename: `cotizacion_${Date.now()}.pdf`,
-          content: pdfBuffer.toString('base64'),
-          contentType: 'application/pdf',
-        });
-      } catch (error) {
-        console.warn('⚠️ Error al procesar el PDF:', error.message);
-      }
-    } else {
-      // Si no hay PDF, generar uno por defecto
-      try {
-        const datosPDF = {
-          nombre,
-          correo,
-          celular: celular || '',
-          producto,
-          total: parseFloat(total) || 0,
-          productos: productos || [{ 
-            nombre: producto, 
-            cantidad: 1, 
-            precio: parseFloat(total) || 0, 
-            subtotal: parseFloat(total) || 0
-          }]
-        };
-        
-        const pdfBuffer = await generarPDFCotizacion(datosPDF);
-        console.log(`✅ PDF generado automáticamente (${pdfBuffer.length} bytes)`);
-        
-        attachments.push({
-          filename: `cotizacion_${Date.now()}.pdf`,
-          content: pdfBuffer.toString('base64'),
-          contentType: 'application/pdf',
-        });
-      } catch (error) {
-        console.warn('⚠️ Error al generar PDF:', error.message);
       }
     }
     
@@ -458,7 +445,7 @@ app.post("/enviar-cotizacion", async (req, res) => {
           
           <div style="background: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
             <p style="margin: 0; color: #1e3a8a;">
-              📎 Adjunto encontrarás el PDF con los detalles completos de la cotización.
+              📎 Adjunto encontrarás el PDF con la hoja membretada y los detalles completos de la cotización.
             </p>
           </div>
         </div>
@@ -484,7 +471,7 @@ app.post("/enviar-cotizacion", async (req, res) => {
     
     res.json({ 
       success: true, 
-      message: 'Cotización enviada correctamente',
+      message: 'Cotización enviada correctamente con hoja membretada',
       messageId: response.id 
     });
     
@@ -2176,6 +2163,8 @@ app.delete("/contactos/:id", async (req, res) => {
 // =================================================
 // 🖼️ PROXY PARA IMÁGENES
 // =================================================
+const axios = require("axios");
+
 app.get("/proxy-image", async (req, res) => {
   try {
     const imageUrl = req.query.url;
