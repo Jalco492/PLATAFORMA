@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   FaFacebookF,
   FaInstagram,
@@ -33,6 +33,7 @@ export default function Navbar({
 }) {
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   // ========== ESTADOS ==========
   const [menuProductosAbierto, setMenuProductosAbierto] = useState(false);
@@ -62,6 +63,40 @@ export default function Navbar({
   const [productosMobileOpen, setProductosMobileOpen] = useState(false);
   const [categoriasMobileOpen, setCategoriasMobileOpen] = useState(false);
 
+  // ========== REFERENCIAS ==========
+  const menuCategoriasRef = useRef(null);
+  const navbarRef = useRef(null);
+  const linksContainerRef = useRef(null);
+  const subcategoriasScrollRef = useRef(null);
+  const tiposHoverTimeoutRef = useRef(null);
+  const tiposMenuRef = useRef(null);
+  const productosMenuRef = useRef(null);
+  const productoTiposRef = useRef(null);
+
+  // ========== EFECTO PARA RESETEAR ESTADOS AL CAMBIAR DE RUTA ==========
+  useEffect(() => {
+    // Cerrar todos los menús cuando cambia la ruta
+    setMenuProductosAbierto(false);
+    setMenuCategoriasAbierto(false);
+    setMostrarTiposHover(false);
+    setProductoMostrarTipos(false);
+    setMobileMenuOpen(false);
+    setSubcategoriaHover(null);
+    setProductoHoverSubcategoria(null);
+    setTiposDeSubcategoriaHover([]);
+    setProductoTiposHover([]);
+    setCategoriaSeleccionada(null);
+    setSubcategoriaSeleccionada(null);
+    setMostrarSubcategorias(false);
+    setMostrarTipos(false);
+    
+    // Limpiar timeouts pendientes
+    if (tiposHoverTimeoutRef.current) {
+      clearTimeout(tiposHoverTimeoutRef.current);
+      tiposHoverTimeoutRef.current = null;
+    }
+  }, [location.pathname]);
+
   useEffect(() => {
     if (tipos && tipos.length > 0) {
       setTiposLocal(tipos);
@@ -79,16 +114,6 @@ export default function Navbar({
   }, [tipos]);
 
   const tiposUsar = tipos && tipos.length > 0 ? tipos : tiposLocal;
-
-  // ========== REFERENCIAS ==========
-  const menuCategoriasRef = useRef(null);
-  const navbarRef = useRef(null);
-  const linksContainerRef = useRef(null);
-  const subcategoriasScrollRef = useRef(null);
-  const tiposHoverTimeoutRef = useRef(null);
-  const tiposMenuRef = useRef(null);
-  const productosMenuRef = useRef(null);
-  const productoTiposRef = useRef(null);
 
   // ========== EFECTOS ==========
   useEffect(() => {
@@ -308,6 +333,7 @@ export default function Navbar({
       if (!tiposMenuRef.current?.matches(':hover')) {
         setMostrarTiposHover(false);
         setSubcategoriaHover(null);
+        setTiposDeSubcategoriaHover([]);
       }
     }, 300);
   };
@@ -323,6 +349,7 @@ export default function Navbar({
     tiposHoverTimeoutRef.current = setTimeout(() => {
       setMostrarTiposHover(false);
       setSubcategoriaHover(null);
+      setTiposDeSubcategoriaHover([]);
     }, 300);
   };
 
@@ -359,6 +386,7 @@ export default function Navbar({
       if (!productoTiposRef.current?.matches(':hover')) {
         setProductoMostrarTipos(false);
         setProductoHoverSubcategoria(null);
+        setProductoTiposHover([]);
       }
     }, 300);
   };
@@ -374,6 +402,7 @@ export default function Navbar({
     tiposHoverTimeoutRef.current = setTimeout(() => {
       setProductoMostrarTipos(false);
       setProductoHoverSubcategoria(null);
+      setProductoTiposHover([]);
     }, 300);
   };
 
@@ -383,6 +412,10 @@ export default function Navbar({
     setMobileMenuOpen(false);
     setMostrarTiposHover(false);
     setProductoMostrarTipos(false);
+    if (tiposHoverTimeoutRef.current) {
+      clearTimeout(tiposHoverTimeoutRef.current);
+      tiposHoverTimeoutRef.current = null;
+    }
   };
 
   const handleVerTodasClick = (catId) => {
@@ -397,6 +430,10 @@ export default function Navbar({
     setMostrarTiposHover(false);
     setProductoMostrarTipos(false);
     setMobileMenuOpen(false);
+    if (tiposHoverTimeoutRef.current) {
+      clearTimeout(tiposHoverTimeoutRef.current);
+      tiposHoverTimeoutRef.current = null;
+    }
   };
 
   const handleNavigate = (path) => {
@@ -408,7 +445,7 @@ export default function Navbar({
   };
 
   const irATodosLosProductos = () => {
-   navigate("/productos");
+    navigate("/productos");
     setMobileMenuOpen(false);
     cerrarMenuCategorias();
     setMenuProductosAbierto(false);
@@ -472,13 +509,16 @@ export default function Navbar({
     }, 300);
   };
 
-  // ========== FUNCIÓN PARA NAVEGAR A PEDIDO ==========
   const handlePedidoClick = () => {
     navigate("/pedido");
     cerrarMenuCategorias();
     setMobileMenuOpen(false);
     setMostrarTiposHover(false);
     setProductoMostrarTipos(false);
+    if (tiposHoverTimeoutRef.current) {
+      clearTimeout(tiposHoverTimeoutRef.current);
+      tiposHoverTimeoutRef.current = null;
+    }
   };
 
   return (
@@ -1639,7 +1679,7 @@ export default function Navbar({
               </button>
             </div>
 
-            {/* Navegación rápida - SIN icono en Pedido */}
+            {/* Navegación rápida */}
             <div className="mobile-nav-links">
               <button className="mobile-nav-link" onClick={() => navigate("/")}>
                 <FaHome size={7} /> Inicio
@@ -1930,26 +1970,19 @@ export default function Navbar({
             <button onClick={() => navigate("/nosotros")} className="nav-link-hover">Nosotros</button>
             <button onClick={() => navigate("/contacto")} className="nav-link-hover">Contacto</button>
 
-             <button onClick={() => navigate("/#productos-nuevos")} className="nuevos-badge">
-             NUEVOS PRODUCTOS
+            <button onClick={() => navigate("/#productos-nuevos")} className="nuevos-badge">
+              NUEVOS PRODUCTOS
             </button>
             
-            {/* Botón Pedido - SIN icono en desktop también */}
             <button onClick={handlePedidoClick} className="nav-link-hover" style={{ color: '#93c5fd' }}>
               Pedido
             </button>
             
             <button onClick={() => navigate("/favoritos")} className="nav-link-hover">
-            Favoritos {favoritos.length}
+              Favoritos {favoritos.length}
             </button>
             <button onClick={() => navigate("/comparar")} className="nav-link-hover">Comparador</button>
             <button onClick={() => navigate("/cotizador")} className="nav-link-hover">Cotizador</button>
-          
-    
-
-
-            
-           
           </div>
         </div>
       )}
