@@ -305,7 +305,7 @@ export default function Cotizador() {
     return (Number(cm) / 100).toFixed(2);
   };
 
-  // 🔥 FUNCIÓN GENERAR PDF - COMPLETA
+  // 🔥 FUNCIÓN GENERAR PDF - COMPLETA CON TODOS LOS DETALLES
   const generarPDF = async () => {
     try {
       setEnviando(true);
@@ -373,39 +373,48 @@ export default function Cotizador() {
         pdf.text(`$${r.total.toFixed(2)}`, 75, y + 55);
         y += 65;
 
-        // 🔥 RESUMEN DE COTIZACIÓN
+        // 🔥 RESUMEN DE COTIZACIÓN - MEJORADO PARA "OTROS"
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(18);
         pdf.setTextColor(0);
         pdf.text("Resumen de Cotización", 15, y);
         y += 10;
+        
+        // Fondo para el resumen
         pdf.setFillColor(245, 247, 250);
-        pdf.roundedRect(15, y, pageWidth - 30, 45, 3, 3, "F");
+        pdf.roundedRect(15, y, pageWidth - 30, 55, 3, 3, "F");
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(11);
         pdf.setTextColor(60);
 
         if (producto.tipoVenta === "otros") {
-          pdf.text(`Área a cubrir: ${r.area.toFixed(2)} m²`, 20, y + 8);
+          // 🔥 MOSTRAR TODOS LOS DETALLES PARA "OTROS"
+          pdf.text(`Presentación: ${producto.presentacion || "No definida"}`, 20, y + 8);
           pdf.text(`Cobertura por ${producto.presentacion || "unidad"}: ${r.coberturaUnidad.toFixed(2)} m²`, 20, y + 18);
-          pdf.text(`Unidades necesarias: ${r.cantidad}`, 20, y + 28);
-          pdf.text(`Área total cubierta: ${(r.cantidad * r.coberturaUnidad).toFixed(2)} m²`, 20, y + 38);
+          pdf.text(`Área a cubrir: ${r.area.toFixed(2)} m²`, 20, y + 28);
+          pdf.text(`Unidades necesarias: ${r.cantidad}`, 20, y + 38);
+          pdf.text(`Área total cubierta: ${(r.cantidad * r.coberturaUnidad).toFixed(2)} m²`, 20, y + 48);
+        } else if (producto.tipoVenta === "unidad") {
+          pdf.text(`Cantidad total de unidades: ${r.cantidad}`, 20, y + 8);
+        } else if (producto.tipoVenta === "tramo") {
+          pdf.text(`Perímetro total: ${r.metrosLineales.toFixed(2)} m`, 20, y + 8);
+          pdf.text(`Metros lineales requeridos: ${r.metrosLineales.toFixed(2)} m`, 20, y + 18);
         } else {
           pdf.text(`Modo de cotización: Todas las áreas`, 20, y + 8);
           pdf.text(`Área total calculada: ${r.area.toFixed(2)} m²`, 20, y + 18);
           pdf.text(`Desperdicio aplicado: ${producto.desperdicio || 0}%`, 20, y + 28);
           pdf.text(`Área final: ${r.areaConDesc.toFixed(2)} m²`, 20, y + 38);
           pdf.text(
-            producto.tipoVenta === "rollo" || producto.tipoVenta === "tramo"
+            producto.tipoVenta === "rollo"
               ? `Cantidad requerida: ${r.metrosLineales.toFixed(2)} metros lineales`
               : `Cantidad requerida: ${r.cantidad} ${producto.tipoVenta}s`,
             110,
             y + 18
           );
         }
-        y += 60;
+        y += 70;
 
-        // 🔥 DETALLE DE MEDIDAS
+        // 🔥 DETALLE DE MEDIDAS - MEJORADO PARA "OTROS"
         pdf.setFontSize(14);
         pdf.setTextColor(30);
         pdf.text("Detalle de Medidas", 15, y);
@@ -423,6 +432,7 @@ export default function Cotizador() {
             } else if (producto.tipoVenta === "unidad") {
               pdf.text(`Cantidad ${index + 1}: ${Number(area.cantidad || 0)} unidades`, 20, y);
             } else if (producto.tipoVenta === "otros") {
+              // 🔥 MOSTRAR EL DETALLE DE ÁREA PARA "OTROS"
               pdf.text(`Área ${index + 1}: ${Number(area.area || 0).toFixed(2)} m²`, 20, y);
             } else {
               const largo = Number(area.largo || 0);
@@ -438,7 +448,7 @@ export default function Cotizador() {
         }
         y += 5;
 
-        // 🔥 NOTA DEL PRODUCTO
+        // 🔥 NOTA DEL PRODUCTO - MEJORADA PARA "OTROS"
         let notaProducto = "";
         if (producto.tipoVenta === "rollo") {
           const anchoRollo = Math.min(Number(producto.ancho || 0), Number(producto.alto || 0)) / 100;
@@ -463,9 +473,10 @@ export default function Cotizador() {
           notaProducto =
             `Para cubrir ${r.cantidad.toFixed(2)} metros necesitas aproximadamente ${r.cantidad.toFixed(2)} metros lineales.`;
         } else if (producto.tipoVenta === "otros") {
+          // 🔥 NOTA MEJORADA PARA "OTROS"
           notaProducto =
             `Este producto se vende por presentación (${producto.presentacion || "unidad"}). ` +
-            `Cada unidad cubre ${r.coberturaUnidad.toFixed(2)} m². ` +
+            `Cada ${producto.presentacion || "unidad"} cubre ${r.coberturaUnidad.toFixed(2)} m². ` +
             `Para cubrir ${r.area.toFixed(2)} m² necesitas aproximadamente ${r.cantidad} unidades. ` +
             `Esto cubrirá ${(r.cantidad * r.coberturaUnidad).toFixed(2)} m².`;
         }
@@ -532,7 +543,7 @@ export default function Cotizador() {
       pdf.setTextColor(255);
       y = await verificarSaltoPagina(pdf, y, 70);
       pdf.setFontSize(18);
-      pdf.text(`TOTAL GENERAL: $${totalGeneral.toFixed(2)}`, 20, y + 12);
+      pdf.text(`TOTAL ESTIMADO: $${totalGeneral.toFixed(2)}`, 20, y + 12);
       y += 35;
 
       // 🔥 DATOS DEL CLIENTE
