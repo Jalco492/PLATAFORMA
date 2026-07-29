@@ -54,7 +54,7 @@ export default function Nosotros() {
           <div style={styles.badgeContainer}>
             <div style={styles.badge}>
               <img
-                src="/LOGO.PNG"
+                src="/logo.png"
                 alt="Logo"
                 style={styles.badgeLogo}
               />
