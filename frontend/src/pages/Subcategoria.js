@@ -74,7 +74,7 @@ const obtenerImagen = (producto) => {
   return getImageUrl(imagenUrl);
 };
 
-// 🔥 FUNCIÓN AUXILIAR PARA URL DE IMÁGENES
+// 🔥 FUNCIÓN AUXILIAR PARA URL DE IMÁGENES - VERSIÓN MEJORADA
 const getImageUrl = (imagen) => {
   if (!imagen) {
     return "https://via.placeholder.com/200";
@@ -90,8 +90,9 @@ const getImageUrl = (imagen) => {
     return `https://backend-zuib.onrender.com${imagen}`;
   }
 
-  // Si no comienza con /, la agrega
-  return `https://backend-zuib.onrender.com/${imagen}`;
+  // 🔥 INTENTAR DIFERENTES RUTAS - PRUEBA CON /uploads/
+  // Primero intenta con /uploads/
+  return `https://backend-zuib.onrender.com/uploads/${imagen}`;
 };
 
   // ❤️ TOGGLE FAVORITO
