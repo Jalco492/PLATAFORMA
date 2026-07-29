@@ -37,6 +37,58 @@ export default function Cotizador() {
     localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
 
+  // 🔥 FUNCIÓN PARA OBTENER LA URL CORRECTA DE LA IMAGEN
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    
+    // Eliminar espacios en blanco
+    const cleanUrl = url.trim();
+    
+    // Si ya es URL completa
+    if (cleanUrl.startsWith('http://') || 
+        cleanUrl.startsWith('https://') || 
+        cleanUrl.startsWith('data:')) {
+      return cleanUrl;
+    }
+    
+    // Si comienza con /, es ruta absoluta desde la raíz
+    if (cleanUrl.startsWith('/')) {
+      return cleanUrl;
+    }
+    
+    // Si es un nombre de archivo, asumimos que está en uploads
+    if (cleanUrl.includes('.') && !cleanUrl.includes(' ')) {
+      // Si tu backend usa una ruta específica para imágenes
+      return `http://localhost:5000/uploads/${cleanUrl}`;
+    }
+    
+    return cleanUrl;
+  };
+
+  // 🔥 FUNCIÓN PARA OBTENER LA PRIMERA IMAGEN DEL PRODUCTO
+  const getPrimaryImage = (producto) => {
+    if (producto.imagen) return producto.imagen;
+    if (producto.imagenes) {
+      const imagenesArray = producto.imagenes.split(',');
+      return imagenesArray[0]?.trim();
+    }
+    return null;
+  };
+
+  // 🔥 FUNCIÓN PARA VERIFICAR SI TIENE MÚLTIPLES IMÁGENES
+  const hasMultipleImages = (producto) => {
+    if (!producto.imagenes) return false;
+    const imagenesArray = producto.imagenes.split(',');
+    return imagenesArray.length > 1;
+  };
+
+  // 🔥 FUNCIÓN PARA CONTAR IMÁGENES ADICIONALES
+  const getAdditionalImagesCount = (producto) => {
+    if (!producto.imagenes) return 0;
+    const imagenesArray = producto.imagenes.split(',');
+    return imagenesArray.length - 1;
+  };
+
   useEffect(() => {
     const cargarProductos = async () => {
       try {
@@ -64,7 +116,6 @@ export default function Cotizador() {
             } else if (productoBD.tipoVenta === "unidad") {
               areasIniciales = [{ cantidad: "", usar: true }];
             } else if (productoBD.tipoVenta === "otros") {
-              // 🔥 NUEVO: para "otros" usamos un campo "area"
               areasIniciales = [{ area: "", usar: true }];
             } else {
               areasIniciales = [{ largo: "", ancho: "", usar: true }];
@@ -136,7 +187,7 @@ export default function Cotizador() {
       };
     }
 
-    // CÁLCULO PARA LOS DEMÁS TIPOS (sin cambios)
+    // CÁLCULO PARA LOS DEMÁS TIPOS
     const area = (p.areas || []).reduce((acc, a) => {
       if (!a.usar) return acc;
       return acc + ((Number(a.largo) || 0) * (Number(a.ancho) || 0));
@@ -584,7 +635,7 @@ export default function Cotizador() {
         style={{
           maxWidth: "1200px",
           margin: "0 auto",
-          padding: "90px 16px 40px" // 🔥 AUMENTADO de 20px a 90px para que no se tape con el Navbar
+          padding: "90px 16px 40px"
         }}
       >
         <h1
@@ -637,6 +688,9 @@ export default function Cotizador() {
                 cursor: "zoom-in"
               }}
               onClick={() => setImagenGuiaZoom("/areasplanas.png")}
+              onError={(e) => {
+                e.target.src = "https://via.placeholder.com/300x200?text=Áreas+Planas";
+              }}
             />
             <img
               src="/paredes.png"
@@ -650,6 +704,9 @@ export default function Cotizador() {
                 cursor: "zoom-in"
               }}
               onClick={() => setImagenGuiaZoom("/paredes.png")}
+              onError={(e) => {
+                e.target.src = "https://via.placeholder.com/300x200?text=Paredes";
+              }}
             />
           </div>
         </div>
@@ -681,6 +738,11 @@ export default function Cotizador() {
           const r = calcular(p);
           // Filtrar áreas activas para mostrar en "Datos guardados"
           const areasActivas = (p.areas || []).filter(a => a.usar !== false);
+          
+          // 🔥 OBTENER LA IMAGEN PRINCIPAL
+          const imagenUrl = getImageUrl(getPrimaryImage(p));
+          const tieneMultiples = hasMultipleImages(p);
+          const imagenesAdicionales = getAdditionalImagesCount(p);
 
           return (
             <div
@@ -695,7 +757,7 @@ export default function Cotizador() {
                 border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb"
               }}
             >
-              {/* HEADER PRODUCTO */}
+              {/* HEADER PRODUCTO CON IMAGEN MEJORADA */}
               <div
                 style={{
                   display: "flex",
@@ -705,21 +767,42 @@ export default function Cotizador() {
                   flexWrap: "wrap"
                 }}
               >
-                <img
-                  src={p.imagen || p.imagenes?.split(",")[0]}
-                  alt={p.nombre}
-                  style={{
-                    width: "clamp(70px, 12vw, 90px)",
-                    height: "clamp(70px, 12vw, 90px)",
-                    objectFit: "cover",
-                    borderRadius: "12px",
-                    border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb",
-                    flexShrink: 0
-                  }}
-                  onError={(e) => {
-                    e.target.src = "https://via.placeholder.com/90x90?text=Producto";
-                  }}
-                />
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <img
+                    src={imagenUrl || "https://via.placeholder.com/90x90?text=Producto"}
+                    alt={p.nombre}
+                    style={{
+                      width: "clamp(70px, 12vw, 90px)",
+                      height: "clamp(70px, 12vw, 90px)",
+                      objectFit: "cover",
+                      borderRadius: "12px",
+                      border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb",
+                      backgroundColor: darkMode ? "#1f2937" : "#f3f4f6"
+                    }}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = "https://via.placeholder.com/90x90?text=" + encodeURIComponent(p.nombre?.substring(0, 15) || "Producto");
+                    }}
+                    loading="lazy"
+                  />
+                  {tieneMultiples && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        bottom: "2px",
+                        right: "2px",
+                        background: "rgba(0,0,0,0.7)",
+                        color: "white",
+                        borderRadius: "50%",
+                        padding: "2px 6px",
+                        fontSize: "10px",
+                        fontWeight: "bold"
+                      }}
+                    >
+                      +{imagenesAdicionales}
+                    </span>
+                  )}
+                </div>
                 <div style={{ flex: 1, minWidth: "140px" }}>
                   <h3
                     style={{
@@ -750,6 +833,19 @@ export default function Cotizador() {
                       }}
                     >
                       Presentación: {p.presentacion} · Cobertura: {p.cobertura} m²
+                    </p>
+                  )}
+                  {/* 🔥 MOSTRAR URL DE LA IMAGEN PARA DEPURACIÓN (opcional) */}
+                  {process.env.NODE_ENV === "development" && (
+                    <p
+                      style={{
+                        margin: "5px 0 0",
+                        color: darkMode ? "#9ca3af" : "#6b7280",
+                        fontSize: "clamp(0.6rem, 1vw, 0.7rem)",
+                        wordBreak: "break-all"
+                      }}
+                    >
+                      URL: {imagenUrl || "No disponible"}
                     </p>
                   )}
                 </div>
