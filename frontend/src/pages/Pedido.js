@@ -12,19 +12,85 @@ import {
   FaTrash,
   FaCheck,
   FaArrowLeft,
-  FaArrowRight
+  FaArrowRight,
+  FaBox,
+  FaCubes,
+  FaRuler,
+  FaLayerGroup,
+  FaPalette
 } from "react-icons/fa";
 import api from "../services/api";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - IGUAL QUE EN COTIZADOR
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/200?text=Sin+imagen";
+  }
+
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
+    return imagen;
+  }
+
+  const API_BASE = process.env.REACT_APP_API_URL || 'https://backend-zuib.onrender.com';
+  
+  if (imagen.startsWith("/")) {
+    return `${API_BASE}${imagen}`;
+  }
+
+  return `${API_BASE}/${imagen}`;
+};
+
+// 🔥 FUNCIÓN PARA OBTENER LA IMAGEN DEL PRODUCTO
+const obtenerImagenProducto = (producto) => {
+  if (!producto) return "https://via.placeholder.com/200?text=Sin+imagen";
+
+  let imagenUrl = "";
+
+  if (producto.imagenes && producto.imagenes.trim() !== "") {
+    imagenUrl = producto.imagenes.split(",")[0].trim();
+  } else if (producto.imagen && producto.imagen.trim() !== "") {
+    imagenUrl = producto.imagen.trim();
+  } else {
+    return "https://via.placeholder.com/200?text=Sin+imagen";
+  }
+
+  return getImageUrl(imagenUrl);
+};
+
+// 🔥 FUNCIÓN PARA OBTENER EL TIPO DE VENTA EN ESPAÑOL
+const obtenerTipoVenta = (tipoVenta) => {
+  const tipos = {
+    'caja': 'Caja',
+    'pieza': 'Pieza',
+    'tramo': 'Tramo',
+    'rollo': 'Rollo',
+    'unidad': 'Unidad',
+    'otros': 'Otros'
+  };
+  return tipos[tipoVenta] || tipoVenta || 'No definido';
+};
+
+// 🔥 FUNCIÓN PARA OBTENER EL ICONO DEL TIPO DE VENTA
+const obtenerIconoTipo = (tipoVenta) => {
+  const iconos = {
+    'caja': <FaBox />,
+    'pieza': <FaCubes />,
+    'tramo': <FaRuler />,
+    'rollo': <FaLayerGroup />,
+    'unidad': <FaPalette />,
+    'otros': <FaBox />
+  };
+  return iconos[tipoVenta] || <FaBox />;
+};
+
 export default function Pedido() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Estados para el mensaje informativo - SOLO SE MUESTRA CUANDO EL CARRITO ESTÁ VACÍO
+  // Estados para el mensaje informativo
   const [mostrarMensaje, setMostrarMensaje] = useState(() => {
-    // Verificar si hay productos en el carrito al cargar
     const carritoGuardado = sessionStorage.getItem("carritoPedido");
     let tieneProductos = false;
     if (carritoGuardado) {
@@ -35,9 +101,6 @@ export default function Pedido() {
         console.error("Error al cargar carrito:", e);
       }
     }
-    
-    // Si el carrito está vacío, mostrar el mensaje
-    // Si tiene productos, NO mostrar el mensaje
     return !tieneProductos;
   });
   
@@ -45,7 +108,7 @@ export default function Pedido() {
   const [productosDisponibles, setProductosDisponibles] = useState([]);
   const [carrito, setCarrito] = useState([]);
   
-  // Estados para datos del cliente - INICIALIZAR DESDE SESSIONSTORAGE
+  // Estados para datos del cliente
   const [cliente, setCliente] = useState(() => {
     const clienteGuardado = sessionStorage.getItem("clientePedido");
     if (clienteGuardado) {
@@ -73,29 +136,20 @@ export default function Pedido() {
     return localStorage.getItem("darkMode") === "true";
   });
 
-  // Estado para favoritos (necesario para Navbar)
+  // Estado para favoritos
   const [favoritos, setFavoritos] = useState(() => {
     const guardados = localStorage.getItem("favoritos");
     return guardados ? JSON.parse(guardados) : [];
   });
 
-  // Estado para categorías y subcategorías (necesario para Navbar)
+  // Estado para categorías y subcategorías
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
   const [tipos, setTipos] = useState([]);
 
-  // REF para evitar duplicados al agregar productos desde ProductoDetalle
+  // REF para evitar duplicados
   const productoAgregadoRef = useRef(false);
   const ultimoProductoAgregadoRef = useRef(null);
-
-  // Función para obtener la imagen del producto
-  const obtenerImagen = (producto) => {
-    if (producto.imagenes && producto.imagenes.trim() !== "") {
-      const imagenes = producto.imagenes.split(",");
-      return imagenes[0].trim();
-    }
-    return producto.imagen || "/producto-default.jpg";
-  };
 
   // Cargar productos disponibles y carrito guardado
   useEffect(() => {
@@ -105,13 +159,7 @@ export default function Pedido() {
         setProductosDisponibles(res.data || []);
       } catch (error) {
         console.error("Error cargando productos:", error);
-        setProductosDisponibles([
-          { id: 1, nombre: "Piso Laminado Clásico", precio: 350, sku: "PLC-001", imagen: "/productos/piso1.jpg" },
-          { id: 2, nombre: "Piso Vinílico Premium", precio: 450, sku: "PVP-002", imagen: "/productos/piso2.jpg" },
-          { id: 3, nombre: "Piso Cerámico Brillante", precio: 280, sku: "PCB-003", imagen: "/productos/piso3.jpg" },
-          { id: 4, nombre: "Piso de Madera Natural", precio: 550, sku: "PMN-004", imagen: "/productos/piso4.jpg" },
-          { id: 5, nombre: "Piso Porcelánico Mate", precio: 390, sku: "PPM-005", imagen: "/productos/piso5.jpg" },
-        ]);
+        setProductosDisponibles([]);
       }
     };
     cargarProductos();
@@ -123,7 +171,6 @@ export default function Pedido() {
         const parsed = JSON.parse(carritoGuardado);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setCarrito(parsed);
-          // Si hay productos, ocultar el mensaje
           setMostrarMensaje(false);
         }
       } catch (e) {
@@ -141,9 +188,9 @@ export default function Pedido() {
           api.get("/subcategorias"),
           api.get("/tipos"),
         ]);
-        setCategorias(catRes.data);
-        setSubcategorias(subRes.data);
-        setTipos(tipoRes.data);
+        setCategorias(catRes.data || []);
+        setSubcategorias(subRes.data || []);
+        setTipos(tipoRes.data || []);
       } catch (error) {
         console.error("Error cargando datos de navegación:", error);
       }
@@ -161,70 +208,51 @@ export default function Pedido() {
     localStorage.setItem("favoritos", JSON.stringify(favoritos));
   }, [favoritos]);
 
-  // Guardar carrito en sessionStorage cuando cambie
+  // Guardar carrito en sessionStorage
   useEffect(() => {
     if (carrito.length > 0 || sessionStorage.getItem("carritoPedido")) {
       sessionStorage.setItem("carritoPedido", JSON.stringify(carrito));
     }
-    
-    // Si el carrito está vacío, mostrar el mensaje
-    // Si el carrito tiene productos, ocultar el mensaje
     setMostrarMensaje(carrito.length === 0);
   }, [carrito]);
 
-  // Guardar cliente en sessionStorage cuando cambie - CADA VEZ QUE CAMBIA
+  // Guardar cliente en sessionStorage
   useEffect(() => {
     sessionStorage.setItem("clientePedido", JSON.stringify(cliente));
   }, [cliente]);
 
-  // Escuchar productos agregados desde la página de productos
+  // Escuchar productos agregados
   useEffect(() => {
-    // Verificar si hay un producto para agregar
     if (!location.state?.productoAgregado) return;
     
     const { producto, cantidad } = location.state.productoAgregado;
-    
-    // Crear un identificador único para este producto (usando id y timestamp)
     const productoId = producto.id;
     const timestamp = Date.now();
     const identificador = `${productoId}-${timestamp}`;
     
-    // Verificar si ya procesamos este producto específico
-    if (ultimoProductoAgregadoRef.current === identificador) {
-      return;
-    }
+    if (ultimoProductoAgregadoRef.current === identificador) return;
+    if (productoAgregadoRef.current) return;
     
-    // Verificar si ya estamos procesando un producto
-    if (productoAgregadoRef.current) {
-      return;
-    }
-    
-    // Marcar como procesando
     productoAgregadoRef.current = true;
     ultimoProductoAgregadoRef.current = identificador;
     
     const productoConImagen = {
       ...producto,
-      imagen: obtenerImagen(producto)
+      imagen: obtenerImagenProducto(producto)
     };
     
-    // Agregar el producto al carrito
     agregarProductoAlCarrito(productoConImagen, cantidad || 1);
     
-    // Limpiar el state después de un delay
     setTimeout(() => {
-      // Limpiar el state de location para evitar reprocesamiento
       const cleanState = { ...location.state };
       delete cleanState.productoAgregado;
       window.history.replaceState(cleanState, document.title);
-      
-      // Resetear el flag de procesamiento
       productoAgregadoRef.current = false;
     }, 200);
     
   }, [location.state]);
 
-  // Función para toggle favoritos (necesario para Navbar)
+  // Función para toggle favoritos
   const toggleFavorito = (producto) => {
     const existe = favoritos.find((fav) => fav.id === producto.id);
     if (existe) {
@@ -234,7 +262,7 @@ export default function Pedido() {
     }
   };
 
-  // Función para verificar si un producto es favorito (necesario para Navbar)
+  // Función para verificar si un producto es favorito
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
   // Función para agregar producto al carrito
@@ -244,7 +272,6 @@ export default function Pedido() {
       
       let nuevoCarrito;
       if (existe) {
-        // Si ya existe, sumamos la cantidad
         const nuevaCantidad = existe.cantidad + cantidad;
         nuevoCarrito = prevCarrito.map(item => 
           item.id === producto.id 
@@ -256,12 +283,14 @@ export default function Pedido() {
             : item
         );
       } else {
-        // Si no existe, lo agregamos con la cantidad especificada
         nuevoCarrito = [...prevCarrito, { 
           ...producto, 
           cantidad: cantidad,
           subtotal: producto.precio * cantidad,
-          imagen: obtenerImagen(producto)
+          imagen: obtenerImagenProducto(producto),
+          tipoVenta: producto.tipoVenta || 'unidad',
+          presentacion: producto.presentacion || 'Unidad',
+          cobertura: producto.cobertura || 0
         }];
       }
       
@@ -317,7 +346,7 @@ export default function Pedido() {
     return true;
   };
 
-  // Enviar pedido
+  // 🔥 ENVIAR PEDIDO CON RESEND EN LUGAR DE GMAIL
   const enviarPedido = async () => {
     if (!validarFormulario()) return;
     
@@ -340,12 +369,16 @@ export default function Pedido() {
         cantidad: item.cantidad,
         precio: item.precio,
         subtotal: item.subtotal,
-        imagen: item.imagen || obtenerImagen(item)
+        imagen: item.imagen || obtenerImagenProducto(item),
+        tipoVenta: item.tipoVenta || 'unidad',
+        presentacion: item.presentacion || 'Unidad',
+        cobertura: item.cobertura || 0
       })),
       total: totalCarrito
     };
 
     try {
+      // 🔥 ENVÍA A BACKEND QUE USA RESEND
       const res = await api.post("/pedidos", pedidoData);
       
       if (res.status === 201) {
@@ -368,18 +401,16 @@ export default function Pedido() {
 
   // Ir a la página de productos para agregar
   const irAProductos = () => {
-    // Resetear los refs al salir
     productoAgregadoRef.current = false;
     ultimoProductoAgregadoRef.current = null;
     navigate("/productos", { 
       state: { 
         desdePedido: true,
-        cliente: cliente // Pasamos los datos del cliente para que Productos los preserve
+        cliente: cliente
       } 
     });
   };
 
-  // ACEPTAR mensaje informativo
   const aceptarMensaje = () => {
     setMostrarMensaje(false);
   };
@@ -779,7 +810,7 @@ export default function Pedido() {
             Completa el formulario para realizar tu pedido. Un asesor te contactará para confirmar.
           </p>
 
-          {/* MENSAJE DE ÉXITO MEJORADO */}
+          {/* MENSAJE DE ÉXITO */}
           {mensajeExito && (
             <div style={{
               background: darkMode ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4',
@@ -872,7 +903,6 @@ export default function Pedido() {
             </div>
           )}
 
-          {/* SOLO MOSTRAR EL FORMULARIO SI NO HAY MENSAJE DE ÉXITO */}
           {!mensajeExito && (
             <>
               <div style={{
@@ -1092,7 +1122,7 @@ export default function Pedido() {
                             border: darkMode ? '1px solid rgba(59,130,246,0.1)' : '1px solid #e5e7eb'
                           }}>
                             <img 
-                              src={item.imagen || obtenerImagen(item)} 
+                              src={item.imagen || obtenerImagenProducto(item)} 
                               alt={item.nombre}
                               style={{
                                 width: '100%',
@@ -1100,14 +1130,39 @@ export default function Pedido() {
                                 objectFit: 'cover'
                               }}
                               onError={(e) => {
-                                e.target.src = '/producto-default.jpg';
+                                e.target.src = 'https://via.placeholder.com/60?text=Sin+imagen';
                               }}
                             />
                           </div>
                           
                           <div style={{ flex: 2, minWidth: '120px' }}>
                             <div style={{ color: darkMode ? '#fff' : '#111827', fontSize: '14px', fontWeight: '600' }}>{item.nombre}</div>
-                            <div style={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '12px' }}>SKU: {item.sku}</div>
+                            <div style={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '11px' }}>
+                              SKU: {item.sku || 'N/A'}
+                            </div>
+                            {/* 🔥 MOSTRAR TIPO DE VENTA */}
+                            <div style={{ 
+                              color: '#60a5fa', 
+                              fontSize: '10px', 
+                              fontWeight: '600',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              marginTop: '2px'
+                            }}>
+                              {obtenerIconoTipo(item.tipoVenta)} 
+                              {obtenerTipoVenta(item.tipoVenta)}
+                              {item.tipoVenta === 'otros' && item.presentacion && (
+                                <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: '400' }}>
+                                  ({item.presentacion})
+                                </span>
+                              )}
+                              {item.cobertura > 0 && (
+                                <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: '400' }}>
+                                  • {item.cobertura} m²
+                                </span>
+                              )}
+                            </div>
                           </div>
                           
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1153,7 +1208,7 @@ export default function Pedido() {
                           </div>
                           
                           <div style={{ color: '#60a5fa', fontSize: '14px', fontWeight: '600', minWidth: '70px', textAlign: 'right' }}>
-                            ${item.subtotal}
+                            ${item.subtotal?.toFixed(2) || (item.precio * item.cantidad).toFixed(2)}
                           </div>
                           
                           <button
