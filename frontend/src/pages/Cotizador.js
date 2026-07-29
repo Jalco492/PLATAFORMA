@@ -5,10 +5,10 @@ import Footer from "./Footer";
 import jsPDF from "jspdf";
 import api from "../services/api";
 
-// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - VERSIÓN CORREGIDA (igual que en ProductoDetalle)
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - CORREGIDA
 const getImageUrl = (imagen) => {
   if (!imagen) {
-    return "https://via.placeholder.com/200";
+    return "https://via.placeholder.com/200?text=Sin+imagen";
   }
 
   // Si ya viene con una URL completa la usa directamente
@@ -16,30 +16,51 @@ const getImageUrl = (imagen) => {
     return imagen;
   }
 
+  // 🔥 IMPORTANTE: Usar la misma URL del backend que usa ProductoDetalle
+  const API_BASE = process.env.REACT_APP_API_URL || 'https://backend-zuib.onrender.com';
+  
   // Si la imagen comienza con /, la concatena con el backend
   if (imagen.startsWith("/")) {
-    const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
     return `${API_BASE}${imagen}`;
   }
 
   // Si no comienza con /, la agrega
-  const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
   return `${API_BASE}/${imagen}`;
 };
 
-// 🔥 FUNCIÓN PARA CONVERTIR IMAGEN A BASE64 (igual que en ProductoDetalle)
+// 🔥 FUNCIÓN PARA OBTENER LA IMAGEN DEL PRODUCTO
+const obtenerImagenProducto = (producto) => {
+  if (!producto) return "https://via.placeholder.com/200?text=Sin+imagen";
+
+  let imagenUrl = "";
+
+  // 🔥 Prioriza 'imagenes' (puede tener múltiples separadas por coma)
+  if (producto.imagenes && producto.imagenes.trim() !== "") {
+    // Tomamos la primera imagen
+    imagenUrl = producto.imagenes.split(",")[0].trim();
+  } 
+  // Si no tiene 'imagenes', usa 'imagen'
+  else if (producto.imagen && producto.imagen.trim() !== "") {
+    imagenUrl = producto.imagen.trim();
+  } 
+  // Si no tiene ninguna, usa placeholder
+  else {
+    return "https://via.placeholder.com/200?text=Sin+imagen";
+  }
+
+  // 🔥 Aplica la función getImageUrl para obtener la URL completa
+  return getImageUrl(imagenUrl);
+};
+
+// 🔥 FUNCIÓN PARA CONVERTIR IMAGEN A BASE64
 const convertirImagenBase64 = async (url) => {
   try {
     if (!url) return null;
     
     // Si la URL está vacía o es placeholder, retorna null
-    if (url === "https://via.placeholder.com/200") return null;
+    if (url.includes("placeholder")) return null;
     
-    const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-    // Si la URL es relativa, la completa con el backend
-    const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
-    
-    const response = await fetch(fullUrl);
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Error HTTP: ${response.status}`);
     }
@@ -108,7 +129,7 @@ export default function Cotizador() {
 
             if (!productoBD) return null;
 
-            // 🔥 INICIALIZACIÓN DE ÁREAS SEGÚN TIPO DE VENTA
+            // INICIALIZACIÓN DE ÁREAS SEGÚN TIPO DE VENTA
             let areasIniciales = [];
             if (productoBD.tipoVenta === "tramo") {
               areasIniciales = [{ perimetro: "", usar: true }];
@@ -157,7 +178,7 @@ export default function Cotizador() {
   };
 
   const calcular = (p) => {
-    // 🔥 CÁLCULO PARA "OTROS"
+    // CÁLCULO PARA "OTROS"
     if (p.tipoVenta === "otros") {
       const areaTotal = (p.areas || []).reduce((acc, a) => {
         if (!a.usar) return acc;
@@ -186,7 +207,7 @@ export default function Cotizador() {
       };
     }
 
-    // CÁLCULO PARA LOS DEMÁS TIPOS (sin cambios)
+    // CÁLCULO PARA LOS DEMÁS TIPOS
     const area = (p.areas || []).reduce((acc, a) => {
       if (!a.usar) return acc;
       return acc + ((Number(a.largo) || 0) * (Number(a.ancho) || 0));
@@ -262,37 +283,14 @@ export default function Cotizador() {
     return acc + calcular(p).total;
   }, 0);
 
-  // 🔥 FUNCIÓN MODIFICADA - Usa getImageUrl para obtener la URL correcta
-  const obtenerImagenProducto = (producto) => {
-    if (!producto) return "https://via.placeholder.com/200";
-
-    let imagenUrl = "";
-
-    // Prioriza 'imagenes' (puede tener múltiples separadas por coma)
-    if (producto.imagenes && producto.imagenes.trim() !== "") {
-      imagenUrl = producto.imagenes.split(",")[0].trim();
-    } 
-    // Si no tiene 'imagenes', usa 'imagen'
-    else if (producto.imagen && producto.imagen.trim() !== "") {
-      imagenUrl = producto.imagen.trim();
-    } 
-    // Si no tiene ninguna, usa placeholder
-    else {
-      return "https://via.placeholder.com/200";
-    }
-
-    // Aplica la función getImageUrl para obtener la URL completa
-    return getImageUrl(imagenUrl);
-  };
-
-  // 🔥 FUNCIÓN PARA AGREGAR MEMBRETADO DE PORTADA (igual que en ProductoDetalle)
+  // 🔥 FUNCIÓN PARA AGREGAR MEMBRETADO DE PORTADA
   const agregarMembretadoPortada = async (pdf) => {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     try {
-      const fondo = await convertirImagenBase64(
-        window.location.origin + "/membreteuno.jpg"
-      );
+      // Usamos la URL completa del dominio
+      const fondoUrl = window.location.origin + "/membreteuno.jpg";
+      const fondo = await convertirImagenBase64(fondoUrl);
       if (fondo) {
         pdf.addImage(fondo, "JPEG", 0, 0, pageWidth, pageHeight);
       }
@@ -301,14 +299,13 @@ export default function Cotizador() {
     }
   };
 
-  // 🔥 FUNCIÓN PARA AGREGAR MEMBRETADO INTERNO (igual que en ProductoDetalle)
+  // 🔥 FUNCIÓN PARA AGREGAR MEMBRETADO INTERNO
   const agregarMembretadoInterno = async (pdf) => {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     try {
-      const fondo = await convertirImagenBase64(
-        window.location.origin + "/membretedos.jpg"
-      );
+      const fondoUrl = window.location.origin + "/membretedos.jpg";
+      const fondo = await convertirImagenBase64(fondoUrl);
       if (fondo) {
         pdf.addImage(fondo, "JPEG", 0, 0, pageWidth, pageHeight);
       }
@@ -317,7 +314,7 @@ export default function Cotizador() {
     }
   };
 
-  // 🔥 FUNCIÓN PARA VERIFICAR SALTO DE PÁGINA (igual que en ProductoDetalle)
+  // 🔥 FUNCIÓN PARA VERIFICAR SALTO DE PÁGINA
   const verificarSaltoPagina = async (pdf, y, espacioNecesario) => {
     const pageHeight = pdf.internal.pageSize.getHeight();
     if (y + espacioNecesario > pageHeight - 25) {
@@ -332,13 +329,13 @@ export default function Cotizador() {
     return (Number(cm) / 100).toFixed(2);
   };
 
-  // 🔥 FUNCIÓN GENERAR PDF - COMPLETAMENTE MEJORADA
+  // 🔥 FUNCIÓN GENERAR PDF - MEJORADA
   const generarPDF = async () => {
     try {
       setEnviando(true);
       const pdf = new jsPDF("p", "mm", "a4");
       
-      // 🔥 Agregar membrete de portada (primera página)
+      // Agregar membrete de portada (primera página)
       await agregarMembretadoPortada(pdf);
       
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -347,38 +344,36 @@ export default function Cotizador() {
       const numeroCotizacion = Math.floor(100000 + Math.random() * 900000);
       const fechaActual = new Date().toLocaleDateString("es-MX");
 
-      // 🔥 Texto de cabecera (igual que en ProductoDetalle)
       pdf.text(`Cotización #${numeroCotizacion}`, pageWidth - 60, 23);
       let y = 65;
       pdf.setFontSize(10);
       pdf.setTextColor(80);
       pdf.text(`Fecha: ${fechaActual}`, pageWidth - 55, 58);
       
-      // Línea separadora
       pdf.setDrawColor(200);
       pdf.line(15, 55, pageWidth - 15, 55);
       y = 70;
 
-      // 🔥 RECORRER CADA PRODUCTO
+      // RECORRER CADA PRODUCTO
       for (let i = 0; i < productos.length; i++) {
         const producto = productos[i];
         const r = calcular(producto);
 
-        // Verificar salto de página antes de cada producto
         if (y > 220) {
           pdf.addPage();
           await agregarMembretadoInterno(pdf);
           y = 20;
         }
 
-        // 🔥 IMAGEN DEL PRODUCTO - Usa la función mejorada
+        // 🔥 IMAGEN DEL PRODUCTO - Usar la función mejorada
         try {
           const imgUrl = obtenerImagenProducto(producto);
+          console.log("📸 URL de imagen para PDF:", imgUrl); // Para debugging
+          
           const imagenBase64 = await convertirImagenBase64(imgUrl);
           if (imagenBase64) {
             pdf.addImage(imagenBase64, "JPEG", 15, y, 50, 50);
           } else {
-            // Si no hay imagen, mostramos un placeholder
             pdf.setFontSize(10);
             pdf.setTextColor(150);
             pdf.text("Imagen no disponible", 15, y + 25);
@@ -390,7 +385,7 @@ export default function Cotizador() {
           pdf.text("Imagen no disponible", 15, y + 25);
         }
 
-        // 🔥 DATOS DEL PRODUCTO (igual que en ProductoDetalle)
+        // DATOS DEL PRODUCTO
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(14);
         pdf.setTextColor(40);
@@ -399,14 +394,13 @@ export default function Cotizador() {
         pdf.text(`Subcategoría: ${producto.subcategoria || "-"}`, 75, y + 30);
         pdf.text(`SKU: ${producto.sku || "-"}`, 75, y + 40);
         
-        // 🔥 PRECIO (igual que en ProductoDetalle)
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(20);
         pdf.setTextColor(22, 163, 74);
         pdf.text(`$${r.total.toFixed(2)}`, 75, y + 55);
         y += 65;
 
-        // 🔥 RESUMEN DE COTIZACIÓN (igual que en ProductoDetalle)
+        // RESUMEN DE COTIZACIÓN
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(18);
         pdf.setTextColor(0);
@@ -418,7 +412,6 @@ export default function Cotizador() {
         pdf.setFontSize(11);
         pdf.setTextColor(60);
 
-        // 🔥 RESUMEN PARA "OTROS"
         if (producto.tipoVenta === "otros") {
           pdf.text(`Área a cubrir: ${r.area.toFixed(2)} m²`, 20, y + 8);
           pdf.text(`Cobertura por ${producto.presentacion || "unidad"}: ${r.coberturaUnidad.toFixed(2)} m²`, 20, y + 18);
@@ -439,7 +432,7 @@ export default function Cotizador() {
         }
         y += 60;
 
-        // 🔥 DETALLE DE MEDIDAS
+        // DETALLE DE MEDIDAS
         pdf.setFontSize(14);
         pdf.setTextColor(30);
         pdf.text("Detalle de Medidas", 15, y);
@@ -472,7 +465,7 @@ export default function Cotizador() {
         }
         y += 5;
 
-        // 🔥 NOTA DEL PRODUCTO (igual que en ProductoDetalle)
+        // NOTA DEL PRODUCTO
         let notaProducto = "";
         if (producto.tipoVenta === "rollo") {
           const anchoRollo = Math.min(Number(producto.ancho || 0), Number(producto.alto || 0)) / 100;
@@ -507,7 +500,6 @@ export default function Cotizador() {
         const lineasNota = pdf.splitTextToSize(notaProducto, pageWidth - 45);
         const altoNota = lineasNota.length * 5 + 12;
         
-        // Verificar salto de página para la nota
         if (y + altoNota > pageHeight - 50) {
           pdf.addPage();
           await agregarMembretadoInterno(pdf);
@@ -522,7 +514,7 @@ export default function Cotizador() {
         pdf.text(lineasNota, 20, y + 8);
         y += altoNota + 15;
 
-        // 🔥 CONDICIONES COMERCIALES (igual que en ProductoDetalle)
+        // CONDICIONES COMERCIALES
         if (y > pageHeight - 90) {
           pdf.addPage();
           await agregarMembretadoInterno(pdf);
@@ -549,13 +541,12 @@ export default function Cotizador() {
         });
         y += 10;
         
-        // Línea separadora
         pdf.setDrawColor(220);
         pdf.line(15, y, pageWidth - 15, y);
         y += 12;
       }
 
-      // 🔥 TOTAL GENERAL (igual que en ProductoDetalle)
+      // TOTAL GENERAL
       const totalGeneral = productos.reduce((acc, p) => acc + calcular(p).total, 0);
       if (y > pageHeight - 80) {
         pdf.addPage();
@@ -571,7 +562,7 @@ export default function Cotizador() {
       pdf.text(`TOTAL GENERAL: $${totalGeneral.toFixed(2)}`, 20, y + 12);
       y += 35;
 
-      // 🔥 DATOS DEL CLIENTE (igual que en ProductoDetalle)
+      // DATOS DEL CLIENTE
       if (y > pageHeight - 80) {
         pdf.addPage();
         await agregarMembretadoInterno(pdf);
@@ -592,7 +583,7 @@ export default function Cotizador() {
       pdf.text(`Celular: ${cliente.celular || "-"}`, 20, y + 24);
       y += 40;
 
-      // 🔥 ENVIAR POR CORREO
+      // ENVIAR POR CORREO
       const pdfBase64 = pdf.output("datauristring");
       await api.post("/enviar-cotizacion", {
         nombre: cliente.nombre,
@@ -606,7 +597,6 @@ export default function Cotizador() {
       setMensajeEnviado("✅ La cotización fue enviada a tu correo");
       setCliente({ nombre: "", correo: "", celular: "" });
       
-      // Cerrar el modal después de 3 segundos
       setTimeout(() => {
         setMostrarFormulario(false);
         setMensajeEnviado("");
@@ -657,6 +647,11 @@ export default function Cotizador() {
     const copia = [...productos];
     copia[indexProducto].areas[indexArea][campo] = valor;
     guardar(copia);
+  };
+
+  // 🔥 FUNCIÓN PARA IR A LA PÁGINA DE PRODUCTOS
+  const irAProductos = () => {
+    navigate("/productos");
   };
 
   return (
@@ -753,7 +748,7 @@ export default function Cotizador() {
           </div>
         </div>
 
-        {/* BOTÓN AGREGAR PRODUCTOS */}
+        {/* 🔥 BOTÓN AGREGAR PRODUCTOS - CORREGIDO */}
         <button
           style={{
             background: "#16a34a",
@@ -770,7 +765,7 @@ export default function Cotizador() {
             maxWidth: "320px",
             touchAction: "manipulation"
           }}
-          onClick={() => window.location.href = "/productos"}
+          onClick={irAProductos}
         >
           ➕ Agregar productos
         </button>
@@ -779,6 +774,9 @@ export default function Cotizador() {
         {productos.map((p, i) => {
           const r = calcular(p);
           const areasActivas = (p.areas || []).filter(a => a.usar !== false);
+          
+          // 🔥 Obtener la URL de la imagen para este producto
+          const imagenUrl = obtenerImagenProducto(p);
 
           return (
             <div
@@ -793,7 +791,7 @@ export default function Cotizador() {
                 border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb"
               }}
             >
-              {/* HEADER PRODUCTO */}
+              {/* HEADER PRODUCTO - CON IMAGEN CORREGIDA */}
               <div
                 style={{
                   display: "flex",
@@ -804,7 +802,7 @@ export default function Cotizador() {
                 }}
               >
                 <img
-                  src={obtenerImagenProducto(p)}
+                  src={imagenUrl}
                   alt={p.nombre}
                   style={{
                     width: "clamp(70px, 12vw, 90px)",
@@ -812,10 +810,12 @@ export default function Cotizador() {
                     objectFit: "cover",
                     borderRadius: "12px",
                     border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb",
-                    flexShrink: 0
+                    flexShrink: 0,
+                    backgroundColor: "#f3f4f6"
                   }}
                   onError={(e) => {
-                    e.target.src = "https://via.placeholder.com/90x90?text=Producto";
+                    console.log("❌ Error cargando imagen:", imagenUrl);
+                    e.target.src = "https://via.placeholder.com/90x90?text=Sin+imagen";
                   }}
                 />
                 <div style={{ flex: 1, minWidth: "140px" }}>
@@ -853,7 +853,7 @@ export default function Cotizador() {
                 </div>
               </div>
 
-              {/* ÁREAS */}
+              {/* ÁREAS - sin cambios */}
               <div
                 style={{
                   display: "flex",
@@ -1050,7 +1050,7 @@ export default function Cotizador() {
                 </button>
               </div>
 
-              {/* DESPERDICIO (solo para tipos que lo usan) */}
+              {/* DESPERDICIO */}
               {p.tipoVenta !== "otros" && (
                 <div
                   style={{
@@ -1436,7 +1436,7 @@ export default function Cotizador() {
           </div>
         )}
 
-        {/* MODAL DE ZOOM PARA IMÁGENES DE LA GUÍA */}
+        {/* MODAL DE ZOOM */}
         {imagenGuiaZoom && (
           <div
             style={{
