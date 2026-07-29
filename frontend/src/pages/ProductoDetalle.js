@@ -6,16 +6,25 @@ import html2canvas from "html2canvas";
 import Footer from "./Footer";
 import Navbar from "./Navbar";
 
-// 🔥 Helper para obtener URL de imagen con base URL
-const getImageUrl = (path) => {
-  if (!path) return '';
-  // Si ya es una URL absoluta, devolverla tal cual
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    return path;
+
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - VERSIÓN CORREGIDA
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/200";
   }
-  // Si es una ruta relativa, agregar la URL base
-  const API_BASE = process.env.REACT_APP_API_URL || 'http://192.168.3.154:5000';
-  return `${API_BASE}${path}`;
+
+  // Si ya viene con una URL completa la usa directamente
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
+    return imagen;
+  }
+
+  // Si la imagen comienza con /, la concatena con el backend
+  if (imagen.startsWith("/")) {
+    return `https://backend-zuib.onrender.com${imagen}`;
+  }
+
+  // Si no comienza con /, la agrega
+  return `https://backend-zuib.onrender.com/${imagen}`;
 };
 
 export default function ProductoDetalle() {
@@ -273,36 +282,26 @@ export default function ProductoDetalle() {
 
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
-  // 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
-const getImageUrl = (imagen) => {
-  if (!imagen) {
-    return "https://via.placeholder.com/200";
-  }
-
-  // Si ya viene con una URL completa la usa directamente
-  if (imagen.startsWith("http")) {
-    return imagen;
-  }
-
-  // Si viene como ruta relativa agrega el backend
-  return `https://backend-zuib.onrender.com${imagen}`;
-};
-
-
-// 🔥 FUNCIÓN PARA OBTENER IMAGEN DEL PRODUCTO
+  // 🔥 FUNCIÓN PARA OBTENER IMAGEN DEL PRODUCTO - VERSIÓN CORREGIDA
 const obtenerImagen = (producto) => {
-  if (!producto) return "";
+  if (!producto) return "https://via.placeholder.com/200";
 
   let imagenUrl = "";
 
+  // Prioriza 'imagenes' (puede tener múltiples separadas por coma)
   if (producto.imagenes && producto.imagenes.trim() !== "") {
     imagenUrl = producto.imagenes.split(",")[0].trim();
-  } else if (producto.imagen && producto.imagen.trim() !== "") {
+  } 
+  // Si no tiene 'imagenes', usa 'imagen'
+  else if (producto.imagen && producto.imagen.trim() !== "") {
     imagenUrl = producto.imagen.trim();
-  } else {
+  } 
+  // Si no tiene ninguna, usa placeholder
+  else {
     return "https://via.placeholder.com/200";
   }
 
+  // Aplica la función getImageUrl para obtener la URL completa
   return getImageUrl(imagenUrl);
 };
 
@@ -850,16 +849,22 @@ const obtenerImagen = (producto) => {
   };
 
   // 🔥 FUNCIÓN MODIFICADA - getImagenActual con getImageUrl
-  const getImagenActual = () => {
-    let imgUrl = '';
-    if (modeloSeleccionado) {
-      const img = modeloSeleccionado.imagenes ? modeloSeleccionado.imagenes.split(",") : [modeloSeleccionado.imagen];
-      imgUrl = img[indice] || img[0];
-    } else {
-      imgUrl = imagenes[indice] || imagenes[0];
-    }
-    return getImageUrl(imgUrl);
-  };
+const getImagenActual = () => {
+  let imgUrl = '';
+  if (modeloSeleccionado) {
+    const img = modeloSeleccionado.imagenes 
+      ? modeloSeleccionado.imagenes.split(",") 
+      : [modeloSeleccionado.imagen];
+    imgUrl = img[indice] || img[0] || '';
+  } else {
+    imgUrl = imagenes[indice] || imagenes[0] || '';
+  }
+  // Si no hay imagen, retorna placeholder
+  if (!imgUrl) {
+    return "https://via.placeholder.com/200";
+  }
+  return getImageUrl(imgUrl);
+};
 
   const getNombreActual = () => {
     if (modeloSeleccionado) {
