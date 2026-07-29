@@ -33,12 +33,34 @@ resend.emails.send({
 });
 
 // =================================================
-// 📄 GENERAR PDF CON HOJA MEMBRETADA
+// 📄 GENERAR PDF CON HOJA MEMBRETADA E IMÁGENES
 // =================================================
 const PDFDocument = require('pdfkit');
+const axios = require('axios');
 
-const generarPDFCotizacion = (datos) => {
-  return new Promise((resolve, reject) => {
+// Función para descargar imagen desde URL
+const descargarImagen = async (url) => {
+  try {
+    // Si la URL es relativa, convertir a absoluta
+    if (url.startsWith('/')) {
+      url = `http://localhost:5000${url}`;
+    }
+    
+    const response = await axios({
+      method: 'GET',
+      url: url,
+      responseType: 'arraybuffer'
+    });
+    
+    return Buffer.from(response.data, 'binary');
+  } catch (error) {
+    console.warn(`⚠️ No se pudo descargar la imagen: ${url}`, error.message);
+    return null;
+  }
+};
+
+const generarPDFCotizacion = async (datos) => {
+  return new Promise(async (resolve, reject) => {
     try {
       const doc = new PDFDocument({
         size: 'A4',
@@ -55,45 +77,60 @@ const generarPDFCotizacion = (datos) => {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
 
       // =============================================
-      // 🏢 HOJA MEMBRETADA - ENCABEZADO
+      // 🏢 HOJA MEMBRETADA CON IMAGEN
       // =============================================
       
-      // Logo o nombre de la empresa
-      doc.fontSize(24)
-         .font('Helvetica-Bold')
-         .fillColor('#16a34a')
-         .text('FRAY FLOORING', 50, 50, { align: 'center' });
+      // Cargar la imagen del membrete desde la carpeta public
+      const imagenMembretePath = path.join(__dirname, 'public', 'membrete.jpg');
       
-      doc.fontSize(12)
-         .font('Helvetica')
-         .fillColor('#4b5563')
-         .text('Pisos de Alta Calidad', 50, 80, { align: 'center' });
-      
-      // Línea decorativa
-      doc.moveTo(50, 100)
-         .lineTo(545, 100)
-         .strokeColor('#16a34a')
-         .lineWidth(2)
-         .stroke();
+      try {
+        // Verificar si existe la imagen
+        if (fs.existsSync(imagenMembretePath)) {
+          // Usar la imagen como encabezado
+          doc.image(imagenMembretePath, 50, 40, {
+            width: 495,
+            height: 100
+          });
+          console.log('✅ Imagen de membrete cargada correctamente');
+        } else {
+          console.warn('⚠️ No se encontró la imagen membrete.jpg en public/');
+          // Fallback: usar texto
+          doc.fontSize(24)
+             .font('Helvetica-Bold')
+             .fillColor('#16a34a')
+             .text('FRAY FLOORING', 50, 50, { align: 'center' });
+          
+          doc.fontSize(12)
+             .font('Helvetica')
+             .fillColor('#4b5563')
+             .text('Pisos de Alta Calidad', 50, 80, { align: 'center' });
+          
+          doc.moveTo(50, 100)
+             .lineTo(545, 100)
+             .strokeColor('#16a34a')
+             .lineWidth(2)
+             .stroke();
 
-      // Información de contacto
-      doc.fontSize(10)
-         .fillColor('#6b7280')
-         .text('📍 Dirección: Calle Principal #123, Colonia Centro, CDMX', 50, 110, { align: 'center' })
-         .text('📞 Teléfono: 55 1116 4545 | ✉️ Email: frayflooring@gmail.com', 50, 125, { align: 'center' });
+          doc.fontSize(10)
+             .fillColor('#6b7280')
+             .text('📍 Dirección: Calle Principal #123, Colonia Centro, CDMX', 50, 110, { align: 'center' })
+             .text('📞 Teléfono: 55 1116 4545 | ✉️ Email: frayflooring@gmail.com', 50, 125, { align: 'center' });
 
-      // Segunda línea decorativa
-      doc.moveTo(50, 140)
-         .lineTo(545, 140)
-         .strokeColor('#e5e7eb')
-         .lineWidth(1)
-         .stroke();
+          doc.moveTo(50, 140)
+             .lineTo(545, 140)
+             .strokeColor('#e5e7eb')
+             .lineWidth(1)
+             .stroke();
+        }
+      } catch (error) {
+        console.warn('⚠️ Error al cargar imagen membrete:', error.message);
+      }
 
       // =============================================
       // 📄 CONTENIDO DE LA COTIZACIÓN
       // =============================================
       
-      let y = 170;
+      let y = 160;
 
       // Título de cotización
       doc.fontSize(18)
@@ -152,85 +189,146 @@ const generarPDFCotizacion = (datos) => {
       
       y += 20;
 
-      // Tabla de productos
+      // =============================================
+      // 📋 TABLA DE PRODUCTOS CON IMÁGENES
+      // =============================================
+      
       doc.fontSize(12)
          .font('Helvetica-Bold')
          .fillColor('#1f2937')
-         .text('DETALLE DE PRODUCTO', 50, y);
+         .text('DETALLE DE PRODUCTOS', 50, y);
       
       y += 20;
 
-      // Encabezados de tabla
+      // Configuración de columnas
       const tableTop = y;
-      const col1 = 50;   // Producto
-      const col2 = 350;  // Cantidad
-      const col3 = 420;  // Precio
-      const col4 = 490;  // Subtotal
+      const col1 = 50;   // Imagen
+      const col2 = 110;  // Producto
+      const col3 = 330;  // Cantidad
+      const col4 = 390;  // Precio
+      const col5 = 470;  // Subtotal
 
-      doc.fontSize(10)
+      // Encabezados de tabla
+      doc.fontSize(9)
          .font('Helvetica-Bold')
          .fillColor('#ffffff')
          .rect(col1 - 5, tableTop - 5, 500, 25)
          .fill('#16a34a');
 
       doc.fillColor('#ffffff')
-         .text('Producto', col1 + 5, tableTop + 5)
-         .text('Cant.', col2, tableTop + 5)
-         .text('Precio', col3, tableTop + 5)
-         .text('Subtotal', col4, tableTop + 5);
+         .text('Imagen', col1 + 5, tableTop + 6)
+         .text('Producto', col2 + 5, tableTop + 6)
+         .text('Cant.', col3, tableTop + 6)
+         .text('Precio', col4, tableTop + 6)
+         .text('Subtotal', col5, tableTop + 6);
 
       let tableY = tableTop + 30;
+      const productsWithImages = [];
 
-      // Productos
-      doc.fontSize(10)
-         .font('Helvetica')
-         .fillColor('#1f2937');
-
+      // Obtener productos con sus imágenes
       if (datos.productos && datos.productos.length > 0) {
-        datos.productos.forEach((producto, index) => {
-          // Verificar si necesita nueva página
-          if (tableY > 700) {
-            doc.addPage();
-            tableY = 50;
-            
-            // Reimprimir encabezados en nueva página
-            doc.fontSize(10)
-               .font('Helvetica-Bold')
-               .fillColor('#ffffff')
-               .rect(col1 - 5, tableY - 5, 500, 25)
-               .fill('#16a34a');
-
-            doc.fillColor('#ffffff')
-               .text('Producto', col1 + 5, tableY + 5)
-               .text('Cant.', col2, tableY + 5)
-               .text('Precio', col3, tableY + 5)
-               .text('Subtotal', col4, tableY + 5);
-            
-            tableY += 30;
+        for (const producto of datos.productos) {
+          let imagenBuffer = null;
+          
+          // Intentar descargar la imagen del producto
+          if (producto.imagen) {
+            try {
+              // Convertir URL a ruta absoluta si es necesario
+              let imagenUrl = producto.imagen;
+              if (imagenUrl.startsWith('/uploads/')) {
+                imagenUrl = `http://localhost:5000${imagenUrl}`;
+              }
+              imagenBuffer = await descargarImagen(imagenUrl);
+            } catch (error) {
+              console.warn(`⚠️ No se pudo descargar imagen para ${producto.nombre}`);
+            }
           }
+          
+          productsWithImages.push({
+            ...producto,
+            imagenBuffer
+          });
+        }
+      }
 
-          const nombreProducto = producto.nombre || 'Producto';
-          const cantidad = producto.cantidad || 1;
-          const precio = producto.precio || 0;
-          const subtotal = producto.subtotal || (precio * cantidad);
+      // Dibujar productos con sus imágenes
+      for (const item of productsWithImages) {
+        // Verificar si necesita nueva página
+        if (tableY > 680) {
+          doc.addPage();
+          tableY = 50;
+          
+          // Reimprimir encabezados en nueva página
+          doc.fontSize(9)
+             .font('Helvetica-Bold')
+             .fillColor('#ffffff')
+             .rect(col1 - 5, tableY - 5, 500, 25)
+             .fill('#16a34a');
 
-          // Fila de producto
-          doc.font('Helvetica')
-             .fillColor('#1f2937')
-             .text(nombreProducto.length > 35 ? nombreProducto.substring(0, 35) + '...' : nombreProducto, col1 + 5, tableY + 2)
-             .text(cantidad.toString(), col2 + 10, tableY + 2, { width: 50, align: 'center' })
-             .text(`$${precio.toFixed(2)}`, col3, tableY + 2, { width: 70, align: 'right' })
-             .text(`$${subtotal.toFixed(2)}`, col4, tableY + 2, { width: 80, align: 'right' });
+          doc.fillColor('#ffffff')
+             .text('Imagen', col1 + 5, tableY + 6)
+             .text('Producto', col2 + 5, tableY + 6)
+             .text('Cant.', col3, tableY + 6)
+             .text('Precio', col4, tableY + 6)
+             .text('Subtotal', col5, tableY + 6);
+          
+          tableY += 30;
+        }
 
-          tableY += 22;
-        });
-      } else {
-        // Si no hay productos detallados, mostrar el producto principal
-        doc.text(datos.producto || 'Producto no especificado', col1 + 5, tableY + 2)
-           .text('1', col2 + 10, tableY + 2, { width: 50, align: 'center' })
-           .text(`$${datos.total || 0}`, col3, tableY + 2, { width: 70, align: 'right' })
-           .text(`$${datos.total || 0}`, col4, tableY + 2, { width: 80, align: 'right' });
-        tableY += 22;
+        const nombreProducto = item.nombre || 'Producto';
+        const cantidad = item.cantidad || 1;
+        const precio = item.precio || 0;
+        const subtotal = item.subtotal || (precio * cantidad);
+
+        // Dibujar imagen del producto
+        if (item.imagenBuffer) {
+          try {
+            doc.image(item.imagenBuffer, col1 + 2, tableY + 2, {
+              width: 40,
+              height: 40,
+              fit: [40, 40]
+            });
+          } catch (error) {
+            // Si falla, mostrar un rectángulo gris
+            doc.rect(col1 + 2, tableY + 2, 40, 40)
+               .fillColor('#e5e7eb')
+               .fill()
+               .fillColor('#9ca3af')
+               .fontSize(8)
+               .text('Sin img', col1 + 5, tableY + 12);
+          }
+        } else {
+          // Si no hay imagen, mostrar un rectángulo gris
+          doc.rect(col1 + 2, tableY + 2, 40, 40)
+             .fillColor('#e5e7eb')
+             .fill()
+             .fillColor('#9ca3af')
+             .fontSize(8)
+             .text('Sin img', col1 + 5, tableY + 12);
+        }
+
+        // Datos del producto
+        doc.fontSize(9)
+           .font('Helvetica')
+           .fillColor('#1f2937')
+           .text(nombreProducto.length > 25 ? nombreProducto.substring(0, 25) + '...' : nombreProducto, col2 + 5, tableY + 10)
+           .text(cantidad.toString(), col3 + 5, tableY + 10, { width: 50, align: 'center' })
+           .text(`$${precio.toFixed(2)}`, col4, tableY + 10, { width: 60, align: 'right' })
+           .text(`$${subtotal.toFixed(2)}`, col5, tableY + 10, { width: 80, align: 'right' });
+
+        tableY += 45;
+      }
+
+      // Si no hay productos, mostrar uno por defecto
+      if (productsWithImages.length === 0) {
+        doc.fontSize(9)
+           .font('Helvetica')
+           .fillColor('#1f2937')
+           .text(datos.producto || 'Producto no especificado', col2 + 5, tableY + 10)
+           .text('1', col3 + 5, tableY + 10, { width: 50, align: 'center' })
+           .text(`$${datos.total || 0}`, col4, tableY + 10, { width: 60, align: 'right' })
+           .text(`$${datos.total || 0}`, col5, tableY + 10, { width: 80, align: 'right' });
+        tableY += 45;
       }
 
       // Total
@@ -312,6 +410,9 @@ app.use(express.urlencoded({
   extended: true
 }));
 
+// Servir archivos estáticos de la carpeta public
+app.use(express.static(path.join(__dirname, 'public')));
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = "uploads/productos";
@@ -351,7 +452,7 @@ app.post("/upload-banner", upload.single("imagen"), (req, res) => {
 });
 
 // =================================================
-// ✉️ ENVIAR COTIZACIÓN POR EMAIL (CON PDF MEMBRETADO)
+// ✉️ ENVIAR COTIZACIÓN POR EMAIL (CON PDF MEMBRETADO E IMÁGENES)
 // =================================================
 app.post("/enviar-cotizacion", async (req, res) => {
   try {
@@ -362,7 +463,7 @@ app.post("/enviar-cotizacion", async (req, res) => {
     console.log(`   - Correo: ${correo}`);
     console.log(`   - Producto: ${producto}`);
     console.log(`   - Total: $${total}`);
-    console.log(`   - Tiene PDF: ${pdf ? 'Sí' : 'No'}`);
+    console.log(`   - Productos: ${productos ? productos.length : 0} items`);
     
     // Validar datos
     if (!nombre || !correo || !producto || !total) {
@@ -374,7 +475,7 @@ app.post("/enviar-cotizacion", async (req, res) => {
     let attachments = [];
 
     // =============================================
-    // 📄 GENERAR PDF CON HOJA MEMBRETADA
+    // 📄 GENERAR PDF CON HOJA MEMBRETADA E IMÁGENES
     // =============================================
     try {
       // Preparar datos para el PDF
@@ -384,12 +485,18 @@ app.post("/enviar-cotizacion", async (req, res) => {
         celular,
         producto,
         total: parseFloat(total),
-        productos: productos || [{ nombre: producto, cantidad: 1, precio: parseFloat(total), subtotal: parseFloat(total) }]
+        productos: productos || [{ 
+          nombre: producto, 
+          cantidad: 1, 
+          precio: parseFloat(total), 
+          subtotal: parseFloat(total),
+          imagen: null
+        }]
       };
 
-      // Generar PDF con hoja membretada
+      // Generar PDF con hoja membretada e imágenes
       const pdfBuffer = await generarPDFCotizacion(datosPDF);
-      console.log(`✅ PDF generado con hoja membretada (${pdfBuffer.length} bytes)`);
+      console.log(`✅ PDF generado con membrete e imágenes (${pdfBuffer.length} bytes)`);
 
       // Adjuntar PDF al correo
       attachments.push({
@@ -398,8 +505,8 @@ app.post("/enviar-cotizacion", async (req, res) => {
         contentType: 'application/pdf',
       });
     } catch (error) {
-      console.warn('⚠️ Error al generar PDF con membretado:', error.message);
-      // Si falla la generación del PDF, intentar usar el PDF enviado por el cliente
+      console.warn('⚠️ Error al generar PDF con membrete e imágenes:', error.message);
+      // Si falla, intentar usar el PDF enviado por el cliente
       if (pdf) {
         try {
           let base64Data = pdf;
@@ -445,7 +552,7 @@ app.post("/enviar-cotizacion", async (req, res) => {
           
           <div style="background: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
             <p style="margin: 0; color: #1e3a8a;">
-              📎 Adjunto encontrarás el PDF con la hoja membretada y los detalles completos de la cotización.
+              📎 Adjunto encontrarás el PDF con la hoja membretada, imágenes de los productos y los detalles completos de la cotización.
             </p>
           </div>
         </div>
@@ -471,7 +578,7 @@ app.post("/enviar-cotizacion", async (req, res) => {
     
     res.json({ 
       success: true, 
-      message: 'Cotización enviada correctamente con hoja membretada',
+      message: 'Cotización enviada correctamente con membrete e imágenes',
       messageId: response.id 
     });
     
