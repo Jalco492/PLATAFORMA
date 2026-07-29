@@ -51,13 +51,48 @@ export default function Subcategoria() {
     localStorage.setItem("favoritos", JSON.stringify(favoritos));
   }, [favoritos]);
 
-  // 🖼 OBTENER IMAGEN
-  const obtenerImagen = (producto) => {
-    if (producto.imagenes && producto.imagenes.trim() !== "") {
-      return producto.imagenes.split(",")[0];
-    }
-    return producto.imagen;
-  };
+  // 🖼 OBTENER IMAGEN - VERSIÓN CORREGIDA
+const obtenerImagen = (producto) => {
+  if (!producto) return "https://via.placeholder.com/200";
+
+  let imagenUrl = "";
+
+  // Prioriza 'imagenes' (puede tener múltiples separadas por coma)
+  if (producto.imagenes && producto.imagenes.trim() !== "") {
+    imagenUrl = producto.imagenes.split(",")[0].trim();
+  } 
+  // Si no tiene 'imagenes', usa 'imagen'
+  else if (producto.imagen && producto.imagen.trim() !== "") {
+    imagenUrl = producto.imagen.trim();
+  } 
+  // Si no tiene ninguna, usa placeholder
+  else {
+    return "https://via.placeholder.com/200";
+  }
+
+  // 🔥 FUNCIÓN PARA GENERAR URL COMPLETA
+  return getImageUrl(imagenUrl);
+};
+
+// 🔥 FUNCIÓN AUXILIAR PARA URL DE IMÁGENES
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/200";
+  }
+
+  // Si ya viene con una URL completa la usa directamente
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
+    return imagen;
+  }
+
+  // Si la imagen comienza con /, la concatena con el backend
+  if (imagen.startsWith("/")) {
+    return `https://backend-zuib.onrender.com${imagen}`;
+  }
+
+  // Si no comienza con /, la agrega
+  return `https://backend-zuib.onrender.com/${imagen}`;
+};
 
   // ❤️ TOGGLE FAVORITO
   const toggleFavorito = (producto) => {
@@ -252,6 +287,10 @@ export default function Subcategoria() {
                           alt={p.nombre}
                           className="sub-img"
                           style={styles.image}
+                          loading="lazy"
+  onError={(e) => {
+    e.target.src = "https://via.placeholder.com/300/1e293b/60a5fa?text=No+img";
+    }}
                         />
                       </div>
 
