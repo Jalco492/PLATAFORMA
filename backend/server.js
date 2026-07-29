@@ -1,3 +1,6 @@
+
+console.log("🚀 SERVER INICIADO");
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -8,8 +11,9 @@ const path = require("path");
 const fs = require("fs");
 
 require("dotenv").config();
-console.log("EMAIL_USER:", process.env.EMAIL_USER);
-console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Cargada" : "No cargada");
+console.log("🚀 SERVER INICIADO");
+console.log("EMAIL_USER =", process.env.EMAIL_USER);
+console.log("EMAIL_PASS =", process.env.EMAIL_PASS ? "CARGADA" : "NO CARGADA");
 
 const nodemailer = require("nodemailer");
 
