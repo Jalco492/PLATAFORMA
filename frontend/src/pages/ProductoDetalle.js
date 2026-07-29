@@ -6,6 +6,7 @@ import html2canvas from "html2canvas";
 import Footer from "./Footer";
 import Navbar from "./Navbar";
 
+
 // 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - VERSIÓN CORREGIDA
 const getImageUrl = (imagen) => {
   if (!imagen) {
@@ -24,68 +25,6 @@ const getImageUrl = (imagen) => {
 
   // Si no comienza con /, la agrega
   return `https://backend-zuib.onrender.com/${imagen}`;
-};
-
-// 🔥 FUNCIÓN PARA OBTENER IMAGEN DEL PRODUCTO
-const obtenerImagen = (producto) => {
-  if (!producto) return "https://via.placeholder.com/200";
-
-  let imagenUrl = "";
-
-  // Prioriza 'imagenes' (puede tener múltiples separadas por coma)
-  if (producto.imagenes && producto.imagenes.trim() !== "") {
-    imagenUrl = producto.imagenes.split(",")[0].trim();
-  } 
-  // Si no tiene 'imagenes', usa 'imagen'
-  else if (producto.imagen && producto.imagen.trim() !== "") {
-    imagenUrl = producto.imagen.trim();
-  } 
-  // Si no tiene ninguna, usa placeholder
-  else {
-    return "https://via.placeholder.com/200";
-  }
-
-  return getImageUrl(imagenUrl);
-};
-
-// 🔥 FUNCIÓN MEJORADA PARA CONVERTIR IMÁGENES A BASE64
-const convertirImagenBase64 = async (url) => {
-  try {
-    // Si es una URL vacía o null, retorna null
-    if (!url) return null;
-    
-    let fullUrl = url;
-    
-    // Si la URL es relativa, construir la URL completa
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      // Si es una imagen de membrete, usar la URL del backend
-      if (url.includes('membrete')) {
-        fullUrl = `https://backend-zuib.onrender.com/uploads/${url.split('/').pop()}`;
-      } else {
-        // Para otras imágenes, usar la URL completa
-        fullUrl = `https://backend-zuib.onrender.com${url.startsWith('/') ? url : '/' + url}`;
-      }
-    }
-    
-    console.log('🖼️ Cargando imagen:', fullUrl);
-    
-    const response = await fetch(fullUrl);
-    if (!response.ok) {
-      console.warn(`⚠️ No se pudo cargar la imagen: ${fullUrl} (${response.status})`);
-      return null;
-    }
-    
-    const blob = await response.blob();
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.warn('⚠️ Error convirtiendo imagen a base64:', error);
-    return null;
-  }
 };
 
 export default function ProductoDetalle() {
@@ -113,10 +52,12 @@ export default function ProductoDetalle() {
     return guardados ? JSON.parse(guardados) : [];
   });
 
-  // 📋 DATOS DE NAVEGACIÓN
+  // 📋 DATOS DE NAVEGACIÓN (categorías, subcategorías, tipos)
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
   const [tipos, setTipos] = useState([]);
+
+  // 📦 PRODUCTOS (para el navbar y lógica)
   const [productos, setProductos] = useState([]);
 
   // 👤 CLIENTE
@@ -142,6 +83,7 @@ export default function ProductoDetalle() {
   const carruselScrollRef = useRef(null);
 
   // ========== EFECTOS ==========
+
   useEffect(() => {
     const cargarDatosNavegacion = async () => {
       try {
@@ -181,7 +123,7 @@ export default function ProductoDetalle() {
       .catch((err) => console.error("Error cargando producto:", err));
   }, [id]);
 
-  // ===== MODELOS DISPONIBLES =====
+  // ===== 🔥 MODELOS DISPONIBLES - SOLO MISMO TIPO =====
   useEffect(() => {
     if (!producto) {
       setModelosDisponibles([]);
@@ -233,7 +175,7 @@ export default function ProductoDetalle() {
     };
   }, [producto]);
 
-  // ===== CARRUSEL AUTOMÁTICO =====
+  // ===== 🔥 CARRUSEL AUTOMÁTICO CON DESPLAZAMIENTO Y EFECTO 3D =====
   useEffect(() => {
     if (modelosDisponibles.length > 1 && carruselScrollRef.current) {
       const scrollContainer = carruselScrollRef.current;
@@ -328,6 +270,7 @@ export default function ProductoDetalle() {
   }, [favoritos]);
 
   // ========== FUNCIONES ==========
+
   const toggleFavorito = (producto) => {
     const existe = favoritos.find((fav) => fav.id === producto.id);
     if (existe) {
@@ -338,6 +281,29 @@ export default function ProductoDetalle() {
   };
 
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
+
+  // 🔥 FUNCIÓN PARA OBTENER IMAGEN DEL PRODUCTO - VERSIÓN CORREGIDA
+const obtenerImagen = (producto) => {
+  if (!producto) return "https://via.placeholder.com/200";
+
+  let imagenUrl = "";
+
+  // Prioriza 'imagenes' (puede tener múltiples separadas por coma)
+  if (producto.imagenes && producto.imagenes.trim() !== "") {
+    imagenUrl = producto.imagenes.split(",")[0].trim();
+  } 
+  // Si no tiene 'imagenes', usa 'imagen'
+  else if (producto.imagen && producto.imagen.trim() !== "") {
+    imagenUrl = producto.imagen.trim();
+  } 
+  // Si no tiene ninguna, usa placeholder
+  else {
+    return "https://via.placeholder.com/200";
+  }
+
+  // Aplica la función getImageUrl para obtener la URL completa
+  return getImageUrl(imagenUrl);
+};
 
   const imagenes = producto?.imagenes
     ? producto.imagenes.split(",")
@@ -427,11 +393,13 @@ export default function ProductoDetalle() {
     }
   };
 
+  // ========== FUNCIÓN PARA SELECCIONAR PRODUCTO RELACIONADO ==========
   const seleccionarProductoRelacionado = (productoRelacionado) => {
     navigate(`/producto/${productoRelacionado.id}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // ========== FUNCIÓN PARA AGRUPAR PRODUCTOS POR TIPO ==========
   const agruparPorTipo = (productos) => {
     const grupos = {};
     productos.forEach(p => {
@@ -447,6 +415,7 @@ export default function ProductoDetalle() {
     return grupos;
   };
 
+  // ========== OBTENER COLOR PARA CADA TIPO ==========
   const getTipoColor = (tipo) => {
     const colores = {
       'Sin tipo': '#94a3b8',
@@ -472,6 +441,7 @@ export default function ProductoDetalle() {
     return '#3b82f6';
   };
 
+  // ========== FUNCIÓN PARA AGREGAR AL PEDIDO ==========
   const agregarAlPedido = (productoParaAgregar) => {
     const carritoGuardado = sessionStorage.getItem("carritoPedido");
     let carrito = carritoGuardado ? JSON.parse(carritoGuardado) : [];
@@ -513,6 +483,7 @@ export default function ProductoDetalle() {
   };
 
   // ========== COTIZADOR ==========
+
   const agregarMedida = () => {
     if (medidas.length >= 5) return;
     setMedidas([...medidas, { largo: "", ancho: "" }]);
@@ -537,6 +508,7 @@ export default function ProductoDetalle() {
   const [areaSeleccionada, setAreaSeleccionada] = useState(0);
 
   // ========== CÁLCULOS ==========
+
   let areaIngresada = 0;
   if (producto?.tipoVenta === "otros") {
     areaIngresada = Number(medidas[0]?.area) || 0;
@@ -598,22 +570,301 @@ export default function ProductoDetalle() {
   }
   total = total.toFixed(2);
 
-  // ========== PDF MEJORADO ==========
-  const getImagenActual = () => {
-    let imgUrl = '';
-    if (modeloSeleccionado) {
-      const img = modeloSeleccionado.imagenes 
-        ? modeloSeleccionado.imagenes.split(",") 
-        : [modeloSeleccionado.imagen];
-      imgUrl = img[indice] || img[0] || '';
-    } else {
-      imgUrl = imagenes[indice] || imagenes[0] || '';
+  // ========== PDF ==========
+
+  const convertirImagenBase64 = async (url) => {
+    try {
+      const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+      const response = await fetch(fullUrl);
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+      const blob = await response.blob();
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error convirtiendo imagen a base64:', error);
+      return null;
     }
-    if (!imgUrl) {
-      return "https://via.placeholder.com/200";
-    }
-    return getImageUrl(imgUrl);
   };
+
+  const obtenerDetalleMedidas = () => {
+    return medidas.map((item, index) => {
+      if (producto?.tipoVenta === "unidad") {
+        return { numero: index + 1, cantidad: Number(item.cantidad) || 0 };
+      }
+      if (producto?.tipoVenta === "tramo") {
+        return { numero: index + 1, perimetro: Number(item.perimetro) || 0 };
+      }
+      if (producto?.tipoVenta === "otros") {
+        return { numero: 1, area: Number(item.area) || 0 };
+      }
+      const largo = Number(item.largo) || 0;
+      const ancho = Number(item.ancho) || 0;
+      return { numero: index + 1, largo, ancho, area: largo * ancho };
+    });
+  };
+
+  const generarPDF = async () => {
+    try {
+      setEnviando(true);
+      const pdf = new jsPDF("p", "mm", "a4");
+      const membrete1 = await convertirImagenBase64(
+        window.location.origin + "/membreteuno.jpg"
+      );
+      const membrete2 = await convertirImagenBase64(
+        window.location.origin + "/membretedos.jpg"
+      );
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      const ponerFondo = (pdf, img) => {
+        if (!img) return;
+        pdf.addImage(img, "JPEG", 0, 0, pageWidth, pageHeight);
+      };
+
+      ponerFondo(pdf, membrete1);
+      let y = 50;
+      const numeroCotizacion = Math.floor(100000 + Math.random() * 900000);
+      const fechaActual = new Date().toLocaleDateString("es-MX");
+      pdf.setFontSize(10);
+      pdf.setTextColor(80);
+      pdf.text(`Fecha: ${fechaActual}`, pageWidth - 60, 35);
+      pdf.text(`Cotización #${numeroCotizacion}`, pageWidth - 60, 42);
+      pdf.setDrawColor(200);
+      pdf.line(15, 55, pageWidth - 15, 55);
+      y = 70;
+
+      const imagenBase64 = await convertirImagenBase64(getImagenActual());
+      if (imagenBase64) {
+        pdf.addImage(imagenBase64, "JPEG", 15, y, 60, 60);
+      } else {
+        pdf.setFontSize(10);
+        pdf.setTextColor(150);
+        pdf.text("Imagen no disponible", 15, y + 30);
+      }
+
+      pdf.setFontSize(14);
+      pdf.setTextColor(40);
+      pdf.text(`Producto: ${getNombreActual()}`, 85, y + 10);
+      pdf.text(`Categoría: ${producto.categoria || "-"}`, 85, y + 20);
+      pdf.text(`Subcategoría: ${producto.subcategoria || "-"}`, 85, y + 30);
+      pdf.text(`SKU: ${producto.sku || "-"}`, 85, y + 40);
+      pdf.setFontSize(20);
+      pdf.setTextColor(22, 163, 74);
+      pdf.text(`Total: $${total}`, 85, y + 55);
+
+      y += 90;
+      pdf.setFontSize(18);
+      pdf.setTextColor(0);
+      pdf.text("Resumen de Cotización", 15, y);
+      y += 10;
+      pdf.setFillColor(245, 247, 250);
+      pdf.roundedRect(15, y, pageWidth - 30, 45, 3, 3, "F");
+      pdf.setFontSize(11);
+      pdf.setTextColor(60);
+
+      if (producto?.tipoVenta === "otros") {
+        pdf.text(`Área a cubrir: ${areaIngresada.toFixed(2)} m²`, 20, y + 8);
+        pdf.text(`Cobertura por unidad: ${coberturaPorUnidad.toFixed(2)} m²`, 20, y + 18);
+        pdf.text(`Unidades necesarias: ${cantidadNecesaria}`, 20, y + 28);
+        pdf.text(`Área total cubierta: ${areaCubierta.toFixed(2)} m²`, 20, y + 38);
+      } else if (producto?.tipoVenta === "unidad") {
+        pdf.text(`Cantidad total de unidades: ${cantidadNecesaria}`, 20, y + 8);
+      } else {
+        pdf.text(
+          `Modo de cotización: ${
+            modoCotizacion === "todas" ? "Todas las áreas" : "Área seleccionada"
+          }`,
+          20,
+          y + 8
+        );
+        pdf.text(`Área total: ${areaIngresada.toFixed(2)} m²`, 20, y + 18);
+        pdf.text(`Desperdicio: ${desperdicio}%`, 20, y + 28);
+        pdf.text(`Área final: ${areaConDesperdicio.toFixed(2)} m²`, 20, y + 38);
+      }
+
+      y += 60;
+      pdf.setFontSize(14);
+      pdf.setTextColor(30);
+      pdf.text("Detalle de Medidas", 15, y);
+      y += 10;
+      const detalleMedidas = obtenerDetalleMedidas();
+      detalleMedidas.forEach((item) => {
+        pdf.setFontSize(11);
+        if (producto.tipoVenta === "unidad") {
+          pdf.text(`Cantidad ${item.numero}: ${item.cantidad}`, 20, y);
+        } else if (producto.tipoVenta === "tramo") {
+          pdf.text(`Perímetro ${item.numero}: ${item.perimetro} m`, 20, y);
+        } else if (producto.tipoVenta === "otros") {
+          pdf.text(`Área a cubrir: ${item.area.toFixed(2)} m²`, 20, y);
+        } else {
+          pdf.text(
+            `Área ${item.numero}: ${item.largo} x ${item.ancho} = ${item.area.toFixed(2)} m²`,
+            20,
+            y
+          );
+        }
+        y += 8;
+      });
+
+      let notaProducto = "";
+      if (producto.tipoVenta === "rollo") {
+        notaProducto =
+          `Este producto se vende por rollo. ` +
+          `Cada rollo mide ${formatMeters(producto.ancho)} m x ${formatMeters(
+            producto.alto
+          )} m y cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
+          `Para cubrir ${areaConDesperdicio.toFixed(2)} m² necesitas aproximadamente ${metrosLineales.toFixed(
+            2
+          )} metros lineales.`;
+      } else if (producto.tipoVenta === "caja") {
+        notaProducto =
+          `Este producto se vende por caja. ` +
+          `Cada caja contiene ${producto.piezasCaja} piezas y cubre ${coberturaPorUnidad.toFixed(
+            2
+          )} m². ` +
+          `Para cubrir ${areaConDesperdicio.toFixed(2)} m² necesitas aproximadamente ${cantidadNecesaria} cajas.`;
+      } else if (producto.tipoVenta === "pieza") {
+        notaProducto =
+          `Cada pieza cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
+          `Para cubrir ${areaConDesperdicio.toFixed(2)} m² necesitas aproximadamente ${cantidadNecesaria} piezas.`;
+      } else if (producto.tipoVenta === "unidad") {
+        notaProducto = `Se requieren aproximadamente ${cantidadNecesaria} unidades para este proyecto.`;
+      } else if (producto.tipoVenta === "tramo") {
+        notaProducto = `Para cubrir ${cantidadNecesaria.toFixed(2)} metros necesitas aproximadamente ${cantidadNecesaria.toFixed(
+          2
+        )} metros lineales.`;
+      } else if (producto.tipoVenta === "otros") {
+        notaProducto =
+          `Este producto se vende por presentación (${producto.presentacion || "unidad"}). ` +
+          `Cada unidad cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
+          `Para cubrir ${areaIngresada.toFixed(2)} m² necesitas aproximadamente ${cantidadNecesaria} unidades. ` +
+          `Esto cubrirá ${areaCubierta.toFixed(2)} m².`;
+      }
+
+      const lineasNota = pdf.splitTextToSize(notaProducto, pageWidth - 45);
+      const altoNota = lineasNota.length * 5 + 12;
+      if (y + altoNota > pageHeight - 50) {
+        pdf.addPage();
+        ponerFondo(pdf, membrete2);
+        y = 50;
+      }
+      pdf.setFillColor(255, 248, 200);
+      pdf.roundedRect(15, y, pageWidth - 30, altoNota, 3, 3, "F");
+      pdf.setFontSize(10);
+      pdf.setTextColor(90);
+      pdf.text(lineasNota, 20, y + 8);
+      y += altoNota + 15;
+
+      if (y > pageHeight - 90) {
+        pdf.addPage();
+        y = 20;
+        if (membrete2) ponerFondo(pdf, membrete2);
+      }
+      pdf.setFontSize(14);
+      pdf.setTextColor(30);
+      pdf.text("Condiciones Comerciales", 15, y);
+      y += 10;
+      const condiciones = [
+        "• Precios sujetos a cambios sin previo aviso.",
+        "• Vigencia de la cotización: 15 días.",
+        "• Material sujeto a disponibilidad.",
+        "• No incluye instalación ni envío salvo indicación expresa.",
+      ];
+      pdf.setFontSize(10);
+      pdf.setTextColor(90);
+      condiciones.forEach((item) => {
+        pdf.text(item, 20, y);
+        y += 7;
+      });
+      y += 10;
+
+      if (y > pageHeight - 80) {
+        pdf.addPage();
+        ponerFondo(pdf, membrete2);
+        y = 50;
+      }
+      pdf.setFillColor(22, 163, 74);
+      pdf.roundedRect(15, y, pageWidth - 30, 18, 3, 3, "F");
+      pdf.setTextColor(255);
+      pdf.setFontSize(18);
+      pdf.text(`TOTAL ESTIMADO: $${total}`, 20, y + 12);
+      y += 30;
+      pdf.setFontSize(16);
+      pdf.setTextColor(0);
+      pdf.text("Datos del Cliente", 15, y);
+      y += 12;
+      pdf.setFillColor(248, 250, 252);
+      pdf.roundedRect(15, y, pageWidth - 30, 28, 3, 3, "F");
+      pdf.setFontSize(11);
+      pdf.setTextColor(0);
+      pdf.text(`Nombre: ${cliente.nombre || "-"}`, 20, y + 8);
+      pdf.text(`Correo: ${cliente.correo || "-"}`, 20, y + 16);
+      pdf.text(`Celular: ${cliente.celular || "-"}`, 20, y + 24);
+      y += 40;
+
+      const pdfBase64 = pdf.output("datauristring");
+      await api.post("/enviar-cotizacion", {
+        nombre: cliente.nombre,
+        correo: cliente.correo,
+        celular: cliente.celular,
+        producto: producto.nombre,
+        total,
+        pdf: pdfBase64,
+      });
+      setMensajeEnviado("La cotización fue enviada a tu correo");
+    } catch (error) {
+      console.error(error);
+      alert("Error generando cotización");
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const formatMeters = (cm) => (Number(cm) / 100).toFixed(2);
+
+  // ========== RENDER ==========
+
+  if (!producto) return <h2 style={{ padding: "20px" }}>Cargando...</h2>;
+
+  const getStockColor = (stock) => {
+    if (stock <= 0) return "#dc2626";
+    if (stock <= 3) return "#f59e0b";
+    return "#16a34a";
+  };
+
+  const plural = (stock, tipo) => {
+    if (stock === 1) return tipo;
+    if (tipo === "unidad") return "unidades";
+    if (tipo === "pieza") return "piezas";
+    if (tipo === "tramo") return "tramos";
+    if (tipo === "caja") return "cajas";
+    return tipo + "s";
+  };
+
+  // 🔥 FUNCIÓN MODIFICADA - getImagenActual con getImageUrl
+const getImagenActual = () => {
+  let imgUrl = '';
+  if (modeloSeleccionado) {
+    const img = modeloSeleccionado.imagenes 
+      ? modeloSeleccionado.imagenes.split(",") 
+      : [modeloSeleccionado.imagen];
+    imgUrl = img[indice] || img[0] || '';
+  } else {
+    imgUrl = imagenes[indice] || imagenes[0] || '';
+  }
+  // Si no hay imagen, retorna placeholder
+  if (!imgUrl) {
+    return "https://via.placeholder.com/200";
+  }
+  return getImageUrl(imgUrl);
+};
 
   const getNombreActual = () => {
     if (modeloSeleccionado) {
@@ -642,300 +893,7 @@ export default function ProductoDetalle() {
     return unidadMap[tipoVenta] || '';
   };
 
-  const obtenerDetalleMedidas = () => {
-    return medidas.map((item, index) => {
-      if (producto?.tipoVenta === "unidad") {
-        return { numero: index + 1, cantidad: Number(item.cantidad) || 0 };
-      }
-      if (producto?.tipoVenta === "tramo") {
-        return { numero: index + 1, perimetro: Number(item.perimetro) || 0 };
-      }
-      if (producto?.tipoVenta === "otros") {
-        return { numero: 1, area: Number(item.area) || 0 };
-      }
-      const largo = Number(item.largo) || 0;
-      const ancho = Number(item.ancho) || 0;
-      return { numero: index + 1, largo, ancho, area: largo * ancho };
-    });
-  };
-
-  const formatMeters = (cm) => (Number(cm) / 100).toFixed(2);
-
- // ========== 🔥 FUNCIÓN GENERAR PDF MEJORADA ==========
-const generarPDF = async () => {
-  try {
-    setEnviando(true);
-    setMensajeEnviado("");
-    
-    console.log('📄 Iniciando generación de PDF...');
-    
-    // 1. Crear el PDF con jsPDF
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-
-    // --- ENCABEZADO ---
-    pdf.setFontSize(22);
-    pdf.setTextColor(22, 163, 74);
-    pdf.text("FRAY FLOORING", pageWidth / 2, 30, { align: "center" });
-
-    pdf.setFontSize(12);
-    pdf.setTextColor(75, 85, 99);
-    pdf.text("Pisos de Alta Calidad", pageWidth / 2, 40, { align: "center" });
-
-    pdf.setDrawColor(22, 163, 74);
-    pdf.setLineWidth(1.5);
-    pdf.line(20, 48, pageWidth - 20, 48);
-
-    pdf.setFontSize(9);
-    pdf.setTextColor(107, 114, 128);
-    pdf.text("📍 Dirección: Calle Principal #123, Colonia Centro, CDMX", pageWidth / 2, 57, { align: "center" });
-    pdf.text("📞 Teléfono: 55 1116 4545 | ✉️ Email: frayflooring@gmail.com", pageWidth / 2, 65, { align: "center" });
-
-    pdf.setDrawColor(229, 231, 235);
-    pdf.setLineWidth(0.5);
-    pdf.line(20, 72, pageWidth - 20, 72);
-
-    let y = 88;
-
-    // --- TÍTULO ---
-    pdf.setFontSize(18);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(31, 41, 55);
-    pdf.text("COTIZACIÓN", pageWidth / 2, y, { align: "center" });
-    y += 15;
-
-    // --- NÚMERO Y FECHA ---
-    const numeroCotizacion = `COT-${Date.now().toString().slice(-8)}`;
-    const fechaActual = new Date().toLocaleDateString('es-MX', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-
-    pdf.setFontSize(11);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(55, 65, 81);
-    pdf.text(`Número: ${numeroCotizacion}`, 20, y);
-    pdf.text(`Fecha: ${fechaActual}`, pageWidth - 60, y);
-    y += 20;
-
-    // --- DATOS DEL CLIENTE ---
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(31, 41, 55);
-    pdf.text("DATOS DEL CLIENTE", 20, y);
-    y += 12;
-
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(55, 65, 81);
-    pdf.text(`Nombre: ${cliente.nombre || "No especificado"}`, 20, y);
-    y += 8;
-    pdf.text(`Correo: ${cliente.correo || "No especificado"}`, 20, y);
-    y += 8;
-    if (cliente.celular) {
-      pdf.text(`Teléfono: ${cliente.celular}`, 20, y);
-      y += 8;
-    }
-    y += 8;
-
-    // --- LÍNEA SEPARADORA ---
-    pdf.setDrawColor(229, 231, 235);
-    pdf.line(20, y, pageWidth - 20, y);
-    y += 12;
-
-    // --- TABLA DE PRODUCTOS ---
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(31, 41, 55);
-    pdf.text("DETALLE DE PRODUCTO", 20, y);
-    y += 10;
-
-    // Encabezados de tabla
-    const col1 = 20;
-    const col2 = 100;
-    const col3 = 150;
-    const col4 = 190;
-
-    pdf.setFillColor(22, 163, 74);
-    pdf.rect(col1, y - 4, pageWidth - 40, 10, "F");
-    pdf.setFontSize(9);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(255, 255, 255);
-    pdf.text("Producto", col1 + 5, y + 2);
-    pdf.text("Cant.", col2 + 5, y + 2);
-    pdf.text("Precio", col3 + 5, y + 2);
-    pdf.text("Subtotal", col4 + 5, y + 2);
-    y += 14;
-
-    let totalCalculado = 0;
-
-    // Productos
-    pdf.setFontSize(9);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(31, 41, 55);
-
-    // Si hay productos en la cotización, usar esos
-    const productosParaPDF = productos || [{ 
-      nombre: producto.nombre, 
-      cantidad: 1, 
-      precio: parseFloat(total) || 0, 
-      subtotal: parseFloat(total) || 0 
-    }];
-
-    for (const item of productosParaPDF) {
-      const nombreProd = item.nombre || producto.nombre;
-      const cant = item.cantidad || 1;
-      const precio = item.precio || parseFloat(total) || 0;
-      const subtotal = item.subtotal || (precio * cant);
-      totalCalculado += subtotal;
-
-      // Verificar espacio en página
-      if (y > 250) {
-        pdf.addPage();
-        y = 30;
-        // Reimprimir encabezados
-        pdf.setFillColor(22, 163, 74);
-        pdf.rect(col1, y - 4, pageWidth - 40, 10, "F");
-        pdf.setFontSize(9);
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(255, 255, 255);
-        pdf.text("Producto", col1 + 5, y + 2);
-        pdf.text("Cant.", col2 + 5, y + 2);
-        pdf.text("Precio", col3 + 5, y + 2);
-        pdf.text("Subtotal", col4 + 5, y + 2);
-        y += 14;
-      }
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(31, 41, 55);
-      pdf.text(nombreProd.length > 25 ? nombreProd.substring(0, 25) + "..." : nombreProd, col1 + 5, y + 2);
-      pdf.text(cant.toString(), col2 + 5, y + 2);
-      pdf.text(`$${precio.toFixed(2)}`, col3 + 5, y + 2);
-      pdf.text(`$${subtotal.toFixed(2)}`, col4 + 5, y + 2);
-      y += 10;
-    }
-
-    // --- TOTAL ---
-    y += 6;
-    pdf.setDrawColor(229, 231, 235);
-    pdf.line(pageWidth - 80, y, pageWidth - 20, y);
-    y += 6;
-
-    pdf.setFontSize(14);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(22, 163, 74);
-    pdf.text(`TOTAL: $${totalCalculado.toFixed(2)}`, pageWidth - 80, y, { align: "right" });
-    y += 20;
-
-    // --- NOTAS ---
-    pdf.setFontSize(9);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(107, 114, 128);
-    pdf.text("NOTAS IMPORTANTES:", 20, y);
-    y += 6;
-    pdf.setFont("helvetica", "italic");
-    pdf.setTextColor(156, 163, 175);
-    pdf.text("• Esta cotización tiene una validez de 15 días a partir de la fecha de emisión.", 20, y);
-    y += 6;
-    pdf.text("• Los precios están sujetos a cambios sin previo aviso.", 20, y);
-    y += 6;
-    pdf.text("• El pago deberá realizarse en tienda física.", 20, y);
-    y += 6;
-    pdf.text("• Para más información, contáctanos al 55 1116 4545.", 20, y);
-    y += 12;
-
-    // --- FIRMA ---
-    pdf.text("_________________________", pageWidth - 80, y);
-    pdf.setFontSize(8);
-    pdf.setTextColor(55, 65, 81);
-    pdf.text("Firma y Sello", pageWidth - 80, y + 10, { align: "center" });
-
-    // --- PIE DE PÁGINA ---
-    const pageCount = pdf.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      pdf.setPage(i);
-      pdf.setFontSize(8);
-      pdf.setTextColor(156, 163, 175);
-      pdf.text(`Página ${i} de ${pageCount}`, pageWidth / 2, pageHeight - 15, { align: "center" });
-    }
-
-    // 2. Generar el PDF en base64
-    const pdfBase64 = pdf.output('datauristring');
-    console.log('✅ PDF generado correctamente, tamaño:', pdfBase64.length);
-
-    // 3. Validar que el cliente tenga datos
-    if (!cliente.nombre || !cliente.correo) {
-      setMensajeEnviado("⚠️ Por favor completa tus datos (nombre y correo)");
-      setEnviando(false);
-      return;
-    }
-
-    // 4. Enviar al backend
-    console.log('📧 Enviando cotización al backend...');
-    console.log('📤 Datos a enviar:', {
-      nombre: cliente.nombre,
-      correo: cliente.correo,
-      celular: cliente.celular,
-      producto: producto.nombre,
-      total: totalCalculado.toFixed(2),
-      tienePDF: !!pdfBase64
-    });
-
-    const response = await fetch('https://backend-zuib.onrender.com/enviar-cotizacion', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        nombre: cliente.nombre,
-        correo: cliente.correo,
-        celular: cliente.celular || '',
-        producto: producto.nombre,
-        total: totalCalculado.toFixed(2),
-        pdf: pdfBase64,
-        productos: productosParaPDF
-      }),
-    });
-
-    const data = await response.json();
-    console.log('📥 Respuesta del backend:', data);
-    
-    if (!response.ok) {
-      throw new Error(data.error || 'Error al enviar la cotización');
-    }
-
-    console.log('✅ Cotización enviada correctamente:', data);
-    setMensajeEnviado("✅ La cotización fue enviada a tu correo electrónico");
-    setCliente({ nombre: "", correo: "", celular: "" });
-    
-  } catch (error) {
-    console.error('❌ Error detallado al generar/enviar cotización:', error);
-    setMensajeEnviado(`❌ Error: ${error.message || 'No se pudo enviar la cotización'}`);
-  } finally {
-    setEnviando(false);
-  }
-};
-
-  // ========== RENDER ==========
-  if (!producto) return <h2 style={{ padding: "20px" }}>Cargando...</h2>;
-
-  const getStockColor = (stock) => {
-    if (stock <= 0) return "#dc2626";
-    if (stock <= 3) return "#f59e0b";
-    return "#16a34a";
-  };
-
-  const plural = (stock, tipo) => {
-    if (stock === 1) return tipo;
-    if (tipo === "unidad") return "unidades";
-    if (tipo === "pieza") return "piezas";
-    if (tipo === "tramo") return "tramos";
-    if (tipo === "caja") return "cajas";
-    return tipo + "s";
-  };
-
+  // Agrupar productos relacionados por tipo
   const relacionadosAgrupados = agruparPorTipo(relacionados);
   const sugeridosAgrupados = agruparPorTipo(sugeridos);
 
@@ -995,7 +953,7 @@ const generarPDF = async () => {
               />
             </div>
 
-            {/* THUMBNAILS */}
+            {/* 🔥 THUMBNAILS MODIFICADOS */}
             <div className="thumbs-container">
               {(modeloSeleccionado 
                 ? (modeloSeleccionado.imagenes ? modeloSeleccionado.imagenes.split(",") : [modeloSeleccionado.imagen])
@@ -1399,12 +1357,10 @@ const generarPDF = async () => {
                     onClick={generarPDF}
                     disabled={enviando}
                   >
-                    {enviando ? "⏳ Enviando..." : "📧 Solicitar cotización"}
+                    {enviando ? "Enviando..." : "Solicitar cotización"}
                   </button>
                   {mensajeEnviado && (
-                    <p className={`mensaje-${mensajeEnviado.includes('✅') ? 'exito' : 'error'}`}>
-                      {mensajeEnviado}
-                    </p>
+                    <p className="mensaje-exito">{mensajeEnviado}</p>
                   )}
                 </div>
               </div>
@@ -1416,7 +1372,7 @@ const generarPDF = async () => {
         <div className="producto-detalle-right">
           <h1 className="product-title">{getNombreActual()}</h1>
 
-          {/* ===== CARRUSEL DE MODELOS ===== */}
+          {/* ===== 🔥 CARRUSEL DE MODELOS CON ANIMACIÓN 3D ===== */}
           {modelosDisponibles.length > 0 && (
             <div className="modelos-carrusel-right">
               <div className="modelos-carrusel-header-right">
@@ -1600,7 +1556,7 @@ const generarPDF = async () => {
             )}
           </div>
 
-          {/* PRECIO */}
+          {/* ===== 🔥 PRECIO GRANDE CON EFECTO BRILLO ===== */}
           {producto.oferta === 1 || producto.oferta === true ? (
             <div className="precio-container">
               <span className="precio-anterior">${producto.precio}</span>
@@ -1721,7 +1677,7 @@ const generarPDF = async () => {
             </div>
           )}
 
-          {/* BOTONES DE ACCIÓN */}
+          {/* BOTONES DE ACCIÓN: VER FICHA TÉCNICA, AGREGAR AL COTIZADOR, AGREGAR AL PEDIDO */}
           <div className="botones-acciones">
             {producto.fichaTecnica && (
               <button
@@ -1747,6 +1703,33 @@ const generarPDF = async () => {
             <button
               className="btn-agregar-pedido"
               onClick={() => agregarAlPedido(producto)}
+              style={{
+                flex: 1,
+                background: 'linear-gradient(135deg, #16a34a, #15803d)',
+                color: '#fff',
+                border: 'none',
+                padding: '14px 20px',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                fontWeight: '700',
+                fontSize: '15px',
+                boxShadow: '0 6px 15px rgba(22, 163, 74, 0.3)',
+                transition: 'all 0.25s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 25px rgba(22, 163, 74, 0.4)';
+                e.currentTarget.style.background = 'linear-gradient(135deg, #15803d, #166534)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 6px 15px rgba(22, 163, 74, 0.3)';
+                e.currentTarget.style.background = 'linear-gradient(135deg, #16a34a, #15803d)';
+              }}
             >
               🛒 Agregar al pedido
             </button>
@@ -1766,9 +1749,9 @@ const generarPDF = async () => {
         )}
       </div>
 
-      {/* ========== PRODUCTOS RELACIONADOS ========== */}
+      {/* ========== 🔥 PRODUCTOS RELACIONADOS AGRUPADOS POR TIPO ========== */}
       <div className="full-width-related-wrapper">
-        {/* PRODUCTOS SUGERIDOS */}
+        {/* PRODUCTOS SUGERIDOS (RECOMENDADOS) AGRUPADOS POR TIPO */}
         {sugeridos.length > 0 && (
           <div className="full-width-related-section">
             <div className="sugeridos-banner">
@@ -1835,7 +1818,7 @@ const generarPDF = async () => {
           </div>
         )}
 
-        {/* PRODUCTOS RELACIONADOS */}
+        {/* PRODUCTOS RELACIONADOS POR SUBCATEGORÍA AGRUPADOS POR TIPO */}
         {relacionados.length > 0 ? (
           <div className="full-width-related-section">
             <div className="related-header">
@@ -2112,11 +2095,13 @@ if (typeof document !== "undefined") {
     .precio-normal-brillante {
       font-size: 48px;
       font-weight: 900;
+      color: #ffffff;
       margin: 0;
       display: flex;
       align-items: center;
       gap: 16px;
       flex-wrap: wrap;
+      text-shadow: 0 0 20px rgba(22, 163, 74, 0.3);
       background: linear-gradient(90deg, #4ade80, #22c55e, #16a34a);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -2336,6 +2321,7 @@ if (typeof document !== "undefined") {
       transform: translateY(-2px);
       box-shadow: 0 10px 20px rgba(0,0,0,0.25);
     }
+    /* 🔥 BOTÓN AGREGAR AL PEDIDO */
     .btn-agregar-pedido {
       flex: 1;
       min-width: 100px;
@@ -2622,13 +2608,6 @@ if (typeof document !== "undefined") {
       text-align: center;
       animation: fadeIn 0.5s ease;
     }
-    .mensaje-error {
-      margin-top: 15px;
-      color: #dc2626;
-      font-weight: bold;
-      text-align: center;
-      animation: fadeIn 0.5s ease;
-    }
 
     /* ========================================================= */
     /* 🔥 CARRUSEL DE MODELOS CON ANIMACIONES MEJORADAS */
@@ -2848,6 +2827,15 @@ if (typeof document !== "undefined") {
       }
     }
 
+    .modelo-carrusel-img-right {
+      width: 100%;
+      height: 120px;
+      object-fit: contain;
+      border-radius: 10px;
+      background: #fafafa;
+      padding: 6px;
+      transition: transform 0.4s ease;
+    }
     .modelo-carrusel-info-right {
       margin-top: 8px;
     }
@@ -3406,6 +3394,9 @@ if (typeof document !== "undefined") {
         min-width: 120px;
         max-width: 150px;
         padding: 10px;
+      }
+      .modelo-carrusel-img-right {
+        height: 90px;
       }
       .sugeridos-title {
         font-size: 18px;
