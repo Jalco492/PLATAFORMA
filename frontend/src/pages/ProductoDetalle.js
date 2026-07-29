@@ -6,7 +6,6 @@ import html2canvas from "html2canvas";
 import Footer from "./Footer";
 import Navbar from "./Navbar";
 
-
 // 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - VERSIÓN CORREGIDA
 const getImageUrl = (imagen) => {
   if (!imagen) {
@@ -25,6 +24,68 @@ const getImageUrl = (imagen) => {
 
   // Si no comienza con /, la agrega
   return `https://backend-zuib.onrender.com/${imagen}`;
+};
+
+// 🔥 FUNCIÓN PARA OBTENER IMAGEN DEL PRODUCTO
+const obtenerImagen = (producto) => {
+  if (!producto) return "https://via.placeholder.com/200";
+
+  let imagenUrl = "";
+
+  // Prioriza 'imagenes' (puede tener múltiples separadas por coma)
+  if (producto.imagenes && producto.imagenes.trim() !== "") {
+    imagenUrl = producto.imagenes.split(",")[0].trim();
+  } 
+  // Si no tiene 'imagenes', usa 'imagen'
+  else if (producto.imagen && producto.imagen.trim() !== "") {
+    imagenUrl = producto.imagen.trim();
+  } 
+  // Si no tiene ninguna, usa placeholder
+  else {
+    return "https://via.placeholder.com/200";
+  }
+
+  return getImageUrl(imagenUrl);
+};
+
+// 🔥 FUNCIÓN MEJORADA PARA CONVERTIR IMÁGENES A BASE64
+const convertirImagenBase64 = async (url) => {
+  try {
+    // Si es una URL vacía o null, retorna null
+    if (!url) return null;
+    
+    let fullUrl = url;
+    
+    // Si la URL es relativa, construir la URL completa
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      // Si es una imagen de membrete, usar la URL del backend
+      if (url.includes('membrete')) {
+        fullUrl = `https://backend-zuib.onrender.com/uploads/${url.split('/').pop()}`;
+      } else {
+        // Para otras imágenes, usar la URL completa
+        fullUrl = `https://backend-zuib.onrender.com${url.startsWith('/') ? url : '/' + url}`;
+      }
+    }
+    
+    console.log('🖼️ Cargando imagen:', fullUrl);
+    
+    const response = await fetch(fullUrl);
+    if (!response.ok) {
+      console.warn(`⚠️ No se pudo cargar la imagen: ${fullUrl} (${response.status})`);
+      return null;
+    }
+    
+    const blob = await response.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.warn('⚠️ Error convirtiendo imagen a base64:', error);
+    return null;
+  }
 };
 
 export default function ProductoDetalle() {
@@ -52,12 +113,10 @@ export default function ProductoDetalle() {
     return guardados ? JSON.parse(guardados) : [];
   });
 
-  // 📋 DATOS DE NAVEGACIÓN (categorías, subcategorías, tipos)
+  // 📋 DATOS DE NAVEGACIÓN
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
   const [tipos, setTipos] = useState([]);
-
-  // 📦 PRODUCTOS (para el navbar y lógica)
   const [productos, setProductos] = useState([]);
 
   // 👤 CLIENTE
@@ -83,7 +142,6 @@ export default function ProductoDetalle() {
   const carruselScrollRef = useRef(null);
 
   // ========== EFECTOS ==========
-
   useEffect(() => {
     const cargarDatosNavegacion = async () => {
       try {
@@ -123,7 +181,7 @@ export default function ProductoDetalle() {
       .catch((err) => console.error("Error cargando producto:", err));
   }, [id]);
 
-  // ===== 🔥 MODELOS DISPONIBLES - SOLO MISMO TIPO =====
+  // ===== MODELOS DISPONIBLES =====
   useEffect(() => {
     if (!producto) {
       setModelosDisponibles([]);
@@ -175,7 +233,7 @@ export default function ProductoDetalle() {
     };
   }, [producto]);
 
-  // ===== 🔥 CARRUSEL AUTOMÁTICO CON DESPLAZAMIENTO Y EFECTO 3D =====
+  // ===== CARRUSEL AUTOMÁTICO =====
   useEffect(() => {
     if (modelosDisponibles.length > 1 && carruselScrollRef.current) {
       const scrollContainer = carruselScrollRef.current;
@@ -270,7 +328,6 @@ export default function ProductoDetalle() {
   }, [favoritos]);
 
   // ========== FUNCIONES ==========
-
   const toggleFavorito = (producto) => {
     const existe = favoritos.find((fav) => fav.id === producto.id);
     if (existe) {
@@ -281,29 +338,6 @@ export default function ProductoDetalle() {
   };
 
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
-
-  // 🔥 FUNCIÓN PARA OBTENER IMAGEN DEL PRODUCTO - VERSIÓN CORREGIDA
-const obtenerImagen = (producto) => {
-  if (!producto) return "https://via.placeholder.com/200";
-
-  let imagenUrl = "";
-
-  // Prioriza 'imagenes' (puede tener múltiples separadas por coma)
-  if (producto.imagenes && producto.imagenes.trim() !== "") {
-    imagenUrl = producto.imagenes.split(",")[0].trim();
-  } 
-  // Si no tiene 'imagenes', usa 'imagen'
-  else if (producto.imagen && producto.imagen.trim() !== "") {
-    imagenUrl = producto.imagen.trim();
-  } 
-  // Si no tiene ninguna, usa placeholder
-  else {
-    return "https://via.placeholder.com/200";
-  }
-
-  // Aplica la función getImageUrl para obtener la URL completa
-  return getImageUrl(imagenUrl);
-};
 
   const imagenes = producto?.imagenes
     ? producto.imagenes.split(",")
@@ -393,13 +427,11 @@ const obtenerImagen = (producto) => {
     }
   };
 
-  // ========== FUNCIÓN PARA SELECCIONAR PRODUCTO RELACIONADO ==========
   const seleccionarProductoRelacionado = (productoRelacionado) => {
     navigate(`/producto/${productoRelacionado.id}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // ========== FUNCIÓN PARA AGRUPAR PRODUCTOS POR TIPO ==========
   const agruparPorTipo = (productos) => {
     const grupos = {};
     productos.forEach(p => {
@@ -415,7 +447,6 @@ const obtenerImagen = (producto) => {
     return grupos;
   };
 
-  // ========== OBTENER COLOR PARA CADA TIPO ==========
   const getTipoColor = (tipo) => {
     const colores = {
       'Sin tipo': '#94a3b8',
@@ -441,7 +472,6 @@ const obtenerImagen = (producto) => {
     return '#3b82f6';
   };
 
-  // ========== FUNCIÓN PARA AGREGAR AL PEDIDO ==========
   const agregarAlPedido = (productoParaAgregar) => {
     const carritoGuardado = sessionStorage.getItem("carritoPedido");
     let carrito = carritoGuardado ? JSON.parse(carritoGuardado) : [];
@@ -483,7 +513,6 @@ const obtenerImagen = (producto) => {
   };
 
   // ========== COTIZADOR ==========
-
   const agregarMedida = () => {
     if (medidas.length >= 5) return;
     setMedidas([...medidas, { largo: "", ancho: "" }]);
@@ -508,7 +537,6 @@ const obtenerImagen = (producto) => {
   const [areaSeleccionada, setAreaSeleccionada] = useState(0);
 
   // ========== CÁLCULOS ==========
-
   let areaIngresada = 0;
   if (producto?.tipoVenta === "otros") {
     areaIngresada = Number(medidas[0]?.area) || 0;
@@ -570,27 +598,48 @@ const obtenerImagen = (producto) => {
   }
   total = total.toFixed(2);
 
-  // ========== PDF ==========
-
-  const convertirImagenBase64 = async (url) => {
-    try {
-      const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-      const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
-      const response = await fetch(fullUrl);
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-      const blob = await response.blob();
-      return await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    } catch (error) {
-      console.error('Error convirtiendo imagen a base64:', error);
-      return null;
+  // ========== PDF MEJORADO ==========
+  const getImagenActual = () => {
+    let imgUrl = '';
+    if (modeloSeleccionado) {
+      const img = modeloSeleccionado.imagenes 
+        ? modeloSeleccionado.imagenes.split(",") 
+        : [modeloSeleccionado.imagen];
+      imgUrl = img[indice] || img[0] || '';
+    } else {
+      imgUrl = imagenes[indice] || imagenes[0] || '';
     }
+    if (!imgUrl) {
+      return "https://via.placeholder.com/200";
+    }
+    return getImageUrl(imgUrl);
+  };
+
+  const getNombreActual = () => {
+    if (modeloSeleccionado) {
+      return modeloSeleccionado.nombre;
+    }
+    return producto.nombre;
+  };
+
+  const getPrecioActual = () => {
+    if (modeloSeleccionado) {
+      return modeloSeleccionado.oferta ? modeloSeleccionado.precioOferta : modeloSeleccionado.precio;
+    }
+    return producto.oferta ? producto.precioOferta : producto.precio;
+  };
+
+  const getUnidadVenta = () => {
+    const tipoVenta = producto?.tipoVenta || '';
+    const unidadMap = {
+      'caja': 'por caja',
+      'pieza': 'por pieza',
+      'tramo': 'por tramo',
+      'rollo': 'por rollo',
+      'unidad': 'por unidad',
+      'otros': producto?.presentacion ? `por ${producto.presentacion}` : 'por unidad'
+    };
+    return unidadMap[tipoVenta] || '';
   };
 
   const obtenerDetalleMedidas = () => {
@@ -610,28 +659,59 @@ const obtenerImagen = (producto) => {
     });
   };
 
+  const formatMeters = (cm) => (Number(cm) / 100).toFixed(2);
+
+  // ========== 🔥 FUNCIÓN GENERAR PDF MEJORADA ==========
   const generarPDF = async () => {
     try {
       setEnviando(true);
+      setMensajeEnviado("");
+      
+      console.log('📄 Iniciando generación de PDF...');
+      
       const pdf = new jsPDF("p", "mm", "a4");
-      const membrete1 = await convertirImagenBase64(
-        window.location.origin + "/membreteuno.jpg"
-      );
-      const membrete2 = await convertirImagenBase64(
-        window.location.origin + "/membretedos.jpg"
-      );
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
+      // Intentar cargar imágenes de membrete (si fallan, continuar sin ellas)
+      let membrete1 = null;
+      let membrete2 = null;
+      
+      try {
+        console.log('🖼️ Cargando membrete...');
+        // Usar URLs directas desde el backend
+        membrete1 = await convertirImagenBase64('https://backend-zuib.onrender.com/uploads/membreteuno.jpg');
+        membrete2 = await convertirImagenBase64('https://backend-zuib.onrender.com/uploads/membretedos.jpg');
+        console.log('✅ Membrete cargado:', !!membrete1, !!membrete2);
+      } catch (error) {
+        console.warn('⚠️ No se pudieron cargar los membrete:', error);
+      }
+
       const ponerFondo = (pdf, img) => {
-        if (!img) return;
-        pdf.addImage(img, "JPEG", 0, 0, pageWidth, pageHeight);
+        if (!img) {
+          console.warn('⚠️ No hay imagen de fondo para poner');
+          return;
+        }
+        try {
+          pdf.addImage(img, "JPEG", 0, 0, pageWidth, pageHeight);
+        } catch (error) {
+          console.warn('⚠️ Error al añadir imagen de fondo:', error);
+        }
       };
 
-      ponerFondo(pdf, membrete1);
+      // Fondo de la primera página
+      if (membrete1) {
+        ponerFondo(pdf, membrete1);
+      } else {
+        // Fondo simple si no hay membrete
+        pdf.setFillColor(245, 247, 250);
+        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+      }
+
       let y = 50;
       const numeroCotizacion = Math.floor(100000 + Math.random() * 900000);
       const fechaActual = new Date().toLocaleDateString("es-MX");
+      
       pdf.setFontSize(10);
       pdf.setTextColor(80);
       pdf.text(`Fecha: ${fechaActual}`, pageWidth - 60, 35);
@@ -640,15 +720,30 @@ const obtenerImagen = (producto) => {
       pdf.line(15, 55, pageWidth - 15, 55);
       y = 70;
 
-      const imagenBase64 = await convertirImagenBase64(getImagenActual());
+      // Imagen del producto
+      const imagenUrl = getImagenActual();
+      console.log('🖼️ Cargando imagen del producto:', imagenUrl);
+      
+      let imagenBase64 = null;
+      try {
+        imagenBase64 = await convertirImagenBase64(imagenUrl);
+      } catch (error) {
+        console.warn('⚠️ No se pudo cargar la imagen del producto:', error);
+      }
+      
       if (imagenBase64) {
-        pdf.addImage(imagenBase64, "JPEG", 15, y, 60, 60);
+        try {
+          pdf.addImage(imagenBase64, "JPEG", 15, y, 60, 60);
+        } catch (error) {
+          console.warn('⚠️ Error al añadir imagen del producto:', error);
+        }
       } else {
         pdf.setFontSize(10);
         pdf.setTextColor(150);
         pdf.text("Imagen no disponible", 15, y + 30);
       }
 
+      // Información del producto
       pdf.setFontSize(14);
       pdf.setTextColor(40);
       pdf.text(`Producto: ${getNombreActual()}`, 85, y + 10);
@@ -694,6 +789,7 @@ const obtenerImagen = (producto) => {
       pdf.setTextColor(30);
       pdf.text("Detalle de Medidas", 15, y);
       y += 10;
+      
       const detalleMedidas = obtenerDetalleMedidas();
       detalleMedidas.forEach((item) => {
         pdf.setFontSize(11);
@@ -750,11 +846,13 @@ const obtenerImagen = (producto) => {
 
       const lineasNota = pdf.splitTextToSize(notaProducto, pageWidth - 45);
       const altoNota = lineasNota.length * 5 + 12;
+      
       if (y + altoNota > pageHeight - 50) {
         pdf.addPage();
-        ponerFondo(pdf, membrete2);
+        if (membrete2) ponerFondo(pdf, membrete2);
         y = 50;
       }
+      
       pdf.setFillColor(255, 248, 200);
       pdf.roundedRect(15, y, pageWidth - 30, altoNota, 3, 3, "F");
       pdf.setFontSize(10);
@@ -767,10 +865,12 @@ const obtenerImagen = (producto) => {
         y = 20;
         if (membrete2) ponerFondo(pdf, membrete2);
       }
+      
       pdf.setFontSize(14);
       pdf.setTextColor(30);
       pdf.text("Condiciones Comerciales", 15, y);
       y += 10;
+      
       const condiciones = [
         "• Precios sujetos a cambios sin previo aviso.",
         "• Vigencia de la cotización: 15 días.",
@@ -787,15 +887,17 @@ const obtenerImagen = (producto) => {
 
       if (y > pageHeight - 80) {
         pdf.addPage();
-        ponerFondo(pdf, membrete2);
+        if (membrete2) ponerFondo(pdf, membrete2);
         y = 50;
       }
+      
       pdf.setFillColor(22, 163, 74);
       pdf.roundedRect(15, y, pageWidth - 30, 18, 3, 3, "F");
       pdf.setTextColor(255);
       pdf.setFontSize(18);
       pdf.text(`TOTAL ESTIMADO: $${total}`, 20, y + 12);
       y += 30;
+      
       pdf.setFontSize(16);
       pdf.setTextColor(0);
       pdf.text("Datos del Cliente", 15, y);
@@ -809,28 +911,47 @@ const obtenerImagen = (producto) => {
       pdf.text(`Celular: ${cliente.celular || "-"}`, 20, y + 24);
       y += 40;
 
-      const pdfBase64 = pdf.output("datauristring");
-      await api.post("/enviar-cotizacion", {
-        nombre: cliente.nombre,
-        correo: cliente.correo,
-        celular: cliente.celular,
-        producto: producto.nombre,
-        total,
-        pdf: pdfBase64,
+      // Generar el PDF en base64
+      const pdfBase64 = pdf.output('datauristring');
+      console.log('✅ PDF generado correctamente');
+
+      // Enviar al backend
+      console.log('📧 Enviando cotización al backend...');
+      
+      const response = await fetch('https://backend-zuib.onrender.com/enviar-cotizacion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nombre: cliente.nombre,
+          correo: cliente.correo,
+          celular: cliente.celular,
+          producto: producto.nombre,
+          total: total,
+          pdf: pdfBase64,
+        }),
       });
-      setMensajeEnviado("La cotización fue enviada a tu correo");
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al enviar la cotización');
+      }
+
+      console.log('✅ Cotización enviada correctamente:', data);
+      setMensajeEnviado("✅ La cotización fue enviada a tu correo electrónico");
+      
     } catch (error) {
-      console.error(error);
-      alert("Error generando cotización");
+      console.error('❌ Error detallado al generar/enviar cotización:', error);
+      setMensajeEnviado(`❌ Error: ${error.message || 'No se pudo enviar la cotización'}`);
+      alert(`Error al enviar la cotización: ${error.message}`);
     } finally {
       setEnviando(false);
     }
   };
 
-  const formatMeters = (cm) => (Number(cm) / 100).toFixed(2);
-
   // ========== RENDER ==========
-
   if (!producto) return <h2 style={{ padding: "20px" }}>Cargando...</h2>;
 
   const getStockColor = (stock) => {
@@ -848,52 +969,6 @@ const obtenerImagen = (producto) => {
     return tipo + "s";
   };
 
-  // 🔥 FUNCIÓN MODIFICADA - getImagenActual con getImageUrl
-const getImagenActual = () => {
-  let imgUrl = '';
-  if (modeloSeleccionado) {
-    const img = modeloSeleccionado.imagenes 
-      ? modeloSeleccionado.imagenes.split(",") 
-      : [modeloSeleccionado.imagen];
-    imgUrl = img[indice] || img[0] || '';
-  } else {
-    imgUrl = imagenes[indice] || imagenes[0] || '';
-  }
-  // Si no hay imagen, retorna placeholder
-  if (!imgUrl) {
-    return "https://via.placeholder.com/200";
-  }
-  return getImageUrl(imgUrl);
-};
-
-  const getNombreActual = () => {
-    if (modeloSeleccionado) {
-      return modeloSeleccionado.nombre;
-    }
-    return producto.nombre;
-  };
-
-  const getPrecioActual = () => {
-    if (modeloSeleccionado) {
-      return modeloSeleccionado.oferta ? modeloSeleccionado.precioOferta : modeloSeleccionado.precio;
-    }
-    return producto.oferta ? producto.precioOferta : producto.precio;
-  };
-
-  const getUnidadVenta = () => {
-    const tipoVenta = producto?.tipoVenta || '';
-    const unidadMap = {
-      'caja': 'por caja',
-      'pieza': 'por pieza',
-      'tramo': 'por tramo',
-      'rollo': 'por rollo',
-      'unidad': 'por unidad',
-      'otros': producto?.presentacion ? `por ${producto.presentacion}` : 'por unidad'
-    };
-    return unidadMap[tipoVenta] || '';
-  };
-
-  // Agrupar productos relacionados por tipo
   const relacionadosAgrupados = agruparPorTipo(relacionados);
   const sugeridosAgrupados = agruparPorTipo(sugeridos);
 
@@ -953,7 +1028,7 @@ const getImagenActual = () => {
               />
             </div>
 
-            {/* 🔥 THUMBNAILS MODIFICADOS */}
+            {/* THUMBNAILS */}
             <div className="thumbs-container">
               {(modeloSeleccionado 
                 ? (modeloSeleccionado.imagenes ? modeloSeleccionado.imagenes.split(",") : [modeloSeleccionado.imagen])
@@ -1357,10 +1432,12 @@ const getImagenActual = () => {
                     onClick={generarPDF}
                     disabled={enviando}
                   >
-                    {enviando ? "Enviando..." : "Solicitar cotización"}
+                    {enviando ? "⏳ Enviando..." : "📧 Solicitar cotización"}
                   </button>
                   {mensajeEnviado && (
-                    <p className="mensaje-exito">{mensajeEnviado}</p>
+                    <p className={`mensaje-${mensajeEnviado.includes('✅') ? 'exito' : 'error'}`}>
+                      {mensajeEnviado}
+                    </p>
                   )}
                 </div>
               </div>
@@ -1372,7 +1449,7 @@ const getImagenActual = () => {
         <div className="producto-detalle-right">
           <h1 className="product-title">{getNombreActual()}</h1>
 
-          {/* ===== 🔥 CARRUSEL DE MODELOS CON ANIMACIÓN 3D ===== */}
+          {/* ===== CARRUSEL DE MODELOS ===== */}
           {modelosDisponibles.length > 0 && (
             <div className="modelos-carrusel-right">
               <div className="modelos-carrusel-header-right">
@@ -1556,7 +1633,7 @@ const getImagenActual = () => {
             )}
           </div>
 
-          {/* ===== 🔥 PRECIO GRANDE CON EFECTO BRILLO ===== */}
+          {/* PRECIO */}
           {producto.oferta === 1 || producto.oferta === true ? (
             <div className="precio-container">
               <span className="precio-anterior">${producto.precio}</span>
@@ -1677,7 +1754,7 @@ const getImagenActual = () => {
             </div>
           )}
 
-          {/* BOTONES DE ACCIÓN: VER FICHA TÉCNICA, AGREGAR AL COTIZADOR, AGREGAR AL PEDIDO */}
+          {/* BOTONES DE ACCIÓN */}
           <div className="botones-acciones">
             {producto.fichaTecnica && (
               <button
@@ -1703,33 +1780,6 @@ const getImagenActual = () => {
             <button
               className="btn-agregar-pedido"
               onClick={() => agregarAlPedido(producto)}
-              style={{
-                flex: 1,
-                background: 'linear-gradient(135deg, #16a34a, #15803d)',
-                color: '#fff',
-                border: 'none',
-                padding: '14px 20px',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                fontWeight: '700',
-                fontSize: '15px',
-                boxShadow: '0 6px 15px rgba(22, 163, 74, 0.3)',
-                transition: 'all 0.25s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 10px 25px rgba(22, 163, 74, 0.4)';
-                e.currentTarget.style.background = 'linear-gradient(135deg, #15803d, #166534)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 6px 15px rgba(22, 163, 74, 0.3)';
-                e.currentTarget.style.background = 'linear-gradient(135deg, #16a34a, #15803d)';
-              }}
             >
               🛒 Agregar al pedido
             </button>
@@ -1749,9 +1799,9 @@ const getImagenActual = () => {
         )}
       </div>
 
-      {/* ========== 🔥 PRODUCTOS RELACIONADOS AGRUPADOS POR TIPO ========== */}
+      {/* ========== PRODUCTOS RELACIONADOS ========== */}
       <div className="full-width-related-wrapper">
-        {/* PRODUCTOS SUGERIDOS (RECOMENDADOS) AGRUPADOS POR TIPO */}
+        {/* PRODUCTOS SUGERIDOS */}
         {sugeridos.length > 0 && (
           <div className="full-width-related-section">
             <div className="sugeridos-banner">
@@ -1818,7 +1868,7 @@ const getImagenActual = () => {
           </div>
         )}
 
-        {/* PRODUCTOS RELACIONADOS POR SUBCATEGORÍA AGRUPADOS POR TIPO */}
+        {/* PRODUCTOS RELACIONADOS */}
         {relacionados.length > 0 ? (
           <div className="full-width-related-section">
             <div className="related-header">
@@ -2095,13 +2145,11 @@ if (typeof document !== "undefined") {
     .precio-normal-brillante {
       font-size: 48px;
       font-weight: 900;
-      color: #ffffff;
       margin: 0;
       display: flex;
       align-items: center;
       gap: 16px;
       flex-wrap: wrap;
-      text-shadow: 0 0 20px rgba(22, 163, 74, 0.3);
       background: linear-gradient(90deg, #4ade80, #22c55e, #16a34a);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -2321,7 +2369,6 @@ if (typeof document !== "undefined") {
       transform: translateY(-2px);
       box-shadow: 0 10px 20px rgba(0,0,0,0.25);
     }
-    /* 🔥 BOTÓN AGREGAR AL PEDIDO */
     .btn-agregar-pedido {
       flex: 1;
       min-width: 100px;
@@ -2608,6 +2655,13 @@ if (typeof document !== "undefined") {
       text-align: center;
       animation: fadeIn 0.5s ease;
     }
+    .mensaje-error {
+      margin-top: 15px;
+      color: #dc2626;
+      font-weight: bold;
+      text-align: center;
+      animation: fadeIn 0.5s ease;
+    }
 
     /* ========================================================= */
     /* 🔥 CARRUSEL DE MODELOS CON ANIMACIONES MEJORADAS */
@@ -2827,15 +2881,6 @@ if (typeof document !== "undefined") {
       }
     }
 
-    .modelo-carrusel-img-right {
-      width: 100%;
-      height: 120px;
-      object-fit: contain;
-      border-radius: 10px;
-      background: #fafafa;
-      padding: 6px;
-      transition: transform 0.4s ease;
-    }
     .modelo-carrusel-info-right {
       margin-top: 8px;
     }
@@ -3394,9 +3439,6 @@ if (typeof document !== "undefined") {
         min-width: 120px;
         max-width: 150px;
         padding: 10px;
-      }
-      .modelo-carrusel-img-right {
-        height: 90px;
       }
       .sugeridos-title {
         font-size: 18px;
