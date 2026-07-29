@@ -70,33 +70,119 @@ app.post("/upload-banner", upload.single("imagen"), (req, res) => {
 });
 
 // =================================================
-// ✉️ ENVIAR COTIZACIÓN POR EMAIL
+// ✉️ ENVIAR COTIZACIÓN POR EMAIL (CORREGIDO)
 // =================================================
 app.post("/enviar-cotizacion", async (req, res) => {
   try {
     const { nombre, correo, celular, producto, total, pdf } = req.body;
-    const pdfBuffer = Buffer.from(pdf.split("base64,")[1], "base64");
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: correo,
-      subject: "Cotización",
-      html: `
-        <h2>Hola ${nombre}</h2>
-        <p>Adjuntamos tu cotización.</p>
-      `,
-      attachments: [
-        {
-          filename: "cotizacion.pdf",
-          content: pdfBuffer
+    
+    console.log('📧 Recibida solicitud de cotización:');
+    console.log(`   - Nombre: ${nombre}`);
+    console.log(`   - Correo: ${correo}`);
+    console.log(`   - Producto: ${producto}`);
+    console.log(`   - Total: $${total}`);
+    console.log(`   - Tiene PDF: ${pdf ? 'Sí' : 'No'}`);
+    
+    // Validar datos
+    if (!nombre || !correo || !producto || !total) {
+      return res.status(400).json({ 
+        error: 'Faltan datos requeridos: nombre, correo, producto y total son obligatorios' 
+      });
+    }
+    
+    // Preparar el PDF - CORREGIDO
+    let attachments = [];
+    if (pdf) {
+      try {
+        // Extraer el base64 correctamente
+        let base64Data = pdf;
+        if (pdf.includes('base64,')) {
+          base64Data = pdf.split('base64,')[1];
+        } else if (pdf.includes(',')) {
+          base64Data = pdf.split(',')[1];
         }
-      ]
-    });
+        
+        const pdfBuffer = Buffer.from(base64Data, 'base64');
+        attachments.push({
+          filename: `cotizacion_${Date.now()}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf',
+        });
+        console.log(`✅ PDF preparado (${pdfBuffer.length} bytes)`);
+      } catch (error) {
+        console.warn('⚠️ Error al procesar el PDF:', error.message);
+      }
+    }
+    
+    // HTML del correo
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #16a34a;">
+          <h1 style="color: #16a34a; margin: 0;">🏠 Tienda de Pisos</h1>
+          <p style="color: #6b7280; margin: 5px 0 0 0;">Cotización de Producto</p>
+        </div>
+        
+        <div style="padding: 20px 0;">
+          <h2 style="color: #111827;">¡Hola ${nombre}!</h2>
+          <p style="color: #4b5563; line-height: 1.6;">
+            Gracias por solicitar una cotización. Aquí tienes los detalles:
+          </p>
+          
+          <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>📦 Producto:</strong> ${producto}</p>
+            <p style="margin: 5px 0;"><strong>💰 Total estimado:</strong> $${total}</p>
+            ${celular ? `<p style="margin: 5px 0;"><strong>📱 Teléfono:</strong> ${celular}</p>` : ''}
+            <p style="margin: 5px 0;"><strong>📅 Fecha:</strong> ${new Date().toLocaleDateString('es-MX')}</p>
+          </div>
+          
+          ${attachments.length > 0 ? `
+            <div style="background: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+              <p style="margin: 0; color: #1e3a8a;">
+                📎 Adjunto encontrarás el PDF con los detalles completos de la cotización.
+              </p>
+            </div>
+          ` : ''}
+        </div>
+        
+        <div style="border-top: 2px solid #e5e7eb; padding-top: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
+          <p style="margin: 0;">Este correo fue generado automáticamente.</p>
+        </div>
+      </div>
+    `;
 
-    res.json({ ok: true });
+    // Enviar correo
+    const mailOptions = {
+      from: `"Tienda de Pisos" <${process.env.EMAIL_USER}>`,
+      to: correo,
+      subject: `📄 Cotización - ${producto}`,
+      html: html,
+      attachments: attachments,
+    };
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Correo enviado correctamente - ID: ${info.messageId}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Cotización enviada correctamente',
+      messageId: info.messageId 
+    });
+    
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: "Error enviando correo" });
+    console.error('❌ Error al enviar cotización:', error);
+    
+    let errorMessage = 'Error al enviar el correo';
+    if (error.code === 'EAUTH') {
+      errorMessage = 'Error de autenticación con Gmail. Verifica tu contraseña de aplicación.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
