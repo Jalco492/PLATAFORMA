@@ -1,5 +1,3 @@
-console.log("🚀 SERVER INICIADO");
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -9,297 +7,13 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-require("dotenv").config();
-console.log("🚀 SERVER INICIADO");
-console.log("RESEND_API_KEY =", process.env.RESEND_API_KEY ? "CARGADA" : "NO CARGADA");
-
-// =================================================
-// 📧 CONFIGURACIÓN DE RESEND
-// =================================================
+// Importar Resend
 const { Resend } = require('resend');
 
+// Inicializar Resend con tu API key
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Email de prueba para verificar la conexión
-resend.emails.send({
-  from: 'onboarding@resend.dev',
-  to: 'johanlopezcordoba9@gmail.com',
-  subject: 'Hello World',
-  html: '<p>Congrats on sending your <strong>first email</strong>!</p>'
-}).then(response => {
-  console.log("✅ Resend configurado correctamente");
-}).catch(error => {
-  console.error("❌ Error al configurar Resend:", error);
-});
-
-// =================================================
-// 📄 GENERAR PDF CON HOJA MEMBRETADA
-// =================================================
-const PDFDocument = require('pdfkit');
-
-const generarPDFCotizacion = (datos) => {
-  return new Promise((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({
-        size: 'A4',
-        margin: 50,
-        info: {
-          Title: 'Cotización',
-          Author: 'Fray Flooring',
-          Subject: 'Cotización de productos'
-        }
-      });
-
-      const chunks = [];
-      doc.on('data', chunk => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-
-      // =============================================
-      // 🏢 HOJA MEMBRETADA - ENCABEZADO
-      // =============================================
-      
-      // Logo o nombre de la empresa
-      doc.fontSize(24)
-         .font('Helvetica-Bold')
-         .fillColor('#16a34a')
-         .text('FRAY FLOORING', 50, 50, { align: 'center' });
-      
-      doc.fontSize(12)
-         .font('Helvetica')
-         .fillColor('#4b5563')
-         .text('Pisos de Alta Calidad', 50, 80, { align: 'center' });
-      
-      // Línea decorativa
-      doc.moveTo(50, 100)
-         .lineTo(545, 100)
-         .strokeColor('#16a34a')
-         .lineWidth(2)
-         .stroke();
-
-      // Información de contacto
-      doc.fontSize(10)
-         .fillColor('#6b7280')
-         .text('📍 Dirección: Calle Principal #123, Colonia Centro, CDMX', 50, 110, { align: 'center' })
-         .text('📞 Teléfono: 55 1116 4545 | ✉️ Email: frayflooring@gmail.com', 50, 125, { align: 'center' });
-
-      // Segunda línea decorativa
-      doc.moveTo(50, 140)
-         .lineTo(545, 140)
-         .strokeColor('#e5e7eb')
-         .lineWidth(1)
-         .stroke();
-
-      // =============================================
-      // 📄 CONTENIDO DE LA COTIZACIÓN
-      // =============================================
-      
-      let y = 170;
-
-      // Título de cotización
-      doc.fontSize(18)
-         .font('Helvetica-Bold')
-         .fillColor('#1f2937')
-         .text('COTIZACIÓN', 50, y, { align: 'center' });
-      
-      y += 30;
-
-      // Número de cotización y fecha
-      const numeroCotizacion = `COT-${Date.now().toString().slice(-8)}`;
-      const fechaActual = new Date().toLocaleDateString('es-MX', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-
-      doc.fontSize(11)
-         .font('Helvetica')
-         .fillColor('#374151')
-         .text(`Número: ${numeroCotizacion}`, 50, y)
-         .text(`Fecha: ${fechaActual}`, 400, y);
-      
-      y += 30;
-
-      // Datos del cliente
-      doc.fontSize(12)
-         .font('Helvetica-Bold')
-         .fillColor('#1f2937')
-         .text('DATOS DEL CLIENTE', 50, y);
-      
-      y += 20;
-
-      doc.fontSize(10)
-         .font('Helvetica')
-         .fillColor('#374151')
-         .text(`Nombre: ${datos.nombre || 'No especificado'}`, 50, y);
-      y += 18;
-      
-      doc.text(`Correo: ${datos.correo || 'No especificado'}`, 50, y);
-      y += 18;
-      
-      if (datos.celular) {
-        doc.text(`Teléfono: ${datos.celular}`, 50, y);
-        y += 18;
-      }
-
-      y += 10;
-
-      // Línea separadora
-      doc.moveTo(50, y)
-         .lineTo(545, y)
-         .strokeColor('#e5e7eb')
-         .lineWidth(1)
-         .stroke();
-      
-      y += 20;
-
-      // Tabla de productos
-      doc.fontSize(12)
-         .font('Helvetica-Bold')
-         .fillColor('#1f2937')
-         .text('DETALLE DE PRODUCTO', 50, y);
-      
-      y += 20;
-
-      // Encabezados de tabla
-      const tableTop = y;
-      const col1 = 50;   // Producto
-      const col2 = 350;  // Cantidad
-      const col3 = 420;  // Precio
-      const col4 = 490;  // Subtotal
-
-      doc.fontSize(10)
-         .font('Helvetica-Bold')
-         .fillColor('#ffffff')
-         .rect(col1 - 5, tableTop - 5, 500, 25)
-         .fill('#16a34a');
-
-      doc.fillColor('#ffffff')
-         .text('Producto', col1 + 5, tableTop + 5)
-         .text('Cant.', col2, tableTop + 5)
-         .text('Precio', col3, tableTop + 5)
-         .text('Subtotal', col4, tableTop + 5);
-
-      let tableY = tableTop + 30;
-
-      // Productos
-      doc.fontSize(10)
-         .font('Helvetica')
-         .fillColor('#1f2937');
-
-      if (datos.productos && datos.productos.length > 0) {
-        datos.productos.forEach((producto, index) => {
-          // Verificar si necesita nueva página
-          if (tableY > 700) {
-            doc.addPage();
-            tableY = 50;
-            
-            // Reimprimir encabezados en nueva página
-            doc.fontSize(10)
-               .font('Helvetica-Bold')
-               .fillColor('#ffffff')
-               .rect(col1 - 5, tableY - 5, 500, 25)
-               .fill('#16a34a');
-
-            doc.fillColor('#ffffff')
-               .text('Producto', col1 + 5, tableY + 5)
-               .text('Cant.', col2, tableY + 5)
-               .text('Precio', col3, tableY + 5)
-               .text('Subtotal', col4, tableY + 5);
-            
-            tableY += 30;
-          }
-
-          const nombreProducto = producto.nombre || 'Producto';
-          const cantidad = producto.cantidad || 1;
-          const precio = producto.precio || 0;
-          const subtotal = producto.subtotal || (precio * cantidad);
-
-          // Fila de producto
-          doc.font('Helvetica')
-             .fillColor('#1f2937')
-             .text(nombreProducto.length > 35 ? nombreProducto.substring(0, 35) + '...' : nombreProducto, col1 + 5, tableY + 2)
-             .text(cantidad.toString(), col2 + 10, tableY + 2, { width: 50, align: 'center' })
-             .text(`$${precio.toFixed(2)}`, col3, tableY + 2, { width: 70, align: 'right' })
-             .text(`$${subtotal.toFixed(2)}`, col4, tableY + 2, { width: 80, align: 'right' });
-
-          tableY += 22;
-        });
-      } else {
-        // Si no hay productos detallados, mostrar el producto principal
-        doc.text(datos.producto || 'Producto no especificado', col1 + 5, tableY + 2)
-           .text('1', col2 + 10, tableY + 2, { width: 50, align: 'center' })
-           .text(`$${datos.total || 0}`, col3, tableY + 2, { width: 70, align: 'right' })
-           .text(`$${datos.total || 0}`, col4, tableY + 2, { width: 80, align: 'right' });
-        tableY += 22;
-      }
-
-      // Total
-      tableY += 10;
-      
-      // Línea separadora antes del total
-      doc.moveTo(400, tableY)
-         .lineTo(545, tableY)
-         .strokeColor('#e5e7eb')
-         .lineWidth(1)
-         .stroke();
-      
-      tableY += 10;
-
-      // Total con formato destacado
-      doc.fontSize(14)
-         .font('Helvetica-Bold')
-         .fillColor('#1f2937')
-         .text('TOTAL:', 400, tableY, { width: 60, align: 'right' })
-         .fontSize(16)
-         .fillColor('#16a34a')
-         .text(`$${datos.total || 0}`, 470, tableY, { width: 80, align: 'right' });
-
-      // =============================================
-      // 📝 NOTAS Y CONDICIONES (PIE DE PÁGINA)
-      // =============================================
-      
-      const footerY = 750;
-
-      // Línea decorativa
-      doc.moveTo(50, footerY)
-         .lineTo(545, footerY)
-         .strokeColor('#e5e7eb')
-         .lineWidth(1)
-         .stroke();
-
-      // Notas importantes
-      doc.fontSize(9)
-         .font('Helvetica')
-         .fillColor('#6b7280')
-         .text('NOTAS IMPORTANTES:', 50, footerY + 10)
-         .font('Helvetica-Oblique')
-         .fillColor('#9ca3af')
-         .text('• Esta cotización tiene una validez de 15 días a partir de la fecha de emisión.', 50, footerY + 25)
-         .text('• Los precios están sujetos a cambios sin previo aviso.', 50, footerY + 40)
-         .text('• El pago deberá realizarse en tienda física.', 50, footerY + 55)
-         .text('• Para más información, contáctanos al 55 1116 4545.', 50, footerY + 70);
-
-      // Firma
-      doc.font('Helvetica')
-         .fillColor('#374151')
-         .text('_________________________', 400, footerY + 55)
-         .fontSize(9)
-         .text('Firma y Sello', 420, footerY + 72, { width: 100, align: 'center' });
-
-      // Número de página
-      const pageCount = doc.bufferedPageRange().count;
-      doc.fontSize(8)
-         .fillColor('#9ca3af')
-         .text(`Página ${doc.pageNumber} de ${pageCount}`, 280, footerY + 100, { align: 'center' });
-
-      // Finalizar documento
-      doc.end();
-
-    } catch (error) {
-      reject(error);
-    }
-  });
-};
+console.log("RESEND_API_KEY:", process.env.RESEND_API_KEY ? "Cargada" : "No cargada");
 
 const app = express();
 
@@ -347,149 +61,41 @@ app.post("/upload-productos", upload.array("imagenes", 20), async (req, res) => 
 app.post("/upload-banner", upload.single("imagen"), (req, res) => {
  const imagen =
 `/uploads/productos/${req.file.filename}`;
-  res.json({ imagen });
 });
 
 // =================================================
-// ✉️ ENVIAR COTIZACIÓN POR EMAIL (CON PDF MEMBRETADO)
+// ✉️ ENVIAR COTIZACIÓN POR EMAIL (con Resend)
 // =================================================
 app.post("/enviar-cotizacion", async (req, res) => {
   try {
-    const { nombre, correo, celular, producto, total, pdf, productos } = req.body;
-    
-    console.log('📧 Recibida solicitud de cotización:');
-    console.log(`   - Nombre: ${nombre}`);
-    console.log(`   - Correo: ${correo}`);
-    console.log(`   - Producto: ${producto}`);
-    console.log(`   - Total: $${total}`);
-    console.log(`   - Tiene PDF: ${pdf ? 'Sí' : 'No'}`);
-    
-    // Validar datos
-    if (!nombre || !correo || !producto || !total) {
-      return res.status(400).json({ 
-        error: 'Faltan datos requeridos: nombre, correo, producto y total son obligatorios' 
-      });
-    }
-    
-    let attachments = [];
+    const { nombre, correo, celular, producto, total, pdf } = req.body;
+    const pdfBuffer = Buffer.from(pdf.split("base64,")[1], "base64");
 
-    // =============================================
-    // 📄 GENERAR PDF CON HOJA MEMBRETADA
-    // =============================================
-    try {
-      // Preparar datos para el PDF
-      const datosPDF = {
-        nombre,
-        correo,
-        celular,
-        producto,
-        total: parseFloat(total),
-        productos: productos || [{ nombre: producto, cantidad: 1, precio: parseFloat(total), subtotal: parseFloat(total) }]
-      };
+    // Convertir buffer a base64 para Resend
+    const pdfBase64 = pdfBuffer.toString('base64');
 
-      // Generar PDF con hoja membretada
-      const pdfBuffer = await generarPDFCotizacion(datosPDF);
-      console.log(`✅ PDF generado con hoja membretada (${pdfBuffer.length} bytes)`);
-
-      // Adjuntar PDF al correo
-      attachments.push({
-        filename: `cotizacion_${Date.now()}.pdf`,
-        content: pdfBuffer.toString('base64'),
-        contentType: 'application/pdf',
-      });
-    } catch (error) {
-      console.warn('⚠️ Error al generar PDF con membretado:', error.message);
-      // Si falla la generación del PDF, intentar usar el PDF enviado por el cliente
-      if (pdf) {
-        try {
-          let base64Data = pdf;
-          if (pdf.includes('base64,')) {
-            base64Data = pdf.split('base64,')[1];
-          } else if (pdf.includes(',')) {
-            base64Data = pdf.split(',')[1];
-          }
-          
-          const pdfBufferFallback = Buffer.from(base64Data, 'base64');
-          attachments.push({
-            filename: `cotizacion_${Date.now()}.pdf`,
-            content: pdfBufferFallback.toString('base64'),
-            contentType: 'application/pdf',
-          });
-          console.log(`✅ PDF alternativo preparado (${pdfBufferFallback.length} bytes)`);
-        } catch (error) {
-          console.warn('⚠️ Error al procesar el PDF alternativo:', error.message);
-        }
-      }
-    }
-    
-    // HTML del correo
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #16a34a;">
-          <h1 style="color: #16a34a; margin: 0;">🏠 FRAY FLOORING</h1>
-          <p style="color: #6b7280; margin: 5px 0 0 0;">Pisos de Alta Calidad</p>
-        </div>
-        
-        <div style="padding: 20px 0;">
-          <h2 style="color: #111827;">¡Hola ${nombre}!</h2>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Gracias por solicitar una cotización. Aquí tienes los detalles:
-          </p>
-          
-          <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 5px 0;"><strong>📦 Producto:</strong> ${producto}</p>
-            <p style="margin: 5px 0;"><strong>💰 Total estimado:</strong> $${total}</p>
-            ${celular ? `<p style="margin: 5px 0;"><strong>📱 Teléfono:</strong> ${celular}</p>` : ''}
-            <p style="margin: 5px 0;"><strong>📅 Fecha:</strong> ${new Date().toLocaleDateString('es-MX')}</p>
-          </div>
-          
-          <div style="background: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
-            <p style="margin: 0; color: #1e3a8a;">
-              📎 Adjunto encontrarás el PDF con la hoja membretada y los detalles completos de la cotización.
-            </p>
-          </div>
-        </div>
-        
-        <div style="border-top: 2px solid #e5e7eb; padding-top: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
-          <p style="margin: 0;">Este correo fue generado automáticamente.</p>
-          <p style="margin: 5px 0 0 0;">© ${new Date().getFullYear()} Fray Flooring - Todos los derechos reservados.</p>
-        </div>
-      </div>
-    `;
-
-    // Enviar correo con Resend
-    const emailData = {
-      from: 'onboarding@resend.dev',
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
       to: correo,
-      subject: `📄 Cotización - ${producto}`,
-      html: html,
-      attachments: attachments,
-    };
-    
-    const response = await resend.emails.send(emailData);
-    console.log(`✅ Correo enviado correctamente - ID: ${response.id}`);
-    
-    res.json({ 
-      success: true, 
-      message: 'Cotización enviada correctamente con hoja membretada',
-      messageId: response.id 
+      subject: "Cotización - Fray Flooring",
+      html: `
+        <h2>Hola ${nombre}</h2>
+        <p>Adjuntamos tu cotización.</p>
+        <p><strong>Producto:</strong> ${producto}</p>
+        <p><strong>Total:</strong> $${total}</p>
+      `,
+      attachments: [
+        {
+          filename: "cotizacion.pdf",
+          content: pdfBase64
+        }
+      ]
     });
-    
+
+    res.json({ ok: true });
   } catch (error) {
-    console.error('❌ Error al enviar cotización:', error);
-    
-    let errorMessage = 'Error al enviar el correo';
-    if (error.statusCode === 429) {
-      errorMessage = 'Demasiadas solicitudes. Intenta de nuevo más tarde.';
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    res.status(500).json({ 
-      success: false, 
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    console.log(error);
+    res.status(500).json({ error: "Error enviando correo" });
   }
 });
 
@@ -497,6 +103,8 @@ app.post("/enviar-cotizacion", async (req, res) => {
 // 📋 PEDIDOS - GENERAR NÚMERO DE PEDIDO ÚNICO
 // =================================================
 
+// Función para generar número de pedido único
+// Formato: PED-YYYYMMDD-XXXX (ej: PED-20250127-0001)
 const generarNumeroPedido = async () => {
   const fecha = new Date();
   const año = fecha.getFullYear();
@@ -504,6 +112,7 @@ const generarNumeroPedido = async () => {
   const dia = String(fecha.getDate()).padStart(2, '0');
   const fechaStr = `${año}${mes}${dia}`;
   
+  // Buscar el último pedido del día
   const [rows] = await db.query(
     "SELECT numero_pedido FROM pedidos WHERE numero_pedido LIKE ? ORDER BY id DESC LIMIT 1",
     [`PED-${fechaStr}-%`]
@@ -526,6 +135,7 @@ app.post("/pedidos", async (req, res) => {
   try {
     const { cliente, productos, total } = req.body;
     
+    // Validar datos
     if (!cliente || !cliente.nombre || !cliente.email || !cliente.celular) {
       return res.status(400).json({ error: "Datos del cliente incompletos" });
     }
@@ -534,8 +144,10 @@ app.post("/pedidos", async (req, res) => {
       return res.status(400).json({ error: "No hay productos en el pedido" });
     }
     
+    // Generar número de pedido único
     const numeroPedido = await generarNumeroPedido();
     
+    // Insertar pedido
     const sqlPedido = `
       INSERT INTO pedidos (
         numero_pedido,
@@ -561,6 +173,7 @@ app.post("/pedidos", async (req, res) => {
     
     const pedidoId = resultPedido.insertId;
     
+    // Insertar productos del pedido (incluyendo imagen)
     const sqlProducto = `
       INSERT INTO pedido_productos (
         pedido_id,
@@ -587,10 +200,12 @@ app.post("/pedidos", async (req, res) => {
       ]);
     }
     
+    // Enviar correo de confirmación
     try {
       await enviarCorreoPedido(cliente, numeroPedido, productos, total);
     } catch (emailError) {
       console.error("Error al enviar correo:", emailError);
+      // No falla el pedido si el correo falla
     }
     
     res.status(201).json({
@@ -683,7 +298,7 @@ app.get("/pedidos/numero/:numero", async (req, res) => {
   }
 });
 
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO (CON RESEND)
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO (con Resend)
 const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => {
   const estadoLabels = {
     pendiente: '⏳ Pendiente',
@@ -703,6 +318,7 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
     pendiente: 'Tu pedido está pendiente de revisión.'
   };
 
+  // Obtener productos del pedido para mostrarlos en el correo
   const [productos] = await db.query(
     "SELECT * FROM pedido_productos WHERE pedido_id = ?",
     [pedido.id]
@@ -802,7 +418,7 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
 
   try {
     await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
       to: pedido.cliente_email,
       subject: `📦 Actualización de tu pedido #${pedido.numero_pedido}`,
       html: html
@@ -825,6 +441,7 @@ app.put("/pedidos/:id/estado", async (req, res) => {
       return res.status(400).json({ error: "Estado no válido" });
     }
     
+    // Obtener el pedido actual para saber el estado anterior
     const [pedidoActual] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedidoActual.length === 0) {
       return res.status(404).json({ error: "Pedido no encontrado" });
@@ -832,18 +449,22 @@ app.put("/pedidos/:id/estado", async (req, res) => {
     
     const estadoAnterior = pedidoActual[0].estado;
     
+    // Actualizar el estado
     await db.query(
       "UPDATE pedidos SET estado = ? WHERE id = ?",
       [estado, id]
     );
     
+    // Obtener el pedido actualizado
     const [pedidoActualizado] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     
+    // Enviar correo de actualización (solo si el estado cambió)
     if (estadoAnterior !== estado) {
       try {
         await enviarCorreoEstadoPedido(pedidoActualizado[0], estadoAnterior, estado);
       } catch (emailError) {
         console.error("Error enviando correo:", emailError);
+        // No falla la actualización si el correo falla
       }
     }
     
@@ -859,7 +480,7 @@ app.put("/pedidos/:id/estado", async (req, res) => {
   }
 });
 
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO CON RESEND)
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO) con Resend
 const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
   const productosHtml = productos.map(p => `
     <tr>
@@ -942,7 +563,7 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
 
   try {
     await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
       to: cliente.email,
       subject: `Confirmación de Pedido #${numeroPedido}`,
       html: html
@@ -1206,8 +827,7 @@ app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
         subcategorias.nombre AS subcategoria_nombre,
         tipos.nombre AS tipo_nombre
       FROM productos
-      LEFT JOIN categorias ON categorias.id = productos.categoria_id
-      LEFT JOIN subcategorias ON subcategorias.id = productos.subcategoria_id
+      LEFT JOIN categorias ON categorias.id = productos.categoria_id      LEFT JOIN subcategorias ON subcategorias.id = productos.subcategoria_id
       LEFT JOIN tipos ON tipos.id = productos.tipo_id
       WHERE LOWER(tipos.nombre) = LOWER(?) AND productos.visible = 1
       ORDER BY productos.nombre ASC
@@ -2186,11 +1806,13 @@ app.delete("/pedidos/:id", async (req, res) => {
   try {
     const { id } = req.params;
     
+    // Verificar si el pedido existe
     const [pedido] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedido.length === 0) {
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
     
+    // Eliminar el pedido (los productos se eliminan en cascada por la FK)
     await db.query("DELETE FROM pedidos WHERE id = ?", [id]);
     
     res.json({ 
