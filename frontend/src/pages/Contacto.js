@@ -4,9 +4,6 @@ import api from "../services/api";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
-// 🔥 IMPORTAR EL LOGO
-import logoImage from "../public/logo.png";
-
 export default function Contacto() {
   const navigate = useNavigate();
 
@@ -100,21 +97,16 @@ export default function Contacto() {
         subcategorias={subcategorias}
       />
 
-      {/* HERO */}
+      {/* HERO (Centrado igual que Nosotros) */}
       <section style={styles.hero(darkMode)}>
         <div style={styles.overlay} />
         <div style={styles.heroContent}>
           <div style={styles.badgeContainer}>
             <div style={styles.badge}>
-              {/* 🔥 LOGO CON IMPORT + FALLBACK */}
               <img
-                src={logoImage}
+                src="/LOGO.PNG"
                 alt="Logo"
                 style={styles.badgeLogo}
-                onError={(e) => {
-                  console.log("❌ Error con logo importado, usando fallback");
-                  e.target.src = "/logo.png";
-                }}
               />
               <span style={styles.badgeText}>Fray Flooring</span>
             </div>
@@ -148,9 +140,10 @@ export default function Contacto() {
         </div>
       </section>
 
-      {/* CONTENIDO */}
+      {/* CONTENIDO CENTRADO - UNA SOLA COLUMNA */}
       <section style={styles.grid}>
-        {/* INFORMACIÓN */}
+        
+        {/* INFORMACIÓN - Full Width */}
         <div style={{ ...styles.card(darkMode), ...styles.fullWidth }}>
           <div style={styles.cardGlow} />
           <div style={styles.cardContent}>
@@ -174,7 +167,7 @@ export default function Contacto() {
           </div>
         </div>
 
-        {/* MAPA */}
+        {/* MAPA - Full Width */}
         <div style={{ ...styles.card(darkMode), ...styles.fullWidth }}>
           <div style={styles.cardGlow} />
           <div style={styles.cardContent}>
@@ -193,7 +186,7 @@ export default function Contacto() {
           </div>
         </div>
 
-        {/* FORMULARIO */}
+        {/* FORMULARIO - Full Width */}
         <div style={{ ...styles.card(darkMode), ...styles.fullWidth }}>
           <div style={styles.cardGlow} />
           <div style={styles.cardContent}>
@@ -273,6 +266,7 @@ const styles = {
   }),
 
   hero: (darkMode) => {
+    // 🔥 DETECTAR LA RUTA CORRECTA DE LA IMAGEN
     const imagenFondo = "/CONTÁCTANOS.jpg";
     
     return {
@@ -298,6 +292,7 @@ const styles = {
       backgroundRepeat: "no-repeat",
       filter: "saturate(1.2) contrast(1.08)",
       boxSizing: "border-box",
+      // 🔥 FALLBACK si la imagen no carga
       backgroundColor: darkMode ? "#0f172a" : "#1e293b",
       "@media (max-width: 768px)": {
         padding: "120px 16px 60px",
