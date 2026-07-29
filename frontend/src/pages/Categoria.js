@@ -4,6 +4,23 @@ import api from "../services/api";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/300x300/1e293b/60a5fa?text=Sin+Imagen";
+  }
+
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
+    return imagen;
+  }
+
+  if (imagen.startsWith("/")) {
+    return `https://backend-zuib.onrender.com${imagen}`;
+  }
+
+  return `https://backend-zuib.onrender.com/${imagen}`;
+};
+
 export default function Categoria() {
   // 🔥 PARAMS
   const { id, nombre } = useParams();
@@ -66,6 +83,25 @@ export default function Categoria() {
   }, []);
 
   const isMobile = windowWidth < 768;
+
+  // =====================================
+  // 🔥 FUNCIÓN PARA OBTENER IMAGEN - VERSIÓN CORREGIDA
+  // =====================================
+  const obtenerImagen = (producto) => {
+    if (!producto) return "https://via.placeholder.com/300x300/1e293b/60a5fa?text=Sin+Imagen";
+
+    let imagenUrl = "";
+
+    if (producto.imagenes && producto.imagenes.trim() !== "") {
+      imagenUrl = producto.imagenes.split(",")[0].trim();
+    } else if (producto.imagen && producto.imagen.trim() !== "") {
+      imagenUrl = producto.imagen.trim();
+    } else {
+      return "https://via.placeholder.com/300x300/1e293b/60a5fa?text=Sin+Imagen";
+    }
+
+    return getImageUrl(imagenUrl);
+  };
 
   // =====================================
   // 🔥 CARGAR DATOS
@@ -156,16 +192,6 @@ export default function Categoria() {
   }, [favoritos]);
 
   // =====================================
-  // 🖼 OBTENER IMAGEN
-  // =====================================
-  const obtenerImagen = (producto) => {
-    if (producto.imagenes && producto.imagenes.trim() !== "") {
-      return producto.imagenes.split(",")[0];
-    }
-    return producto.imagen || "";
-  };
-
-  // =====================================
   // ❤️ TOGGLE FAVORITO
   // =====================================
   const toggleFavorito = (producto) => {
@@ -206,30 +232,22 @@ export default function Categoria() {
         }
       }
 
-      // Obtener nombre de tipo (línea) - AHORA CON MEJOR MANEJO
+      // Obtener nombre de tipo (línea)
       let tipoNombre = "General";
       
-      // 1. Intentar con el campo 'tipo' del producto
       if (producto.tipo) {
         tipoNombre = producto.tipo;
-      } 
-      // 2. Si no, intentar con 'tipo_nombre' (posible campo alternativo)
-      else if (producto.tipo_nombre) {
+      } else if (producto.tipo_nombre) {
         tipoNombre = producto.tipo_nombre;
-      }
-      // 3. Si no, intentar con 'tipo_id' buscando en la lista de tipos
-      else if (producto.tipo_id) {
+      } else if (producto.tipo_id) {
         const tipoEncontrado = tipos.find(t => Number(t.id) === Number(producto.tipo_id));
         if (tipoEncontrado) {
           tipoNombre = tipoEncontrado.nombre;
         }
       }
-      // 4. Si no, usar "General"
 
-      // DEBUG: Ver qué tipo está asignando
       console.log(`Producto: ${producto.nombre} -> Tipo: ${tipoNombre}`);
 
-      // Crear estructura: subcategoria -> tipo -> productos
       if (!grupos[subcategoriaNombre]) {
         grupos[subcategoriaNombre] = {};
       }
@@ -424,6 +442,10 @@ export default function Categoria() {
                                 alt={p.nombre}
                                 className="prod-img"
                                 style={styles.image}
+                                loading="lazy"
+                                onError={(e) => {
+                                  e.target.src = "https://via.placeholder.com/300x300/1e293b/60a5fa?text=Sin+Imagen";
+                                }}
                               />
                             </div>
 
@@ -469,7 +491,7 @@ export default function Categoria() {
 }
 
 // ============================================
-// 🎨 ESTILOS (igual que antes)
+// 🎨 ESTILOS
 // ============================================
 const styles = {
   loading: (darkMode) => ({
