@@ -5,112 +5,61 @@ import Footer from "./Footer";
 import jsPDF from "jspdf";
 import api from "../services/api";
 
-// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - CON DEPURACIÓN
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
 const getImageUrl = (imagen) => {
-  console.log("🔍 getImageUrl - imagen recibida:", imagen);
-  
   if (!imagen) {
-    console.log("⚠️ imagen vacía, usando placeholder");
     return "https://via.placeholder.com/200?text=Sin+imagen";
   }
 
-  // Si ya viene con una URL completa la usa directamente
   if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
-    console.log("✅ imagen con URL completa:", imagen);
     return imagen;
   }
 
-  // 🔥 USAR LA MISMA URL DEL BACKEND
   const API_BASE = process.env.REACT_APP_API_URL || 'https://backend-zuib.onrender.com';
-  console.log("🔧 API_BASE:", API_BASE);
   
-  let urlCompleta = "";
-  
-  // Si la imagen comienza con /, la concatena con el backend
   if (imagen.startsWith("/")) {
-    urlCompleta = `${API_BASE}${imagen}`;
-  } else {
-    // Si no comienza con /, la agrega
-    urlCompleta = `${API_BASE}/${imagen}`;
+    return `${API_BASE}${imagen}`;
   }
-  
-  console.log("✅ URL completa generada:", urlCompleta);
-  return urlCompleta;
+
+  return `${API_BASE}/${imagen}`;
 };
 
-// 🔥 FUNCIÓN PARA OBTENER LA IMAGEN DEL PRODUCTO - CON DEPURACIÓN
+// 🔥 FUNCIÓN PARA OBTENER LA IMAGEN DEL PRODUCTO
 const obtenerImagenProducto = (producto) => {
-  console.log("🔍 obtenerImagenProducto - producto:", producto?.nombre || "sin producto");
-  
-  if (!producto) {
-    console.log("⚠️ producto es null/undefined");
-    return "https://via.placeholder.com/200?text=Sin+imagen";
-  }
+  if (!producto) return "https://via.placeholder.com/200?text=Sin+imagen";
 
   let imagenUrl = "";
 
-  console.log("📸 producto.imagenes:", producto.imagenes);
-  console.log("📸 producto.imagen:", producto.imagen);
-
-  // Prioriza 'imagenes' (puede tener múltiples separadas por coma)
   if (producto.imagenes && producto.imagenes.trim() !== "") {
     imagenUrl = producto.imagenes.split(",")[0].trim();
-    console.log("✅ usando imagenes[0]:", imagenUrl);
-  } 
-  // Si no tiene 'imagenes', usa 'imagen'
-  else if (producto.imagen && producto.imagen.trim() !== "") {
+  } else if (producto.imagen && producto.imagen.trim() !== "") {
     imagenUrl = producto.imagen.trim();
-    console.log("✅ usando imagen:", imagenUrl);
-  } 
-  // Si no tiene ninguna, usa placeholder
-  else {
-    console.log("⚠️ no tiene imagen ni imagenes, usando placeholder");
+  } else {
     return "https://via.placeholder.com/200?text=Sin+imagen";
   }
 
-  // Aplica la función getImageUrl para obtener la URL completa
-  const urlFinal = getImageUrl(imagenUrl);
-  console.log("✅ URL final:", urlFinal);
-  return urlFinal;
+  return getImageUrl(imagenUrl);
 };
 
 // 🔥 FUNCIÓN PARA CONVERTIR IMAGEN A BASE64
 const convertirImagenBase64 = async (url) => {
   try {
-    console.log("🔍 convertirImagenBase64 - url:", url);
-    
     if (!url) return null;
+    if (url.includes("placeholder")) return null;
     
-    // Si la URL es placeholder, retorna null
-    if (url.includes("placeholder")) {
-      console.log("⚠️ es placeholder, retornando null");
-      return null;
-    }
-    
-    console.log("🌐 haciendo fetch a:", url);
     const response = await fetch(url);
-    console.log("📡 response status:", response.status);
-    
     if (!response.ok) {
       throw new Error(`Error HTTP: ${response.status}`);
     }
     const blob = await response.blob();
-    console.log("📦 blob recibido, tamaño:", blob.size);
-    
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        console.log("✅ imagen convertida a base64 correctamente");
-        resolve(reader.result);
-      };
-      reader.onerror = (err) => {
-        console.error("❌ error en FileReader:", err);
-        reject(err);
-      };
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    console.error('❌ Error convirtiendo imagen a base64:', error);
+    console.error('Error convirtiendo imagen a base64:', error);
     return null;
   }
 };
@@ -132,13 +81,6 @@ export default function Cotizador() {
     celular: ""
   });
 
-  const [medidas, setMedidas] = useState([
-    {
-      largo: "",
-      ancho: ""
-    }
-  ]);
-
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem("darkMode") === "true";
   });
@@ -157,10 +99,7 @@ export default function Cotizador() {
           return;
         }
 
-        console.log("📦 Productos guardados en localStorage:", guardados);
-
         const res = await api.get("/productos");
-        console.log("📦 Productos desde API:", res.data);
 
         const combinados = guardados
           .map((guardado) => {
@@ -168,16 +107,8 @@ export default function Cotizador() {
               (prod) => prod.id === guardado.id
             );
 
-            if (!productoBD) {
-              console.log(`⚠️ Producto ${guardado.id} no encontrado en BD`);
-              return null;
-            }
+            if (!productoBD) return null;
 
-            console.log(`✅ Producto encontrado: ${productoBD.nombre}`);
-            console.log(`📸 imagenes: ${productoBD.imagenes}`);
-            console.log(`📸 imagen: ${productoBD.imagen}`);
-
-            // INICIALIZACIÓN DE ÁREAS SEGÚN TIPO DE VENTA
             let areasIniciales = [];
             if (productoBD.tipoVenta === "tramo") {
               areasIniciales = [{ perimetro: "", usar: true }];
@@ -199,10 +130,9 @@ export default function Cotizador() {
           })
           .filter(Boolean);
 
-        console.log("✅ Productos combinados:", combinados);
         setProductos(combinados);
       } catch (error) {
-        console.error("❌ Error cargando productos:", error);
+        console.log(error);
       }
     };
 
@@ -227,7 +157,6 @@ export default function Cotizador() {
   };
 
   const calcular = (p) => {
-    // CÁLCULO PARA "OTROS"
     if (p.tipoVenta === "otros") {
       const areaTotal = (p.areas || []).reduce((acc, a) => {
         if (!a.usar) return acc;
@@ -256,7 +185,6 @@ export default function Cotizador() {
       };
     }
 
-    // CÁLCULO PARA LOS DEMÁS TIPOS
     const area = (p.areas || []).reduce((acc, a) => {
       if (!a.usar) return acc;
       return acc + ((Number(a.largo) || 0) * (Number(a.ancho) || 0));
@@ -338,14 +266,12 @@ export default function Cotizador() {
     const pageHeight = pdf.internal.pageSize.getHeight();
     try {
       const fondoUrl = window.location.origin + "/membreteuno.jpg";
-      console.log("🖼️ Cargando membrete portada:", fondoUrl);
       const fondo = await convertirImagenBase64(fondoUrl);
       if (fondo) {
         pdf.addImage(fondo, "JPEG", 0, 0, pageWidth, pageHeight);
-        console.log("✅ Membrete portada agregado");
       }
     } catch (error) {
-      console.log("❌ Error cargando membrete de portada:", error);
+      console.log("Error cargando membrete de portada:", error);
     }
   };
 
@@ -355,14 +281,12 @@ export default function Cotizador() {
     const pageHeight = pdf.internal.pageSize.getHeight();
     try {
       const fondoUrl = window.location.origin + "/membretedos.jpg";
-      console.log("🖼️ Cargando membrete interno:", fondoUrl);
       const fondo = await convertirImagenBase64(fondoUrl);
       if (fondo) {
         pdf.addImage(fondo, "JPEG", 0, 0, pageWidth, pageHeight);
-        console.log("✅ Membrete interno agregado");
       }
     } catch (error) {
-      console.log("❌ Error cargando membrete interno:", error);
+      console.log("Error cargando membrete interno:", error);
     }
   };
 
@@ -381,7 +305,7 @@ export default function Cotizador() {
     return (Number(cm) / 100).toFixed(2);
   };
 
-  // 🔥 FUNCIÓN GENERAR PDF
+  // 🔥 FUNCIÓN GENERAR PDF - COMPLETA
   const generarPDF = async () => {
     try {
       setEnviando(true);
@@ -405,6 +329,7 @@ export default function Cotizador() {
       pdf.line(15, 55, pageWidth - 15, 55);
       y = 70;
 
+      // 🔥 RECORRER CADA PRODUCTO
       for (let i = 0; i < productos.length; i++) {
         const producto = productos[i];
         const r = calcular(producto);
@@ -415,29 +340,25 @@ export default function Cotizador() {
           y = 20;
         }
 
-        // 🔥 IMAGEN DEL PRODUCTO - CON DEPURACIÓN
+        // 🔥 IMAGEN DEL PRODUCTO
         try {
           const imgUrl = obtenerImagenProducto(producto);
-          console.log(`📸 Producto ${producto.nombre} - URL imagen:`, imgUrl);
-          
           const imagenBase64 = await convertirImagenBase64(imgUrl);
           if (imagenBase64) {
             pdf.addImage(imagenBase64, "JPEG", 15, y, 50, 50);
-            console.log(`✅ Imagen agregada para ${producto.nombre}`);
           } else {
-            console.log(`⚠️ No se pudo obtener imagen para ${producto.nombre}`);
             pdf.setFontSize(10);
             pdf.setTextColor(150);
             pdf.text("Imagen no disponible", 15, y + 25);
           }
         } catch (error) {
-          console.error(`❌ Error con imagen de ${producto.nombre}:`, error);
+          console.log("Error imagen producto", error);
           pdf.setFontSize(10);
           pdf.setTextColor(150);
           pdf.text("Imagen no disponible", 15, y + 25);
         }
 
-        // DATOS DEL PRODUCTO
+        // 🔥 DATOS DEL PRODUCTO
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(14);
         pdf.setTextColor(40);
@@ -452,11 +373,190 @@ export default function Cotizador() {
         pdf.text(`$${r.total.toFixed(2)}`, 75, y + 55);
         y += 65;
 
-        // ... (resto del PDF igual)
+        // 🔥 RESUMEN DE COTIZACIÓN
+        y = await verificarSaltoPagina(pdf, y, 70);
+        pdf.setFontSize(18);
+        pdf.setTextColor(0);
+        pdf.text("Resumen de Cotización", 15, y);
+        y += 10;
+        pdf.setFillColor(245, 247, 250);
+        pdf.roundedRect(15, y, pageWidth - 30, 45, 3, 3, "F");
+        y = await verificarSaltoPagina(pdf, y, 70);
+        pdf.setFontSize(11);
+        pdf.setTextColor(60);
+
+        if (producto.tipoVenta === "otros") {
+          pdf.text(`Área a cubrir: ${r.area.toFixed(2)} m²`, 20, y + 8);
+          pdf.text(`Cobertura por ${producto.presentacion || "unidad"}: ${r.coberturaUnidad.toFixed(2)} m²`, 20, y + 18);
+          pdf.text(`Unidades necesarias: ${r.cantidad}`, 20, y + 28);
+          pdf.text(`Área total cubierta: ${(r.cantidad * r.coberturaUnidad).toFixed(2)} m²`, 20, y + 38);
+        } else {
+          pdf.text(`Modo de cotización: Todas las áreas`, 20, y + 8);
+          pdf.text(`Área total calculada: ${r.area.toFixed(2)} m²`, 20, y + 18);
+          pdf.text(`Desperdicio aplicado: ${producto.desperdicio || 0}%`, 20, y + 28);
+          pdf.text(`Área final: ${r.areaConDesc.toFixed(2)} m²`, 20, y + 38);
+          pdf.text(
+            producto.tipoVenta === "rollo" || producto.tipoVenta === "tramo"
+              ? `Cantidad requerida: ${r.metrosLineales.toFixed(2)} metros lineales`
+              : `Cantidad requerida: ${r.cantidad} ${producto.tipoVenta}s`,
+            110,
+            y + 18
+          );
+        }
         y += 60;
+
+        // 🔥 DETALLE DE MEDIDAS
+        pdf.setFontSize(14);
+        pdf.setTextColor(30);
+        pdf.text("Detalle de Medidas", 15, y);
+        y += 4;
+        y = await verificarSaltoPagina(pdf, y, 70);
+        pdf.setFontSize(11);
+        pdf.setTextColor(70);
+
+        const areasActivas = (producto.areas || []).filter(a => a.usar !== false);
+
+        if (areasActivas.length > 0) {
+          areasActivas.forEach((area, index) => {
+            if (producto.tipoVenta === "tramo") {
+              pdf.text(`Perímetro ${index + 1}: ${Number(area.perimetro || 0).toFixed(2)} m`, 20, y);
+            } else if (producto.tipoVenta === "unidad") {
+              pdf.text(`Cantidad ${index + 1}: ${Number(area.cantidad || 0)} unidades`, 20, y);
+            } else if (producto.tipoVenta === "otros") {
+              pdf.text(`Área ${index + 1}: ${Number(area.area || 0).toFixed(2)} m²`, 20, y);
+            } else {
+              const largo = Number(area.largo || 0);
+              const ancho = Number(area.ancho || 0);
+              const areaTotal = largo * ancho;
+              pdf.text(`Área ${index + 1}: ${largo}m x ${ancho}m = ${areaTotal.toFixed(2)} m²`, 20, y);
+            }
+            y += 8;
+          });
+        } else {
+          pdf.text("No hay áreas seleccionadas para este producto.", 20, y);
+          y += 8;
+        }
+        y += 5;
+
+        // 🔥 NOTA DEL PRODUCTO
+        let notaProducto = "";
+        if (producto.tipoVenta === "rollo") {
+          const anchoRollo = Math.min(Number(producto.ancho || 0), Number(producto.alto || 0)) / 100;
+          const largoRollo = Math.max(Number(producto.ancho || 0), Number(producto.alto || 0)) / 100;
+          const coberturaRollo = anchoRollo * largoRollo;
+          const metrosLineales = anchoRollo > 0 ? r.areaConDesc / anchoRollo : 0;
+          notaProducto =
+            `Este producto se vende por rollo. ` +
+            `Cada rollo mide ${largoRollo.toFixed(2)} m x ${anchoRollo.toFixed(2)} m y cubre ${coberturaRollo.toFixed(2)} m². ` +
+            `Para cubrir ${r.areaConDesc.toFixed(2)} m² necesitas aproximadamente ${metrosLineales.toFixed(2)} metros lineales.`;
+        } else if (producto.tipoVenta === "caja") {
+          notaProducto =
+            `Cada caja contiene ${producto.piezasCaja || 1} piezas y cubre ${r.coberturaUnidad.toFixed(2)} m². ` +
+            `Para cubrir ${r.areaConDesc.toFixed(2)} m² necesitas aproximadamente ${r.cantidad} cajas.`;
+        } else if (producto.tipoVenta === "pieza") {
+          notaProducto =
+            `Cada pieza cubre ${r.coberturaUnidad.toFixed(2)} m². ` +
+            `Para cubrir ${r.areaConDesc.toFixed(2)} m² necesitas aproximadamente ${r.cantidad} piezas.`;
+        } else if (producto.tipoVenta === "unidad") {
+          notaProducto = `Se requieren aproximadamente ${r.cantidad} unidades para este proyecto.`;
+        } else if (producto.tipoVenta === "tramo") {
+          notaProducto =
+            `Para cubrir ${r.cantidad.toFixed(2)} metros necesitas aproximadamente ${r.cantidad.toFixed(2)} metros lineales.`;
+        } else if (producto.tipoVenta === "otros") {
+          notaProducto =
+            `Este producto se vende por presentación (${producto.presentacion || "unidad"}). ` +
+            `Cada unidad cubre ${r.coberturaUnidad.toFixed(2)} m². ` +
+            `Para cubrir ${r.area.toFixed(2)} m² necesitas aproximadamente ${r.cantidad} unidades. ` +
+            `Esto cubrirá ${(r.cantidad * r.coberturaUnidad).toFixed(2)} m².`;
+        }
+
+        const lineasNota = pdf.splitTextToSize(notaProducto, pageWidth - 45);
+        const altoNota = lineasNota.length * 5 + 12;
+        
+        if (y + altoNota > pageHeight - 50) {
+          pdf.addPage();
+          await agregarMembretadoInterno(pdf);
+          y = 50;
+        }
+        
+        pdf.setFillColor(255, 248, 200);
+        pdf.roundedRect(15, y, pageWidth - 30, altoNota, 3, 3, "F");
+        y = await verificarSaltoPagina(pdf, y, 70);
+        pdf.setFontSize(10);
+        pdf.setTextColor(90);
+        pdf.text(lineasNota, 20, y + 8);
+        y += altoNota + 15;
+
+        // 🔥 CONDICIONES COMERCIALES
+        if (y > pageHeight - 90) {
+          pdf.addPage();
+          await agregarMembretadoInterno(pdf);
+          y = 20;
+        }
+        
+        y = await verificarSaltoPagina(pdf, y, 70);
+        pdf.setFontSize(14);
+        pdf.setTextColor(30);
+        pdf.text("Condiciones Comerciales", 15, y);
+        y += 10;
+        const condiciones = [
+          "• Precios sujetos a cambios sin previo aviso.",
+          "• Vigencia de la cotización: 15 días.",
+          "• Material sujeto a disponibilidad.",
+          "• No incluye instalación ni envío salvo indicación expresa."
+        ];
+        y = await verificarSaltoPagina(pdf, y, 70);
+        pdf.setFontSize(10);
+        pdf.setTextColor(90);
+        condiciones.forEach(item => {
+          pdf.text(item, 20, y);
+          y += 7;
+        });
+        y += 10;
+        
+        pdf.setDrawColor(220);
+        pdf.line(15, y, pageWidth - 15, y);
+        y += 12;
       }
 
-      // ENVIAR POR CORREO
+      // 🔥 TOTAL GENERAL
+      const totalGeneral = productos.reduce((acc, p) => acc + calcular(p).total, 0);
+      if (y > pageHeight - 80) {
+        pdf.addPage();
+        await agregarMembretadoInterno(pdf);
+        y = 20;
+      }
+      
+      pdf.setFillColor(22, 163, 74);
+      pdf.roundedRect(15, y, pageWidth - 30, 18, 3, 3, "F");
+      pdf.setTextColor(255);
+      y = await verificarSaltoPagina(pdf, y, 70);
+      pdf.setFontSize(18);
+      pdf.text(`TOTAL GENERAL: $${totalGeneral.toFixed(2)}`, 20, y + 12);
+      y += 35;
+
+      // 🔥 DATOS DEL CLIENTE
+      if (y > pageHeight - 80) {
+        pdf.addPage();
+        await agregarMembretadoInterno(pdf);
+        y = 20;
+      }
+      
+      y = await verificarSaltoPagina(pdf, y, 70);
+      pdf.setFontSize(16);
+      pdf.setTextColor(0);
+      pdf.text("Datos del Cliente", 15, y);
+      y += 12;
+      pdf.setFillColor(248, 250, 252);
+      pdf.roundedRect(15, y, pageWidth - 30, 28, 3, 3, "F");
+      y = await verificarSaltoPagina(pdf, y, 70);
+      pdf.setFontSize(11);
+      pdf.text(`Nombre: ${cliente.nombre || "-"}`, 20, y + 8);
+      pdf.text(`Correo: ${cliente.correo || "-"}`, 20, y + 16);
+      pdf.text(`Celular: ${cliente.celular || "-"}`, 20, y + 24);
+      y += 40;
+
+      // 🔥 ENVIAR POR CORREO
       const pdfBase64 = pdf.output("datauristring");
       await api.post("/enviar-cotizacion", {
         nombre: cliente.nombre,
@@ -526,6 +626,7 @@ export default function Cotizador() {
     navigate("/productos");
   };
 
+  // ========== RENDER ==========
   return (
     <div
       style={{
@@ -646,10 +747,7 @@ export default function Cotizador() {
         {productos.map((p, i) => {
           const r = calcular(p);
           const areasActivas = (p.areas || []).filter(a => a.usar !== false);
-          
-          // 🔥 Obtener la URL de la imagen para este producto
           const imagenUrl = obtenerImagenProducto(p);
-          console.log(`🖼️ Renderizando ${p.nombre} - imagenUrl:`, imagenUrl);
 
           return (
             <div
@@ -664,7 +762,7 @@ export default function Cotizador() {
                 border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb"
               }}
             >
-              {/* HEADER PRODUCTO - CON IMAGEN */}
+              {/* HEADER PRODUCTO */}
               <div
                 style={{
                   display: "flex",
@@ -687,11 +785,7 @@ export default function Cotizador() {
                     backgroundColor: "#f3f4f6"
                   }}
                   onError={(e) => {
-                    console.error(`❌ Error cargando imagen de ${p.nombre}:`, imagenUrl);
                     e.target.src = "https://via.placeholder.com/90x90?text=Sin+imagen";
-                  }}
-                  onLoad={() => {
-                    console.log(`✅ Imagen cargada correctamente para ${p.nombre}`);
                   }}
                 />
                 <div style={{ flex: 1, minWidth: "140px" }}>
@@ -729,7 +823,6 @@ export default function Cotizador() {
                 </div>
               </div>
 
-              {/* El resto del componente sigue igual... */}
               {/* ÁREAS */}
               <div
                 style={{
