@@ -1,4 +1,3 @@
-
 console.log("🚀 SERVER INICIADO");
 
 require("dotenv").config();
@@ -12,31 +11,25 @@ const fs = require("fs");
 
 require("dotenv").config();
 console.log("🚀 SERVER INICIADO");
-console.log("EMAIL_USER =", process.env.EMAIL_USER);
-console.log("EMAIL_PASS =", process.env.EMAIL_PASS ? "CARGADA" : "NO CARGADA");
+console.log("RESEND_API_KEY =", process.env.RESEND_API_KEY ? "CARGADA" : "NO CARGADA");
 
-const nodemailer = require("nodemailer");
+// =================================================
+// 📧 CONFIGURACIÓN DE RESEND
+// =================================================
+const { Resend } = require('resend');
 
-console.log("Antes de crear transporter");
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
-
-console.log("Transporter creado");
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("❌ SMTP Verify:", error);
-  } else {
-    console.log("✅ SMTP conectado correctamente");
-  }
+// Email de prueba para verificar la conexión
+resend.emails.send({
+  from: 'onboarding@resend.dev',
+  to: 'johanlopezcordoba9@gmail.com',
+  subject: 'Hello World',
+  html: '<p>Congrats on sending your <strong>first email</strong>!</p>'
+}).then(response => {
+  console.log("✅ Resend configurado correctamente");
+}).catch(error => {
+  console.error("❌ Error al configurar Resend:", error);
 });
 
 const app = express();
@@ -88,7 +81,7 @@ app.post("/upload-banner", upload.single("imagen"), (req, res) => {
 });
 
 // =================================================
-// ✉️ ENVIAR COTIZACIÓN POR EMAIL (CORREGIDO)
+// ✉️ ENVIAR COTIZACIÓN POR EMAIL (CON RESEND)
 // =================================================
 app.post("/enviar-cotizacion", async (req, res) => {
   try {
@@ -108,11 +101,10 @@ app.post("/enviar-cotizacion", async (req, res) => {
       });
     }
     
-    // Preparar el PDF - CORREGIDO
+    // Preparar el PDF
     let attachments = [];
     if (pdf) {
       try {
-        // Extraer el base64 correctamente
         let base64Data = pdf;
         if (pdf.includes('base64,')) {
           base64Data = pdf.split('base64,')[1];
@@ -121,6 +113,7 @@ app.post("/enviar-cotizacion", async (req, res) => {
         }
         
         const pdfBuffer = Buffer.from(base64Data, 'base64');
+        // Resend usa attachment con diferente formato
         attachments.push({
           filename: `cotizacion_${Date.now()}.pdf`,
           content: pdfBuffer,
@@ -168,30 +161,34 @@ app.post("/enviar-cotizacion", async (req, res) => {
       </div>
     `;
 
-    // Enviar correo
-    const mailOptions = {
-      from: `"Tienda de Pisos" <${process.env.EMAIL_USER}>`,
+    // Enviar correo con Resend
+    const emailData = {
+      from: 'onboarding@resend.dev',
       to: correo,
       subject: `📄 Cotización - ${producto}`,
       html: html,
-      attachments: attachments,
+      attachments: attachments.map(att => ({
+        filename: att.filename,
+        content: att.content.toString('base64'),
+        contentType: att.contentType
+      }))
     };
     
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Correo enviado correctamente - ID: ${info.messageId}`);
+    const response = await resend.emails.send(emailData);
+    console.log(`✅ Correo enviado correctamente - ID: ${response.id}`);
     
     res.json({ 
       success: true, 
       message: 'Cotización enviada correctamente',
-      messageId: info.messageId 
+      messageId: response.id 
     });
     
   } catch (error) {
     console.error('❌ Error al enviar cotización:', error);
     
     let errorMessage = 'Error al enviar el correo';
-    if (error.code === 'EAUTH') {
-      errorMessage = 'Error de autenticación con Gmail. Verifica tu contraseña de aplicación.';
+    if (error.statusCode === 429) {
+      errorMessage = 'Demasiadas solicitudes. Intenta de nuevo más tarde.';
     } else if (error.message) {
       errorMessage = error.message;
     }
@@ -208,8 +205,6 @@ app.post("/enviar-cotizacion", async (req, res) => {
 // 📋 PEDIDOS - GENERAR NÚMERO DE PEDIDO ÚNICO
 // =================================================
 
-// Función para generar número de pedido único
-// Formato: PED-YYYYMMDD-XXXX (ej: PED-20250127-0001)
 const generarNumeroPedido = async () => {
   const fecha = new Date();
   const año = fecha.getFullYear();
@@ -217,7 +212,6 @@ const generarNumeroPedido = async () => {
   const dia = String(fecha.getDate()).padStart(2, '0');
   const fechaStr = `${año}${mes}${dia}`;
   
-  // Buscar el último pedido del día
   const [rows] = await db.query(
     "SELECT numero_pedido FROM pedidos WHERE numero_pedido LIKE ? ORDER BY id DESC LIMIT 1",
     [`PED-${fechaStr}-%`]
@@ -240,7 +234,6 @@ app.post("/pedidos", async (req, res) => {
   try {
     const { cliente, productos, total } = req.body;
     
-    // Validar datos
     if (!cliente || !cliente.nombre || !cliente.email || !cliente.celular) {
       return res.status(400).json({ error: "Datos del cliente incompletos" });
     }
@@ -249,10 +242,8 @@ app.post("/pedidos", async (req, res) => {
       return res.status(400).json({ error: "No hay productos en el pedido" });
     }
     
-    // Generar número de pedido único
     const numeroPedido = await generarNumeroPedido();
     
-    // Insertar pedido
     const sqlPedido = `
       INSERT INTO pedidos (
         numero_pedido,
@@ -278,7 +269,6 @@ app.post("/pedidos", async (req, res) => {
     
     const pedidoId = resultPedido.insertId;
     
-    // Insertar productos del pedido (incluyendo imagen)
     const sqlProducto = `
       INSERT INTO pedido_productos (
         pedido_id,
@@ -305,12 +295,10 @@ app.post("/pedidos", async (req, res) => {
       ]);
     }
     
-    // Enviar correo de confirmación
     try {
       await enviarCorreoPedido(cliente, numeroPedido, productos, total);
     } catch (emailError) {
       console.error("Error al enviar correo:", emailError);
-      // No falla el pedido si el correo falla
     }
     
     res.status(201).json({
@@ -403,7 +391,7 @@ app.get("/pedidos/numero/:numero", async (req, res) => {
   }
 });
 
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO (CON RESEND)
 const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => {
   const estadoLabels = {
     pendiente: '⏳ Pendiente',
@@ -423,7 +411,6 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
     pendiente: 'Tu pedido está pendiente de revisión.'
   };
 
-  // Obtener productos del pedido para mostrarlos en el correo
   const [productos] = await db.query(
     "SELECT * FROM pedido_productos WHERE pedido_id = ?",
     [pedido.id]
@@ -522,8 +509,8 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
   `;
 
   try {
-    await transporter.sendMail({
-      from: `"Fray Flooring" <${process.env.EMAIL_USER}>`,
+    await resend.emails.send({
+      from: 'onboarding@resend.dev',
       to: pedido.cliente_email,
       subject: `📦 Actualización de tu pedido #${pedido.numero_pedido}`,
       html: html
@@ -546,7 +533,6 @@ app.put("/pedidos/:id/estado", async (req, res) => {
       return res.status(400).json({ error: "Estado no válido" });
     }
     
-    // Obtener el pedido actual para saber el estado anterior
     const [pedidoActual] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedidoActual.length === 0) {
       return res.status(404).json({ error: "Pedido no encontrado" });
@@ -554,22 +540,18 @@ app.put("/pedidos/:id/estado", async (req, res) => {
     
     const estadoAnterior = pedidoActual[0].estado;
     
-    // Actualizar el estado
     await db.query(
       "UPDATE pedidos SET estado = ? WHERE id = ?",
       [estado, id]
     );
     
-    // Obtener el pedido actualizado
     const [pedidoActualizado] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     
-    // Enviar correo de actualización (solo si el estado cambió)
     if (estadoAnterior !== estado) {
       try {
         await enviarCorreoEstadoPedido(pedidoActualizado[0], estadoAnterior, estado);
       } catch (emailError) {
         console.error("Error enviando correo:", emailError);
-        // No falla la actualización si el correo falla
       }
     }
     
@@ -585,7 +567,7 @@ app.put("/pedidos/:id/estado", async (req, res) => {
   }
 });
 
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO)
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO CON RESEND)
 const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
   const productosHtml = productos.map(p => `
     <tr>
@@ -667,8 +649,8 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
   `;
 
   try {
-    await transporter.sendMail({
-      from: `"Fray Flooring" <${process.env.EMAIL_USER}>`,
+    await resend.emails.send({
+      from: 'onboarding@resend.dev',
       to: cliente.email,
       subject: `Confirmación de Pedido #${numeroPedido}`,
       html: html
@@ -1912,13 +1894,11 @@ app.delete("/pedidos/:id", async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Verificar si el pedido existe
     const [pedido] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedido.length === 0) {
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
     
-    // Eliminar el pedido (los productos se eliminan en cascada por la FK)
     await db.query("DELETE FROM pedidos WHERE id = ?", [id]);
     
     res.json({ 
