@@ -8,6 +8,7 @@ const db = require("./config/db");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const axios = require("axios");
 
 require("dotenv").config();
 console.log("🚀 SERVER INICIADO");
@@ -42,6 +43,275 @@ app.use(express.urlencoded({
   limit: "50mb",
   extended: true
 }));
+
+// =================================================
+// 📄 GENERAR PDF CON HOJA MEMBRETADA
+// =================================================
+const PDFDocument = require('pdfkit');
+
+const generarPDFCotizacion = (datos) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margin: 50,
+        info: {
+          Title: 'Cotización',
+          Author: 'Fray Flooring',
+          Subject: 'Cotización de productos'
+        }
+      });
+
+      const chunks = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+
+      // =============================================
+      // 🏢 HOJA MEMBRETADA - ENCABEZADO
+      // =============================================
+      
+      // Logo o nombre de la empresa
+      doc.fontSize(24)
+         .font('Helvetica-Bold')
+         .fillColor('#16a34a')
+         .text('FRAY FLOORING', 50, 50, { align: 'center' });
+      
+      doc.fontSize(12)
+         .font('Helvetica')
+         .fillColor('#4b5563')
+         .text('Pisos de Alta Calidad', 50, 80, { align: 'center' });
+      
+      // Línea decorativa
+      doc.moveTo(50, 100)
+         .lineTo(545, 100)
+         .strokeColor('#16a34a')
+         .lineWidth(2)
+         .stroke();
+
+      // Información de contacto
+      doc.fontSize(10)
+         .fillColor('#6b7280')
+         .text('📍 Dirección: Calle Principal #123, Colonia Centro, CDMX', 50, 110, { align: 'center' })
+         .text('📞 Teléfono: 55 1116 4545 | ✉️ Email: frayflooring@gmail.com', 50, 125, { align: 'center' });
+
+      // Segunda línea decorativa
+      doc.moveTo(50, 140)
+         .lineTo(545, 140)
+         .strokeColor('#e5e7eb')
+         .lineWidth(1)
+         .stroke();
+
+      // =============================================
+      // 📄 CONTENIDO DE LA COTIZACIÓN
+      // =============================================
+      
+      let y = 170;
+
+      // Título de cotización
+      doc.fontSize(18)
+         .font('Helvetica-Bold')
+         .fillColor('#1f2937')
+         .text('COTIZACIÓN', 50, y, { align: 'center' });
+      
+      y += 30;
+
+      // Número de cotización y fecha
+      const numeroCotizacion = `COT-${Date.now().toString().slice(-8)}`;
+      const fechaActual = new Date().toLocaleDateString('es-MX', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+
+      doc.fontSize(11)
+         .font('Helvetica')
+         .fillColor('#374151')
+         .text(`Número: ${numeroCotizacion}`, 50, y)
+         .text(`Fecha: ${fechaActual}`, 400, y);
+      
+      y += 30;
+
+      // Datos del cliente
+      doc.fontSize(12)
+         .font('Helvetica-Bold')
+         .fillColor('#1f2937')
+         .text('DATOS DEL CLIENTE', 50, y);
+      
+      y += 20;
+
+      doc.fontSize(10)
+         .font('Helvetica')
+         .fillColor('#374151')
+         .text(`Nombre: ${datos.nombre || 'No especificado'}`, 50, y);
+      y += 18;
+      
+      doc.text(`Correo: ${datos.correo || 'No especificado'}`, 50, y);
+      y += 18;
+      
+      if (datos.celular) {
+        doc.text(`Teléfono: ${datos.celular}`, 50, y);
+        y += 18;
+      }
+
+      y += 10;
+
+      // Línea separadora
+      doc.moveTo(50, y)
+         .lineTo(545, y)
+         .strokeColor('#e5e7eb')
+         .lineWidth(1)
+         .stroke();
+      
+      y += 20;
+
+      // Tabla de productos
+      doc.fontSize(12)
+         .font('Helvetica-Bold')
+         .fillColor('#1f2937')
+         .text('DETALLE DE PRODUCTO', 50, y);
+      
+      y += 20;
+
+      // Encabezados de tabla
+      const tableTop = y;
+      const col1 = 50;   // Producto
+      const col2 = 350;  // Cantidad
+      const col3 = 420;  // Precio
+      const col4 = 490;  // Subtotal
+
+      doc.fontSize(10)
+         .font('Helvetica-Bold')
+         .fillColor('#ffffff')
+         .rect(col1 - 5, tableTop - 5, 500, 25)
+         .fill('#16a34a');
+
+      doc.fillColor('#ffffff')
+         .text('Producto', col1 + 5, tableTop + 5)
+         .text('Cant.', col2, tableTop + 5)
+         .text('Precio', col3, tableTop + 5)
+         .text('Subtotal', col4, tableTop + 5);
+
+      let tableY = tableTop + 30;
+
+      // Productos
+      doc.fontSize(10)
+         .font('Helvetica')
+         .fillColor('#1f2937');
+
+      if (datos.productos && datos.productos.length > 0) {
+        datos.productos.forEach((producto, index) => {
+          // Verificar si necesita nueva página
+          if (tableY > 700) {
+            doc.addPage();
+            tableY = 50;
+            
+            // Reimprimir encabezados en nueva página
+            doc.fontSize(10)
+               .font('Helvetica-Bold')
+               .fillColor('#ffffff')
+               .rect(col1 - 5, tableY - 5, 500, 25)
+               .fill('#16a34a');
+
+            doc.fillColor('#ffffff')
+               .text('Producto', col1 + 5, tableY + 5)
+               .text('Cant.', col2, tableY + 5)
+               .text('Precio', col3, tableY + 5)
+               .text('Subtotal', col4, tableY + 5);
+            
+            tableY += 30;
+          }
+
+          const nombreProducto = producto.nombre || 'Producto';
+          const cantidad = producto.cantidad || 1;
+          const precio = producto.precio || 0;
+          const subtotal = producto.subtotal || (precio * cantidad);
+
+          // Fila de producto
+          doc.font('Helvetica')
+             .fillColor('#1f2937')
+             .text(nombreProducto.length > 35 ? nombreProducto.substring(0, 35) + '...' : nombreProducto, col1 + 5, tableY + 2)
+             .text(cantidad.toString(), col2 + 10, tableY + 2, { width: 50, align: 'center' })
+             .text(`$${precio.toFixed(2)}`, col3, tableY + 2, { width: 70, align: 'right' })
+             .text(`$${subtotal.toFixed(2)}`, col4, tableY + 2, { width: 80, align: 'right' });
+
+          tableY += 22;
+        });
+      } else {
+        // Si no hay productos detallados, mostrar el producto principal
+        doc.text(datos.producto || 'Producto no especificado', col1 + 5, tableY + 2)
+           .text('1', col2 + 10, tableY + 2, { width: 50, align: 'center' })
+           .text(`$${datos.total || 0}`, col3, tableY + 2, { width: 70, align: 'right' })
+           .text(`$${datos.total || 0}`, col4, tableY + 2, { width: 80, align: 'right' });
+        tableY += 22;
+      }
+
+      // Total
+      tableY += 10;
+      
+      // Línea separadora antes del total
+      doc.moveTo(400, tableY)
+         .lineTo(545, tableY)
+         .strokeColor('#e5e7eb')
+         .lineWidth(1)
+         .stroke();
+      
+      tableY += 10;
+
+      // Total con formato destacado
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .fillColor('#1f2937')
+         .text('TOTAL:', 400, tableY, { width: 60, align: 'right' })
+         .fontSize(16)
+         .fillColor('#16a34a')
+         .text(`$${datos.total || 0}`, 470, tableY, { width: 80, align: 'right' });
+
+      // =============================================
+      // 📝 NOTAS Y CONDICIONES (PIE DE PÁGINA)
+      // =============================================
+      
+      const footerY = 750;
+
+      // Línea decorativa
+      doc.moveTo(50, footerY)
+         .lineTo(545, footerY)
+         .strokeColor('#e5e7eb')
+         .lineWidth(1)
+         .stroke();
+
+      // Notas importantes
+      doc.fontSize(9)
+         .font('Helvetica')
+         .fillColor('#6b7280')
+         .text('NOTAS IMPORTANTES:', 50, footerY + 10)
+         .font('Helvetica-Oblique')
+         .fillColor('#9ca3af')
+         .text('• Esta cotización tiene una validez de 15 días a partir de la fecha de emisión.', 50, footerY + 25)
+         .text('• Los precios están sujetos a cambios sin previo aviso.', 50, footerY + 40)
+         .text('• El pago deberá realizarse en tienda física.', 50, footerY + 55)
+         .text('• Para más información, contáctanos al 55 1116 4545.', 50, footerY + 70);
+
+      // Firma
+      doc.font('Helvetica')
+         .fillColor('#374151')
+         .text('_________________________', 400, footerY + 55)
+         .fontSize(9)
+         .text('Firma y Sello', 420, footerY + 72, { width: 100, align: 'center' });
+
+      // Número de página
+      const pageCount = doc.bufferedPageRange().count;
+      doc.fontSize(8)
+         .fillColor('#9ca3af')
+         .text(`Página ${doc.pageNumber} de ${pageCount}`, 280, footerY + 100, { align: 'center' });
+
+      // Finalizar documento
+      doc.end();
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -78,50 +348,90 @@ app.post("/upload-productos", upload.array("imagenes", 20), async (req, res) => 
 app.post("/upload-banner", upload.single("imagen"), (req, res) => {
  const imagen =
 `/uploads/productos/${req.file.filename}`;
+  res.json({ imagen });
 });
 
 // =================================================
-// ✉️ ENVIAR COTIZACIÓN POR EMAIL (CON RESEND)
+// ✉️ ENVIAR COTIZACIÓN POR EMAIL (CON PDF MEMBRETADO)
 // =================================================
 app.post("/enviar-cotizacion", async (req, res) => {
   try {
-    const { nombre, correo, celular, producto, total, pdf } = req.body;
+    console.log('📥 Body recibido:', req.body);
     
-    console.log('📧 Recibida solicitud de cotización:');
+    const { nombre, correo, celular, producto, total, pdf, productos } = req.body;
+    
+    console.log('📧 Datos extraídos:');
     console.log(`   - Nombre: ${nombre}`);
     console.log(`   - Correo: ${correo}`);
     console.log(`   - Producto: ${producto}`);
     console.log(`   - Total: $${total}`);
-    console.log(`   - Tiene PDF: ${pdf ? 'Sí' : 'No'}`);
+    console.log(`   - Productos: ${productos ? productos.length : 0} items`);
+    console.log(`   - Tiene PDF base64: ${pdf ? 'Sí' : 'No'}`);
     
     // Validar datos
     if (!nombre || !correo || !producto || !total) {
       return res.status(400).json({ 
-        error: 'Faltan datos requeridos: nombre, correo, producto y total son obligatorios' 
+        error: 'Faltan datos requeridos: nombre, correo, producto y total son obligatorios',
+        recibido: req.body 
       });
     }
     
-    // Preparar el PDF
     let attachments = [];
+
+    // =============================================
+    // 📄 PROCESAR EL PDF
+    // =============================================
     if (pdf) {
       try {
         let base64Data = pdf;
+        // Limpiar el base64 si viene con prefijo
         if (pdf.includes('base64,')) {
           base64Data = pdf.split('base64,')[1];
         } else if (pdf.includes(',')) {
           base64Data = pdf.split(',')[1];
         }
         
+        // Limpiar espacios y caracteres especiales
+        base64Data = base64Data.trim().replace(/\s/g, '');
+        
         const pdfBuffer = Buffer.from(base64Data, 'base64');
-        // Resend usa attachment con diferente formato
+        console.log(`✅ PDF preparado (${pdfBuffer.length} bytes)`);
+        
         attachments.push({
           filename: `cotizacion_${Date.now()}.pdf`,
-          content: pdfBuffer,
+          content: pdfBuffer.toString('base64'),
           contentType: 'application/pdf',
         });
-        console.log(`✅ PDF preparado (${pdfBuffer.length} bytes)`);
       } catch (error) {
         console.warn('⚠️ Error al procesar el PDF:', error.message);
+      }
+    } else {
+      // Si no hay PDF, generar uno por defecto
+      try {
+        const datosPDF = {
+          nombre,
+          correo,
+          celular: celular || '',
+          producto,
+          total: parseFloat(total) || 0,
+          productos: productos || [{ 
+            nombre: producto, 
+            cantidad: 1, 
+            precio: parseFloat(total) || 0, 
+            subtotal: parseFloat(total) || 0
+          }]
+        };
+        
+        const pdfBuffer = await generarPDFCotizacion(datosPDF);
+        console.log(`✅ PDF generado automáticamente (${pdfBuffer.length} bytes)`);
+        
+        attachments.push({
+          filename: `cotizacion_${Date.now()}.pdf`,
+          content: pdfBuffer.toString('base64'),
+          contentType: 'application/pdf',
+        });
+      } catch (error) {
+        console.warn('⚠️ Error al generar PDF:', error.message);
       }
     }
     
@@ -129,8 +439,8 @@ app.post("/enviar-cotizacion", async (req, res) => {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
         <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #16a34a;">
-          <h1 style="color: #16a34a; margin: 0;">🏠 Tienda de Pisos</h1>
-          <p style="color: #6b7280; margin: 5px 0 0 0;">Cotización de Producto</p>
+          <h1 style="color: #16a34a; margin: 0;">🏠 FRAY FLOORING</h1>
+          <p style="color: #6b7280; margin: 5px 0 0 0;">Pisos de Alta Calidad</p>
         </div>
         
         <div style="padding: 20px 0;">
@@ -146,17 +456,16 @@ app.post("/enviar-cotizacion", async (req, res) => {
             <p style="margin: 5px 0;"><strong>📅 Fecha:</strong> ${new Date().toLocaleDateString('es-MX')}</p>
           </div>
           
-          ${attachments.length > 0 ? `
-            <div style="background: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
-              <p style="margin: 0; color: #1e3a8a;">
-                📎 Adjunto encontrarás el PDF con los detalles completos de la cotización.
-              </p>
-            </div>
-          ` : ''}
+          <div style="background: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+            <p style="margin: 0; color: #1e3a8a;">
+              📎 Adjunto encontrarás el PDF con los detalles completos de la cotización.
+            </p>
+          </div>
         </div>
         
         <div style="border-top: 2px solid #e5e7eb; padding-top: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
           <p style="margin: 0;">Este correo fue generado automáticamente.</p>
+          <p style="margin: 5px 0 0 0;">© ${new Date().getFullYear()} Fray Flooring - Todos los derechos reservados.</p>
         </div>
       </div>
     `;
@@ -167,11 +476,7 @@ app.post("/enviar-cotizacion", async (req, res) => {
       to: correo,
       subject: `📄 Cotización - ${producto}`,
       html: html,
-      attachments: attachments.map(att => ({
-        filename: att.filename,
-        content: att.content.toString('base64'),
-        contentType: att.contentType
-      }))
+      attachments: attachments,
     };
     
     const response = await resend.emails.send(emailData);
@@ -1871,8 +2176,6 @@ app.delete("/contactos/:id", async (req, res) => {
 // =================================================
 // 🖼️ PROXY PARA IMÁGENES
 // =================================================
-const axios = require("axios");
-
 app.get("/proxy-image", async (req, res) => {
   try {
     const imageUrl = req.query.url;
