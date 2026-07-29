@@ -5,6 +5,23 @@ import api from "../services/api";
 import Footer from "./Footer";
 import Navbar from "./Navbar";
 
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/300x300?text=Sin+Imagen";
+  }
+
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
+    return imagen;
+  }
+
+  if (imagen.startsWith("/")) {
+    return `https://backend-zuib.onrender.com${imagen}`;
+  }
+
+  return `https://backend-zuib.onrender.com/${imagen}`;
+};
+
 export default function MasVendidos() {
   const [productosOferta, setProductosOferta] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -72,11 +89,21 @@ export default function MasVendidos() {
 
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
+  // 🖼 OBTENER IMAGEN - VERSIÓN CORREGIDA
   const obtenerImagen = (producto) => {
+    if (!producto) return "https://via.placeholder.com/300x300?text=Sin+Imagen";
+
+    let imagenUrl = "";
+
     if (producto.imagenes && producto.imagenes.trim() !== "") {
-      return producto.imagenes.split(",")[0];
+      imagenUrl = producto.imagenes.split(",")[0].trim();
+    } else if (producto.imagen && producto.imagen.trim() !== "") {
+      imagenUrl = producto.imagen.trim();
+    } else {
+      return "https://via.placeholder.com/300x300?text=Sin+Imagen";
     }
-    return producto.imagen;
+
+    return getImageUrl(imagenUrl);
   };
 
   if (cargando) {
@@ -128,6 +155,11 @@ export default function MasVendidos() {
               key={p.id}
               style={styles.card(darkMode)}
               onClick={() => navigate(`/producto/${p.id}`)}
+              className="card-animated"
+              style={{
+                ...styles.card(darkMode),
+                animationDelay: `${index * 0.05}s`
+              }}
             >
               <button
                 onClick={(e) => {
@@ -148,8 +180,11 @@ export default function MasVendidos() {
                 alt={p.nombre}
                 style={styles.image}
                 loading="lazy"
+                onError={(e) => {
+                  e.target.src = "https://via.placeholder.com/300x300?text=Sin+Imagen";
+                }}
               />
-              <h3 style={styles.productName}>{p.nombre}</h3>
+              <h3 style={styles.productName(darkMode)}>{p.nombre}</h3>
               <div style={styles.prices}>
                 <span style={styles.oldPrice}>${p.precio}</span>
                 <span style={styles.newPrice}>
@@ -199,8 +234,8 @@ export default function MasVendidos() {
         }
 
         .card-animated:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+          transform: translateY(-6px) !important;
+          box-shadow: 0 12px 40px rgba(0,0,0,0.15) !important;
         }
 
         ::-webkit-scrollbar {
@@ -278,7 +313,7 @@ const styles = {
   container: {
     maxWidth: "1200px",
     margin: "0 auto",
-    padding: "24px 20px 60px",
+    padding: "140px 20px 60px", // Aumentado el padding superior
   },
 
   header: {
@@ -368,14 +403,14 @@ const styles = {
     padding: "8px",
   },
 
-  productName: {
+  productName: (darkMode) => ({
     fontSize: "16px",
     fontWeight: "600",
     margin: "4px 0",
     textAlign: "center",
-    color: "#0f172a",
+    color: darkMode ? "#f1f5f9" : "#0f172a",
     lineHeight: "1.3",
-  },
+  }),
 
   prices: {
     display: "flex",

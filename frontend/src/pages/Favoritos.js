@@ -4,14 +4,32 @@ import api from "../services/api";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
+const getImageUrl = (imagen) => {
+  if (!imagen) {
+    return "https://via.placeholder.com/300x300?text=Sin+Imagen";
+  }
+
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
+    return imagen;
+  }
+
+  if (imagen.startsWith("/")) {
+    return `https://backend-zuib.onrender.com${imagen}`;
+  }
+
+  return `https://backend-zuib.onrender.com/${imagen}`;
+};
+
 export default function Favoritos() {
   const [favoritos, setFavoritos] = useState([]);
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem("darkMode") === "true";
+  });
   
-  // Control de pantallas (Móvil < 768px, Tablet/Desktop Pequeño < 1024px)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   const navigate = useNavigate();
@@ -59,12 +77,37 @@ export default function Favoritos() {
     localStorage.setItem("favoritos", JSON.stringify(nuevos));
   };
 
+  // 🖼 OBTENER IMAGEN - VERSIÓN CORREGIDA
   const obtenerImagen = (producto) => {
+    if (!producto) return "https://via.placeholder.com/300x300?text=Sin+Imagen";
+
+    let imagenUrl = "";
+
     if (producto.imagenes && producto.imagenes.trim() !== "") {
-      return producto.imagenes.split(",")[0];
+      imagenUrl = producto.imagenes.split(",")[0].trim();
+    } else if (producto.imagen && producto.imagen.trim() !== "") {
+      imagenUrl = producto.imagen.trim();
+    } else {
+      return "https://via.placeholder.com/300x300?text=Sin+Imagen";
     }
-    return producto.imagen;
+
+    return getImageUrl(imagenUrl);
   };
+
+  // Función para toggle favorito desde el navbar
+  const toggleFavorito = (producto) => {
+    const existe = favoritos.some(f => f.id === producto.id);
+    let nuevos;
+    if (existe) {
+      nuevos = favoritos.filter(f => f.id !== producto.id);
+    } else {
+      nuevos = [...favoritos, producto];
+    }
+    setFavoritos(nuevos);
+    localStorage.setItem("favoritos", JSON.stringify(nuevos));
+  };
+
+  const esFavorito = (id) => favoritos.some(f => f.id === id);
 
   return (
     <div style={styles.page(darkMode)}>
@@ -75,21 +118,10 @@ export default function Favoritos() {
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         favoritos={favoritos}
-        esFavorito={(id) => favoritos.some(f => f.id === id)}
-        toggleFavorito={(producto) => {
-          const existe = favoritos.some(f => f.id === producto.id);
-          let nuevos;
-          if (existe) {
-            nuevos = favoritos.filter(f => f.id !== producto.id);
-          } else {
-            nuevos = [...favoritos, producto];
-          }
-          setFavoritos(nuevos);
-          localStorage.setItem("favoritos", JSON.stringify(nuevos));
-        }}
+        esFavorito={esFavorito}
+        toggleFavorito={toggleFavorito}
       />
 
-      {/* Contenedor responsivo con padding-top para evitar que se tape con el Navbar */}
       <div style={styles.container(isDesktop)}>
         
         <div style={styles.header}>
@@ -139,6 +171,10 @@ export default function Favoritos() {
                     src={obtenerImagen(p)}
                     alt={p.nombre}
                     style={styles.image}
+                    loading="lazy"
+                    onError={(e) => {
+                      e.target.src = "https://via.placeholder.com/300x300?text=Sin+Imagen";
+                    }}
                   />
                 </div>
 
@@ -150,7 +186,7 @@ export default function Favoritos() {
                   <h3 style={styles.name(darkMode, isMobile)}>{p.nombre}</h3>
 
                   {!isMobile && (
-                    <p style={styles.desc}>
+                    <p style={styles.desc(darkMode)}>
                       {p.descripcion?.slice(0, 45) || "Sin descripción"}...
                     </p>
                   )}
@@ -210,7 +246,7 @@ const styles = {
     maxWidth: isDesktop ? "1440px" : "1100px",
     width: "100%",
     margin: "0 auto",
-    padding: "120px 10px 20px 10px", // 🔥 AUMENTADO el padding-top a 80px para que no se tape con el Navbar
+    padding: "140px 10px 20px 10px", // 🔥 AUMENTADO el padding-top
     boxSizing: "border-box",
     flexGrow: 1
   }),
@@ -266,6 +302,11 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
+    transition: "transform 0.2s ease, box-shadow 0.2s ease",
+    '&:hover': {
+      transform: "translateY(-4px)",
+      boxShadow: "0 8px 25px rgba(0,0,0,0.1)"
+    }
   }),
 
   imageContainer: (isMobile) => ({
@@ -278,7 +319,9 @@ const styles = {
   image: {
     width: "100%",
     height: "100%",
-    objectFit: "cover"
+    objectFit: "contain",
+    padding: "8px",
+    background: "#fafafa"
   },
 
   info: (isMobile) => ({
@@ -298,13 +341,13 @@ const styles = {
     textOverflow: "ellipsis"
   }),
 
-  desc: {
-    color: "#777",
+  desc: (darkMode) => ({
+    color: darkMode ? "#94a3b8" : "#777",
     lineHeight: "1.4",
     fontSize: "11px",
     minHeight: "32px",
     marginBottom: "10px"
-  },
+  }),
 
   price: (darkMode, isMobile) => ({
     color: darkMode ? "#60a5fa" : "#16a34a",
@@ -329,7 +372,8 @@ const styles = {
   tags: {
     display: "flex",
     gap: "4px",
-    marginBottom: "4px"
+    marginBottom: "4px",
+    flexWrap: "wrap"
   },
 
   tag: {
@@ -356,7 +400,11 @@ const styles = {
     borderRadius: "6px",
     cursor: "pointer",
     fontWeight: "bold",
-    fontSize: isMobile ? "11px" : "12px"
+    fontSize: isMobile ? "11px" : "12px",
+    transition: "background 0.2s ease",
+    '&:hover': {
+      background: "#333"
+    }
   }),
 
   deleteBtn: (isMobile) => ({
@@ -368,7 +416,11 @@ const styles = {
     borderRadius: "6px",
     cursor: "pointer",
     fontWeight: "bold",
-    fontSize: isMobile ? "11px" : "12px"
+    fontSize: isMobile ? "11px" : "12px",
+    transition: "background 0.2s ease",
+    '&:hover': {
+      background: "#fecaca"
+    }
   }),
 
   removeBtn: (isMobile) => ({
@@ -379,7 +431,7 @@ const styles = {
     height: isMobile ? "28px" : "32px",
     borderRadius: "50%",
     border: "none",
-    background: "#fff",
+    background: "rgba(255,255,255,0.9)",
     cursor: "pointer",
     fontSize: isMobile ? "12px" : "14px",
     zIndex: 10,
@@ -387,7 +439,11 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: 0
+    padding: 0,
+    transition: "transform 0.2s ease",
+    '&:hover': {
+      transform: "scale(1.1)"
+    }
   }),
 
   emptyBox: (darkMode) => ({
@@ -395,6 +451,7 @@ const styles = {
     borderRadius: "20px",
     padding: "50px 20px",
     textAlign: "center",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.05)"
   }),
 
   emptyIcon: {
@@ -422,6 +479,11 @@ const styles = {
     borderRadius: "10px",
     cursor: "pointer",
     fontWeight: "bold",
-    fontSize: "13px"
+    fontSize: "13px",
+    transition: "background 0.2s ease, transform 0.2s ease",
+    '&:hover': {
+      transform: "scale(1.02)",
+      background: darkMode ? "#475569" : "#222"
+    }
   })
 };
