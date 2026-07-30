@@ -82,38 +82,27 @@ export default function ProductosPorTipo() {
 
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
-  // ✅ FUNCIÓN MEJORADA PARA RUTAS RELATIVAS
   const obtenerImagen = (producto) => {
-    // Si no hay imagen, retornar placeholder
-    if (!producto.imagenes && !producto.imagen) {
-      return "/placeholder.png";
-    }
+  if (!producto) return "/placeholder.png";
 
-    let imagenPath = "";
-    
-    // Obtener la primera imagen si hay múltiples
-    if (producto.imagenes && producto.imagenes.trim() !== "") {
-      imagenPath = producto.imagenes.split(",")[0].trim();
-    } else if (producto.imagen) {
-      imagenPath = producto.imagen.trim();
-    } else {
-      return "/placeholder.png";
-    }
+  let imagen = "";
 
-    // Si la imagen ya tiene una ruta relativa (empieza con / o ./), mantenerla
-    if (imagenPath.startsWith('/') || imagenPath.startsWith('./') || imagenPath.startsWith('../')) {
-      return imagenPath;
-    }
+  if (producto.imagenes && producto.imagenes.trim() !== "") {
+    imagen = producto.imagenes.split(",")[0];
+  } else if (producto.imagen) {
+    imagen = producto.imagen;
+  }
 
-    // Si la imagen tiene una URL completa (http/https), mantenerla
-    if (imagenPath.startsWith('http://') || imagenPath.startsWith('https://')) {
-      return imagenPath;
-    }
+  if (!imagen) return "/placeholder.png";
 
-    // Si la imagen es un nombre de archivo o ruta sin / al inicio, agregar /assets/images/
-    // Asumiendo que las imágenes están en la carpeta public/images o src/assets/images
-    return `/assets/images/${imagenPath}`;
-  };
+  // Si ya viene completa, devolverla
+  if (imagen.startsWith("http")) {
+    return imagen;
+  }
+
+  // Si viene como /uploads/...
+  return `https://TU-BACKEND.onrender.com${imagen}`;
+};
 
   // Guardar favoritos en localStorage
   useEffect(() => {
@@ -333,10 +322,6 @@ export default function ProductosPorTipo() {
                     borderRadius: "12px",
                     background: "#f9fafb",
                     marginBottom: "12px"
-                  }}
-                  onError={(e) => {
-                    // Si la imagen falla al cargar, mostrar placeholder
-                    e.target.src = "/placeholder.png";
                   }}
                 />
                 <h4 style={{
