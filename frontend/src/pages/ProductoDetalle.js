@@ -82,21 +82,6 @@ export default function ProductoDetalle() {
   const carruselIntervalRef = useRef(null);
   const carruselScrollRef = useRef(null);
 
-  // ========== EFECTO PARA EVITAR CORTE EN CELULAR ==========
-  useEffect(() => {
-    // Scroll al inicio cuando se carga la página
-    window.scrollTo({ top: 0, behavior: 'instant' });
-    
-    // Asegurar que el body no tenga padding superior extra
-    document.body.style.paddingTop = '0';
-    document.body.style.marginTop = '0';
-    
-    return () => {
-      document.body.style.paddingTop = '';
-      document.body.style.marginTop = '';
-    };
-  }, []);
-
   // ========== EFECTOS ==========
 
   useEffect(() => {
@@ -1914,7 +1899,7 @@ const getImagenActual = () => {
 }
 
 // ============================================================
-// ESTILOS CSS (completos con animaciones mejoradas y responsive)
+// ESTILOS CSS (completos con animaciones mejoradas)
 // ============================================================
 if (typeof document !== "undefined") {
   const styleSheet = document.createElement("style");
@@ -1925,8 +1910,6 @@ if (typeof document !== "undefined") {
       min-height: 100vh;
       font-family: Arial, sans-serif;
       overflow-x: hidden;
-      padding-top: 0;
-      margin-top: 0;
     }
 
     /* ----- CONTENEDOR PRINCIPAL ----- */
@@ -2338,6 +2321,7 @@ if (typeof document !== "undefined") {
       transform: translateY(-2px);
       box-shadow: 0 10px 20px rgba(0,0,0,0.25);
     }
+    /* 🔥 BOTÓN AGREGAR AL PEDIDO */
     .btn-agregar-pedido {
       flex: 1;
       min-width: 100px;
@@ -2802,6 +2786,7 @@ if (typeof document !== "undefined") {
       transform: translateY(-8px) scale(1.05);
     }
 
+    /* Efecto de brillo en hover */
     .modelo-glow-effect {
       position: absolute;
       top: -50%;
@@ -2896,6 +2881,7 @@ if (typeof document !== "undefined") {
       animation: pulseBadge 2s ease-in-out infinite;
     }
 
+    /* Progress dots mejorados */
     .carrusel-progress-container {
       display: flex;
       justify-content: center;
@@ -3194,312 +3180,101 @@ if (typeof document !== "undefined") {
     }
 
     /* ========================================================= */
-    /* 🔥 RESPONSIVE: ESCRITORIO (≥1024px) - MÁS GRANDE */
+    /* 🔥 RESPONSIVE: TABLETS (≥768px) */
+    /* ========================================================= */
+    @media (min-width: 768px) {
+      .producto-detalle-container {
+        padding: 30px;
+        gap: 35px;
+      }
+      .product-title {
+        font-size: 32px;
+      }
+      .precio-normal,
+      .precio-oferta {
+        font-size: 46px;
+      }
+      .precio-normal-brillante,
+      .precio-oferta-brillante {
+        font-size: 36px;
+      }
+      .precio-unidad-brillante {
+        font-size: 16px;
+      }
+      .main-image-container {
+        height: 420px;
+      }
+      .thumb {
+        width: 80px;
+        height: 80px;
+      }
+      .full-width-grid {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 20px;
+      }
+      .related-image {
+        height: 160px;
+      }
+      .guia-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .full-width-related-wrapper {
+        padding: 0 30px;
+      }
+    }
+
+    /* ========================================================= */
+    /* 🔥 RESPONSIVE: ESCRITORIO (≥1024px) */
     /* ========================================================= */
     @media (min-width: 1024px) {
       .producto-detalle-container {
-        padding: 50px 60px;
-        gap: 60px;
-        border-radius: 30px;
-        max-width: 1600px;
+        padding: 40px;
+        gap: 50px;
       }
-      
       .producto-detalle-left {
         flex: 0 0 55%;
         max-width: 55%;
       }
-      
       .producto-detalle-right {
         flex: 0 0 40%;
         max-width: 40%;
       }
-      
       .main-image-container {
-        height: 500px;
-        border-radius: 25px;
+        height: 450px;
       }
-      
       .thumb {
-        width: 100px;
-        height: 100px;
-        border-radius: 15px;
+        width: 85px;
+        height: 85px;
       }
-      
-      .thumbs-container {
-        gap: 15px;
-        margin-top: 25px;
-      }
-      
       .product-title {
-        font-size: 38px;
-        margin: 0 0 10px 0;
-      }
-      
-      .precio-normal-brillante,
-      .precio-oferta-brillante {
-        font-size: 52px;
-        gap: 20px;
-      }
-      
-      .precio-unidad-brillante {
-        font-size: 22px;
-        padding: 6px 24px;
-      }
-      
-      .precio-anterior {
-        font-size: 28px;
-      }
-      
-      .precio-brillante-wrapper {
-        padding: 12px 28px;
-        border-radius: 24px;
-      }
-      
-      .data-box {
-        padding: 28px;
-        border-radius: 24px;
-      }
-      
-      .data-item {
-        font-size: 18px;
-        margin: 10px 0;
-      }
-      
-      .sku-item {
-        font-size: 16px;
-      }
-      
-      .box {
-        padding: 24px;
-        border-radius: 20px;
-      }
-      
-      .box-title {
-        font-size: 20px;
-        margin-bottom: 16px;
-      }
-      
-      .description {
-        font-size: 16px;
-        line-height: 2;
-      }
-      
-      .stock-box {
-        padding: 18px 24px;
-        border-radius: 18px;
-        gap: 16px;
-      }
-      
-      .stock-title {
-        font-size: 20px;
-      }
-      
-      .stock-sub {
-        font-size: 16px;
-      }
-      
-      .stock-dot {
-        width: 16px;
-        height: 16px;
-      }
-      
-      .category-tag,
-      .subcategory-tag,
-      .type-tag {
-        font-size: 14px;
-        padding: 8px 16px;
-      }
-      
-      .category-box {
-        gap: 14px;
-      }
-      
-      .btn-ficha-tecnica,
-      .btn-agregar-cotizador,
-      .btn-agregar-pedido {
-        padding: 18px 28px;
-        font-size: 18px;
-        border-radius: 16px;
-        min-width: 150px;
-      }
-      
-      .botones-acciones {
-        gap: 16px;
-      }
-      
-      .cotizador-box {
-        padding: 30px;
-        border-radius: 24px;
-      }
-      
-      .cotizador-title {
-        font-size: 22px;
-        margin-bottom: 25px;
-      }
-      
-      .input-field {
-        padding: 16px;
-        font-size: 18px;
-        border-radius: 12px;
-      }
-      
-      .resultado-medida {
-        font-size: 16px;
-      }
-      
-      .total-estimado {
-        font-size: 30px;
-      }
-      
-      .guia-medicion {
-        padding: 28px;
-        border-radius: 24px;
-      }
-      
-      .guia-titulo {
-        font-size: 22px;
-      }
-      
-      .guia-img {
-        height: 200px;
-      }
-      
-      .full-width-grid {
-        grid-template-columns: repeat(5, 1fr);
-        gap: 30px;
-      }
-      
-      .related-image {
-        height: 200px;
-        border-radius: 18px;
-      }
-      
-      .related-card,
-      .sugerido-card {
-        padding: 18px;
-        border-radius: 28px;
-      }
-      
-      .related-card h4,
-      .sugerido-card h4 {
-        font-size: 16px;
-      }
-      
-      .related-price {
-        font-size: 20px;
-      }
-      
-      .precio-ant {
-        font-size: 16px;
-      }
-      
-      .precio-of {
-        font-size: 20px;
-      }
-      
-      .sugeridos-title {
         font-size: 32px;
       }
-      
-      .sugeridos-subtitle {
-        font-size: 20px;
+      .precio-normal-brillante,
+      .precio-oferta-brillante {
+        font-size: 42px;
       }
-      
-      .sugeridos-banner {
-        padding: 28px 36px;
-        border-radius: 20px;
-      }
-      
-      .sugeridos-label {
-        font-size: 14px;
-        padding: 8px 24px;
-      }
-      
-      .modelos-carrusel-right {
-        padding: 28px;
-        border-radius: 24px;
-      }
-      
-      .modelos-carrusel-title-right {
-        font-size: 20px;
-      }
-      
-      .modelo-carrusel-item-right {
-        min-width: 200px;
-        max-width: 240px;
-        padding: 18px;
-        border-radius: 20px;
-      }
-      
-      .modelo-carrusel-img-right {
-        height: 160px;
-      }
-      
-      .modelo-carrusel-nombre-right {
-        font-size: 15px;
-        height: 36px;
-      }
-      
-      .modelo-carrusel-precio-right {
+      .precio-unidad-brillante {
         font-size: 18px;
       }
-      
-      .section-title {
-        font-size: 28px;
+      .full-width-grid {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 24px;
       }
-      
-      .related-count {
-        font-size: 16px;
-        padding: 8px 20px;
+      .related-image {
+        height: 170px;
       }
-      
-      .tipo-grupo-header {
-        padding: 16px 24px;
-        border-radius: 16px;
+      .related-card,
+      .sugerido-card {
+        padding: 14px;
       }
-      
-      .tipo-grupo-title {
-        font-size: 20px;
+      .sugeridos-title {
+        font-size: 26px;
       }
-      
-      .tipo-grupo-count {
-        font-size: 14px;
-        padding: 6px 16px;
-      }
-      
-      .btn-ver-todos-modelos-right {
-        padding: 16px 24px;
-        font-size: 16px;
-        border-radius: 16px;
-      }
-      
-      .carrusel-btn-right {
-        width: 40px;
-        height: 40px;
-        font-size: 16px;
-      }
-      
-      .carrusel-indicador-right {
-        font-size: 16px;
-        min-width: 60px;
-      }
-      
-      .carrusel-progress-dot {
-        width: 14px;
-        height: 14px;
-      }
-      
-      .carrusel-progress-dot.active {
-        width: 40px;
-      }
-      
-      .full-width-related-wrapper {
-        padding: 0 60px;
-      }
-      
       .full-width-related-section {
-        max-width: 1600px;
-        margin: 60px auto 0 auto;
+        padding: 0;
+      }
+      .full-width-related-wrapper {
+        padding: 0 40px;
       }
     }
 
@@ -3508,792 +3283,153 @@ if (typeof document !== "undefined") {
     /* ========================================================= */
     @media (min-width: 1440px) {
       .producto-detalle-container {
-        max-width: 1800px;
-        padding: 60px 80px;
-        gap: 80px;
+        max-width: 1600px;
+        padding: 50px 60px;
+        gap: 70px;
       }
-      
       .producto-detalle-left {
-        flex: 0 0 52%;
-        max-width: 52%;
+        flex: 0 0 50%;
+        max-width: 50%;
       }
-      
       .producto-detalle-right {
         flex: 0 0 42%;
         max-width: 42%;
       }
-      
       .main-image-container {
-        height: 600px;
+        height: 550px;
       }
-      
-      .thumb {
-        width: 120px;
-        height: 120px;
-      }
-      
       .product-title {
-        font-size: 44px;
+        font-size: 38px;
       }
-      
+      .thumb {
+        width: 90px;
+        height: 90px;
+      }
       .precio-normal-brillante,
       .precio-oferta-brillante {
-        font-size: 58px;
+        font-size: 50px;
       }
-      
       .precio-unidad-brillante {
-        font-size: 26px;
-        padding: 8px 30px;
+        font-size: 22px;
       }
-      
-      .data-item {
-        font-size: 20px;
-      }
-      
-      .description {
-        font-size: 18px;
-      }
-      
       .full-width-grid {
-        grid-template-columns: repeat(6, 1fr);
-        gap: 35px;
+        gap: 30px;
       }
-      
       .related-image {
-        height: 220px;
+        height: 200px;
       }
-      
-      .modelo-carrusel-item-right {
-        min-width: 220px;
-        max-width: 260px;
+      .full-width-related-wrapper {
+        padding: 0 60px;
       }
-      
-      .modelo-carrusel-img-right {
-        height: 180px;
+      .full-width-related-section {
+        max-width: 1600px;
       }
     }
 
     /* ========================================================= */
-    /* 🔥 RESPONSIVE: MÓVILES (<768px) - CORREGIDO */
+    /* 🔥 RESPONSIVE: MÓVILES (<768px) */
     /* ========================================================= */
     @media (max-width: 767px) {
-      /* Ajuste general de la página */
-      .producto-detalle-page {
-        padding-top: 0;
-        margin-top: 0;
-        overflow-x: hidden;
-      }
-
-      /* Contenedor principal - con padding superior suficiente */
-      .producto-detalle-container {
-        flex-direction: column;
-        padding: 20px 12px 20px 12px;
-        gap: 16px;
-        border-radius: 12px;
-        margin: 10px 5px 10px 5px;
-        margin-top: 10px;
-      }
-
       .producto-detalle-left {
         flex: 1 1 100%;
         max-width: 100%;
-        order: 1;
-        gap: 12px;
       }
-
       .producto-detalle-right {
         flex: 1 1 100%;
         max-width: 100%;
-        order: 2;
-        gap: 12px;
       }
-
-      /* GALERÍA - más compacta pero visible */
       .main-image-container {
         height: 280px;
-        border-radius: 12px;
-        margin-top: 5px;
       }
-
-      .main-image {
-        object-fit: contain;
-      }
-
-      .thumb {
-        width: 60px;
-        height: 60px;
-        border-radius: 10px;
-      }
-
-      .thumbs-container {
-        gap: 10px;
-        margin-top: 12px;
-        justify-content: center;
-      }
-
-      /* BADGES - más pequeños y mejor posicionados */
-      .badges-container {
-        top: 10px;
-        left: 10px;
-        gap: 6px;
-        z-index: 20;
-      }
-
-      .badge {
-        padding: 4px 10px;
-        font-size: 11px;
-        border-radius: 6px;
-      }
-
-      .fav-btn {
-        width: 40px;
-        height: 40px;
-        font-size: 18px;
-        top: 10px;
-        right: 10px;
-        z-index: 30;
-      }
-
-      .fav-btn-small {
-        width: 34px;
-        height: 34px;
-        font-size: 14px;
-        top: 8px;
-        right: 8px;
-      }
-
-      /* TÍTULOS */
-      .product-title {
-        font-size: 22px;
-        margin: 0 0 5px 0;
-        padding-top: 0;
-      }
-
-      /* PRECIOS */
-      .precio-brillante-wrapper {
-        padding: 8px 16px;
-        border-radius: 14px;
-      }
-
       .precio-normal-brillante,
       .precio-oferta-brillante {
         font-size: 28px;
-        gap: 10px;
       }
-
       .precio-unidad-brillante {
-        font-size: 13px;
-        padding: 3px 12px;
-      }
-
-      .precio-anterior {
-        font-size: 18px;
-      }
-
-      /* CATEGORÍAS */
-      .category-box {
-        gap: 6px;
-        flex-wrap: wrap;
-      }
-
-      .category-tag,
-      .subcategory-tag,
-      .type-tag {
-        font-size: 11px;
-        padding: 5px 10px;
-      }
-
-      /* CAJAS DE INFORMACIÓN */
-      .data-box {
-        padding: 14px;
-        border-radius: 12px;
-      }
-
-      .data-item {
         font-size: 14px;
-        margin: 5px 0;
+        padding: 2px 12px;
       }
-
-      .sku-item {
-        font-size: 13px;
+      .product-title {
+        font-size: 22px;
       }
-
-      .box {
-        padding: 14px;
-        border-radius: 12px;
+      .thumb {
+        width: 55px;
+        height: 55px;
       }
-
-      .box-title {
-        font-size: 15px;
-        margin-bottom: 8px;
-      }
-
-      .description {
-        font-size: 14px;
-        line-height: 1.7;
-      }
-
-      /* STOCK */
-      .stock-box {
-        padding: 12px 16px;
-        border-radius: 12px;
-        gap: 10px;
-      }
-
-      .stock-title {
-        font-size: 15px;
-      }
-
-      .stock-sub {
-        font-size: 13px;
-      }
-
-      .stock-dot {
-        width: 10px;
-        height: 10px;
-      }
-
-      /* BOTONES DE ACCIÓN */
       .botones-acciones {
         flex-direction: column;
-        gap: 10px;
       }
-
       .btn-ficha-tecnica,
       .btn-agregar-cotizador,
       .btn-agregar-pedido {
         flex: 1 1 100%;
         min-width: 100%;
-        padding: 14px 18px;
-        font-size: 15px;
-        border-radius: 10px;
+        padding: 12px 16px;
+        font-size: 14px;
       }
-
-      /* COTIZADOR */
-      .cotizador-box {
-        padding: 14px;
-        border-radius: 14px;
+      .tipo-grupo-header {
+        flex-wrap: wrap;
       }
-
-      .cotizador-title {
-        font-size: 17px;
-        margin-bottom: 14px;
+      .full-width-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 12px;
       }
-
-      /* GUÍA DE MEDICIÓN */
-      .guia-medicion {
-        padding: 14px;
-        border-radius: 12px;
-        margin-bottom: 14px;
-      }
-
-      .guia-titulo {
-        font-size: 16px;
-        margin-bottom: 14px;
-      }
-
-      .guia-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-      }
-
-      .guia-card {
-        padding: 10px;
-      }
-
-      .guia-img {
+      .related-image {
         height: 100px;
       }
-
-      .guia-card h4 {
-        font-size: 13px;
-        margin: 6px 0 3px 0;
-      }
-
-      .guia-card p {
-        font-size: 11px;
-      }
-
-      /* SELECTOR DE MODO */
-      .selector-modo {
-        flex-direction: column;
-        gap: 8px;
-        padding: 12px;
-      }
-
-      .selector-modo label {
-        font-size: 13px;
-      }
-
-      .resumen-area {
-        font-size: 13px;
-        padding: 10px;
-      }
-
-      /* MEDIDAS */
-      .medida-card {
-        padding: 12px;
-        margin-bottom: 10px;
-        border-radius: 10px;
-      }
-
-      .medida-card h4 {
-        font-size: 14px;
-        margin: 0 0 8px 0;
-      }
-
-      .medidas-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-      }
-
-      .input-field {
-        padding: 12px;
-        font-size: 15px;
-        border-radius: 8px;
-        margin-bottom: 8px;
-      }
-
-      .resultado-medida {
-        font-size: 13px;
-        margin: 6px 0;
-      }
-
-      .radio-label {
-        font-size: 13px;
-        margin-bottom: 8px;
-      }
-
-      /* BOTONES DE MEDIDAS */
-      .botones-medidas {
-        flex-direction: row;
-        gap: 8px;
-      }
-
-      .btn-agregar,
-      .btn-limpiar {
-        padding: 10px 14px;
-        font-size: 13px;
-        border-radius: 8px;
-      }
-
-      .btn-eliminar {
-        padding: 8px 12px;
-        font-size: 13px;
-        border-radius: 8px;
-      }
-
-      /* DESPERDICIO */
-      .desperdicio-box {
-        gap: 6px;
-        flex-wrap: wrap;
-      }
-
-      .desperdicio-label {
-        font-size: 13px;
-      }
-
-      .des-btn {
-        padding: 8px 14px;
-        font-size: 13px;
-        min-width: 45px;
-        border-radius: 8px;
-      }
-
-      /* RESULTADO COTIZACIÓN */
-      .resultado-cotizacion {
-        padding: 14px;
-        border-radius: 12px;
-      }
-
-      .resultado-cotizacion p {
-        font-size: 14px;
-        margin: 5px 0;
-      }
-
-      .total-estimado {
-        font-size: 22px;
-      }
-
-      .nota-producto {
-        font-size: 13px;
-        padding: 12px;
-        border-radius: 8px;
-        line-height: 1.6;
-      }
-
-      /* FORMULARIO CLIENTE */
-      .form-cliente {
-        padding: 14px;
-        border-radius: 12px;
-      }
-
-      .form-cliente h3 {
-        font-size: 16px;
-        margin: 0 0 10px 0;
-      }
-
-      .btn-enviar {
-        padding: 13px;
-        font-size: 15px;
-        border-radius: 8px;
-      }
-
-      .mensaje-exito {
-        font-size: 13px;
-      }
-
-      /* CARRUSEL DE MODELOS - MÓVIL */
-      .modelos-carrusel-right {
-        padding: 14px;
-        border-radius: 14px;
-        border-width: 2px;
-        margin-bottom: 10px;
-      }
-
-      .modelos-carrusel-header-right {
-        flex-direction: row;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-
-      .modelos-carrusel-title-right {
-        font-size: 14px;
-        gap: 6px;
-      }
-
-      .title-icon {
-        font-size: 16px;
-      }
-
-      .title-badge {
-        font-size: 9px;
-        padding: 2px 8px;
-      }
-
-      .carrusel-controls-right {
-        gap: 4px;
-      }
-
-      .carrusel-btn-right {
-        width: 30px;
-        height: 30px;
-        font-size: 11px;
-      }
-
-      .carrusel-indicador-right {
-        font-size: 12px;
-        min-width: 40px;
-      }
-
-      .modelo-carrusel-scroll-right {
-        gap: 10px;
-        padding: 8px 2px 12px 2px;
-      }
-
-      .modelo-carrusel-item-right {
-        min-width: 120px;
-        max-width: 140px;
-        padding: 10px;
-        border-radius: 12px;
-      }
-
-      .modelo-carrusel-item-right.active {
-        transform: translateY(-4px) scale(1.04);
-      }
-
-      .modelo-carrusel-img-right {
-        height: 90px;
-      }
-
-      .modelo-carrusel-nombre-right {
-        font-size: 11px;
-        height: 26px;
-      }
-
-      .modelo-carrusel-precio-right {
-        font-size: 13px;
-        gap: 4px;
-      }
-
-      .oferta-tag {
-        font-size: 7px;
-        padding: 1px 6px;
-      }
-
-      .stock-badge-right {
-        font-size: 8px;
-        padding: 1px 6px;
-      }
-
-      .modelo-selected-badge {
-        font-size: 7px;
-        padding: 2px 8px;
-        top: 4px;
-        left: 4px;
-      }
-
-      .carrusel-progress-container {
-        margin-top: 10px;
-      }
-
-      .carrusel-progress-dot {
-        width: 8px;
-        height: 8px;
-      }
-
-      .carrusel-progress-dot.active {
-        width: 24px;
-      }
-
-      .btn-ver-todos-modelos-right {
-        padding: 10px 14px;
-        font-size: 13px;
-        border-radius: 10px;
-        margin-top: 10px;
-      }
-
-      /* PRODUCTOS RELACIONADOS - MÓVIL */
       .full-width-related-wrapper {
         padding: 0 10px;
       }
-
       .full-width-related-section {
-        margin: 25px auto 0 auto;
         padding: 0 5px;
       }
-
-      .full-width-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-      }
-
-      .sugeridos-banner {
-        padding: 14px 16px;
-        border-left-width: 4px;
-        border-radius: 12px;
-        margin-bottom: 16px;
-      }
-
-      .sugeridos-label {
-        font-size: 10px;
-        padding: 4px 14px;
-      }
-
-      .sugeridos-title {
-        font-size: 17px;
-        margin: 6px 0 8px 0;
-      }
-
-      .sugeridos-subtitle {
-        font-size: 13px;
-      }
-
-      .related-card,
-      .sugerido-card {
-        padding: 10px;
-        border-radius: 16px;
-      }
-
-      .related-image {
-        height: 100px;
-        border-radius: 10px;
-        margin-bottom: 6px;
-      }
-
-      .related-card h4,
-      .sugerido-card h4 {
-        font-size: 12px;
-        margin: 4px 0;
-        line-height: 1.2;
-      }
-
-      .related-price {
-        font-size: 15px;
-      }
-
-      .precio-ant {
-        font-size: 12px;
-      }
-
-      .precio-of {
-        font-size: 15px;
-      }
-
-      .related-sub {
-        font-size: 11px;
-      }
-
-      .sugerido-badge {
-        font-size: 9px;
-        padding: 3px 8px;
-        top: 8px;
-        left: 8px;
-      }
-
-      .section-title {
-        font-size: 18px;
-      }
-
-      .related-header {
-        margin-bottom: 14px;
-      }
-
-      .related-count {
-        font-size: 12px;
-        padding: 4px 12px;
-      }
-
-      .tipo-grupo-header {
-        padding: 10px 14px;
-        border-radius: 10px;
-        margin-bottom: 12px;
-      }
-
-      .tipo-grupo-icon {
-        font-size: 16px;
-      }
-
-      .tipo-grupo-title {
-        font-size: 14px;
-      }
-
-      .tipo-grupo-count {
-        font-size: 10px;
-        padding: 2px 10px;
-      }
-
-      /* MODALES */
-      .modal-image {
-        max-width: 95%;
-        max-height: 80%;
-      }
-    }
-
-    /* ========================================================= */
-    /* 🔥 RESPONSIVE: MÓVILES MUY PEQUEÑOS (<400px) */
-    /* ========================================================= */
-    @media (max-width: 400px) {
-      .producto-detalle-container {
-        padding: 15px 8px 15px 8px;
-        gap: 10px;
-        margin: 5px 3px;
-      }
-
-      .main-image-container {
-        height: 220px;
-      }
-
-      .thumb {
-        width: 50px;
-        height: 50px;
-      }
-
-      .product-title {
-        font-size: 19px;
-      }
-
-      .precio-normal-brillante,
-      .precio-oferta-brillante {
-        font-size: 24px;
-        gap: 8px;
-      }
-
-      .precio-unidad-brillante {
-        font-size: 11px;
-        padding: 2px 10px;
-      }
-
-      .full-width-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-      }
-
-      .related-image {
-        height: 80px;
-      }
-
-      .modelo-carrusel-item-right {
-        min-width: 100px;
-        max-width: 120px;
-        padding: 8px;
-      }
-
-      .modelo-carrusel-img-right {
-        height: 75px;
-      }
-
-      .modelo-carrusel-nombre-right {
-        font-size: 10px;
-        height: 22px;
-      }
-
-      .modelo-carrusel-precio-right {
-        font-size: 11px;
-      }
-
-      .cotizador-box {
-        padding: 10px;
-      }
-
-      .input-field {
-        padding: 10px;
-        font-size: 14px;
-      }
-
       .medidas-grid {
         grid-template-columns: 1fr;
-        gap: 6px;
       }
-
-      .btn-ficha-tecnica,
-      .btn-agregar-cotizador,
-      .btn-agregar-pedido {
-        padding: 12px 14px;
+      .carrusel-controls-right {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .modelo-carrusel-item-right {
+        min-width: 120px;
+        max-width: 150px;
+        padding: 10px;
+      }
+      .modelo-carrusel-img-right {
+        height: 90px;
+      }
+      .sugeridos-title {
+        font-size: 18px;
+      }
+      .sugeridos-subtitle {
         font-size: 14px;
       }
-
-      .sugeridos-title {
-        font-size: 15px;
+      .sugeridos-banner {
+        padding: 14px 16px;
       }
-
-      .sugeridos-subtitle {
-        font-size: 12px;
+      .cotizador-box {
+        padding: 15px;
       }
-
       .guia-grid {
         grid-template-columns: 1fr;
       }
-
       .guia-img {
-        height: 90px;
+        height: 120px;
       }
-
-      .botones-medidas {
-        flex-direction: column;
+      .desperdicio-box {
+        gap: 6px;
       }
-
-      .selector-modo {
-        flex-direction: column;
+      .des-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+        min-width: 50px;
       }
-
-      .badges-container {
-        top: 8px;
-        left: 8px;
+      .modelos-carrusel-right {
+        padding: 14px;
       }
-
-      .badge {
-        font-size: 10px;
-        padding: 3px 8px;
-      }
-
-      .fav-btn {
-        width: 36px;
-        height: 36px;
-        font-size: 16px;
-        top: 8px;
-        right: 8px;
+      .modelo-carrusel-item-right {
+        min-width: 110px;
+        max-width: 130px;
       }
     }
   `;
