@@ -5,80 +5,54 @@ import Footer from "./Footer";
 import Navbar from "./Navbar";
 import { useLocation } from "react-router-dom";
 
-// ===== HOOK PERSONALIZADO PARA ANIMACIONES DE SCROLL =====
+// ===== HOOK SIMPLIFICADO - SIN ANIMACIONES =====
 function useScrollAnimation(initialState = {}) {
-  const [visibleSections, setVisibleSections] = useState(initialState);
+  const [visibleSections, setVisibleSections] = useState({
+    hero: true,
+    categorias: true,
+    "ofertas-banner": true,
+    "ofertas-productos": true,
+    "productos-nuevos": true,
+    "mas-vendidas": true,
+    "destacados": true
+  });
   const [scrollY, setScrollY] = useState(0);
-  const animationFrameRef = useRef(null);
-  const timeoutRef = useRef(null);
-  const observerRef = useRef(null);
 
   useEffect(() => {
+    const elements = document.querySelectorAll("[data-animate]");
+    elements.forEach((el) => {
+      el.classList.add('is-visible');
+      el.style.opacity = '1';
+      el.style.transform = 'none';
+      el.style.visibility = 'visible';
+    });
+
     const handleScroll = () => {
-      if (animationFrameRef.current) return;
-      animationFrameRef.current = requestAnimationFrame(() => {
-        setScrollY(window.scrollY);
-        animationFrameRef.current = null;
-      });
+      setScrollY(window.scrollY);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
 
-    let debounceTimeout = null;
-    
-    const checkVisibility = () => {
+    const observer = new MutationObserver(() => {
       const elements = document.querySelectorAll("[data-animate]:not(.is-visible)");
-      const updates = {};
-      
       elements.forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
-        const id = el.getAttribute('data-animate');
-        if (isVisible && id && !visibleSections[id]) {
-          updates[id] = true;
-          el.classList.add('is-visible');
-        }
+        el.classList.add('is-visible');
+        el.style.opacity = '1';
+        el.style.transform = 'none';
+        el.style.visibility = 'visible';
       });
-
-      if (Object.keys(updates).length > 0) {
-        setVisibleSections(prev => ({ ...prev, ...updates }));
-      }
-    };
-
-    const debouncedCheck = () => {
-      clearTimeout(debounceTimeout);
-      debounceTimeout = setTimeout(checkVisibility, 150);
-    };
-
-    const observer = new MutationObserver((mutations) => {
-      const hasNewElements = mutations.some(m => 
-        m.type === 'childList' && m.addedNodes.length > 0
-      );
-      if (hasNewElements) {
-        debouncedCheck();
-      }
     });
 
-    observerRef.current = observer;
     observer.observe(document.body, { 
       childList: true, 
-      subtree: true,
-      attributes: false,
-      characterData: false
+      subtree: true
     });
-
-    timeoutRef.current = setTimeout(checkVisibility, 200);
-    window.addEventListener('load', checkVisibility);
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('load', checkVisibility);
-      if (observerRef.current) observerRef.current.disconnect();
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (debounceTimeout) clearTimeout(debounceTimeout);
+      observer.disconnect();
     };
-  }, [visibleSections]);
+  }, []);
 
   return { visibleSections, scrollY };
 }
@@ -140,7 +114,6 @@ export default function Catalogo() {
   }, []);
 
   const isMobile = windowWidth < 768;
-  const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
   const productosNuevos = productos.filter(
     (p) => p.nuevo === 1 || p.nuevo === true
@@ -280,16 +253,14 @@ export default function Catalogo() {
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
   const obtenerImagen = (p) => {
-  if (p.imagenes) {
-    return `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`;
-  }
-
-  if (p.imagen) {
-    return `https://backend-zuib.onrender.com${p.imagen}`;
-  }
-
-  return "https://via.placeholder.com/200";
-};
+    if (p.imagenes) {
+      return `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`;
+    }
+    if (p.imagen) {
+      return `https://backend-zuib.onrender.com${p.imagen}`;
+    }
+    return "https://via.placeholder.com/200";
+  };
 
   const clickBanner = (banner) => {
     if (banner.subcategoria) {
@@ -305,14 +276,20 @@ export default function Catalogo() {
     const slider = document.getElementById(sliderId);
     if (!slider) return;
 
-    const cardWidth = isMobile ? 165 : 240;
+    const isMobileView = window.innerWidth < 768;
+    const cardWidth = isMobileView ? 165 : 240;
     const gap = 16;
     const scrollAmount = (cardWidth + gap) * 2;
 
-    const newScrollPosition =
-      direction === "left"
-        ? slider.scrollLeft - scrollAmount
-        : slider.scrollLeft + scrollAmount;
+    const currentScroll = slider.scrollLeft;
+    const maxScroll = slider.scrollWidth - slider.clientWidth;
+
+    let newScrollPosition;
+    if (direction === "left") {
+      newScrollPosition = Math.max(0, currentScroll - scrollAmount);
+    } else {
+      newScrollPosition = Math.min(maxScroll, currentScroll + scrollAmount);
+    }
 
     slider.scrollTo({
       left: newScrollPosition,
@@ -324,17 +301,7 @@ export default function Catalogo() {
     navigate("/mas-vendidos");
   };
 
-  const { visibleSections, scrollY } = useScrollAnimation({
-    hero: true,
-    categorias: true,
-    "ofertas-banner": true,
-    "ofertas-productos": true,
-    "productos-nuevos": true,
-    "mas-vendidas": true,
-    "destacados": true
-  });
-
-  const animationDuration = isMobile ? '0.6s' : '0.9s';
+  const { visibleSections, scrollY } = useScrollAnimation({});
 
   if (cargando) {
     return (
@@ -371,58 +338,44 @@ export default function Catalogo() {
         subcategorias={subcategorias}
       />
 
-      {/* HERO CARRUSEL */}
+      {/* ===== HERO CARRUSEL ===== */}
       {bannersHero.length > 0 && (
-        <div 
-          style={styles.heroWrapper(isMobile)}
-          data-animate="hero"
-          className={`fade-in-section ${visibleSections.hero ? "is-visible" : ""}`}
-        >
-          <div style={styles.heroContainer}>
+        <div className="hero-wrapper">
+          <div className="hero-container">
             {bannersHero.map((banner, index) => (
               <div
                 key={banner.id}
-                style={{
-                  ...styles.heroSlide,
-                  opacity: index === heroActual ? 1 : 0,
-                  transition: "opacity 0.8s ease-in-out",
-                  pointerEvents: index === heroActual ? "auto" : "none",
-                }}
+                className={`hero-slide ${index === heroActual ? 'active' : ''}`}
                 onClick={() => clickBanner(banner)}
               >
-                <img
-  src={
-    banner.imagen
-      ? `https://backend-zuib.onrender.com${banner.imagen}`
-      : "https://via.placeholder.com/1200x500/1e293b/60a5fa?text=Banner"
-  }
-  alt={banner.titulo || "Banner"}
-  style={styles.heroImage}
-  loading="lazy"
-  onError={(e) => {
-    e.target.src = "https://via.placeholder.com/1200x500/1e293b/60a5fa?text=Banner";
-  }}
-/>
-                <div style={styles.heroOverlay(isMobile)}>
-                  <h1 style={styles.heroTitle(isMobile)}>
-                    {banner.titulo}
-                  </h1>
-                  <p style={styles.heroDesc(isMobile)}>
-                    {banner.descripcion}
-                  </p>
+                <div className="hero-image-wrapper">
+                  <img
+                    src={
+                      banner.imagen
+                        ? `https://backend-zuib.onrender.com${banner.imagen}`
+                        : "https://via.placeholder.com/1200x600/1e293b/60a5fa?text=Banner"
+                    }
+                    alt={banner.titulo || "Banner"}
+                    className="hero-image"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.target.src = "https://via.placeholder.com/1200x600/1e293b/60a5fa?text=Banner";
+                    }}
+                  />
+                </div>
+                <div className="hero-overlay">
+                  <h1 className="hero-title">{banner.titulo}</h1>
+                  <p className="hero-description">{banner.descripcion}</p>
                 </div>
               </div>
             ))}
-            <div style={styles.heroIndicators}>
+            <div className="hero-indicators">
               {bannersHero.map((_, index) => (
                 <button
                   key={index}
-                  style={{
-                    ...styles.heroDot,
-                    background: index === heroActual ? "#3b82f6" : "rgba(255,255,255,0.4)",
-                    width: index === heroActual ? "32px" : "10px",
-                  }}
+                  className={`hero-dot ${index === heroActual ? 'active' : ''}`}
                   onClick={() => setHeroActual(index)}
+                  aria-label={`Ir al banner ${index + 1}`}
                 />
               ))}
             </div>
@@ -432,11 +385,7 @@ export default function Catalogo() {
 
       {/* OFERTAS ESPECIALES - BANNERS */}
       {bannersOfertas.length > 0 && (
-        <div 
-          style={styles.ofertasBannerWrapper(isMobile)}
-          data-animate="ofertas-banner"
-          className={`slide-up-section ${visibleSections["ofertas-banner"] ? "is-visible" : ""}`}
-        >
+        <div style={styles.ofertasBannerWrapper(isMobile)}>
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
               🏷️ Ofertas especiales
@@ -450,11 +399,7 @@ export default function Catalogo() {
             {bannersOfertas.map((banner, index) => (
               <div
                 key={banner.id}
-                style={{
-                  ...styles.ofertaBannerCard(darkMode, isMobile),
-                  animationDelay: `${index * 0.15}s`,
-                }}
-                className="banner-card-animated"
+                style={styles.ofertaBannerCard(darkMode, isMobile)}
                 onClick={() => {
                   if (banner.enlace_tipo === 'categoria' && banner.categoria_id) {
                     navigate(`/categoria-id/${banner.categoria_id}`);
@@ -472,19 +417,19 @@ export default function Catalogo() {
                 }}
               >
                 <div style={styles.ofertaBannerImageWrapper}>
-                 <img
-  src={
-    banner.imagen
-      ? `https://backend-zuib.onrender.com${banner.imagen}`
-      : "https://via.placeholder.com/600x400/1e293b/60a5fa?text=Oferta"
-  }
-  alt={banner.titulo}
-  style={styles.ofertaBannerImage}
-  loading="lazy"
-  onError={(e) => {
-    e.target.src = "https://via.placeholder.com/600x400/1e293b/60a5fa?text=Oferta";
-  }}
-/>
+                  <img
+                    src={
+                      banner.imagen
+                        ? `https://backend-zuib.onrender.com${banner.imagen}`
+                        : "https://via.placeholder.com/600x400/1e293b/60a5fa?text=Oferta"
+                    }
+                    alt={banner.titulo}
+                    style={styles.ofertaBannerImage}
+                    loading="lazy"
+                    onError={(e) => {
+                      e.target.src = "https://via.placeholder.com/600x400/1e293b/60a5fa?text=Oferta";
+                    }}
+                  />
                   <div style={styles.ofertaBannerOverlay}>
                     {banner.porcentaje && (
                       <span style={styles.ofertaBannerBadge}>🔥 {banner.porcentaje} OFF</span>
@@ -503,11 +448,7 @@ export default function Catalogo() {
 
       {/* CATEGORÍAS */}
       {categorias.length > 0 && (
-        <div 
-          style={styles.categoriesSection(isMobile)}
-          data-animate="categorias"
-          className={`slide-up-section ${visibleSections.categorias ? "is-visible" : ""}`}
-        >
+        <div style={styles.categoriesSection(isMobile)}>
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
               Explora nuestras categorías
@@ -529,17 +470,10 @@ export default function Catalogo() {
               return (
                 <div
                   key={cat.id}
-                  style={{
-                    ...styles.categoryCardWrapper,
-                    animationDelay: `${index * 0.1}s`,
-                  }}
-                  className="category-card-animated"
+                  style={styles.categoryCardWrapper}
                   onClick={() => navigate(`/categoria-id/${cat.id}`)}
                 >
-                  <div 
-                    style={styles.categoryCard(darkMode)}
-                    className="category-card-hover"
-                  >
+                  <div style={styles.categoryCard(darkMode)}>
                     <div style={styles.categoryBubble(darkMode)}>
                       <span style={styles.categoryBubbleText(isMobile)}>
                         {cat.nombre}
@@ -581,7 +515,7 @@ export default function Catalogo() {
         </div>
       )}
 
-      {/* PRODUCTOS NUEVOS - VISIBILIDAD COMPLETA */}
+      {/* ===== PRODUCTOS NUEVOS ===== */}
       {productosNuevos.length > 0 && (
         <div
           id="productos-nuevos"
@@ -589,10 +523,9 @@ export default function Catalogo() {
           style={{
             ...styles.section(isMobile),
             position: "relative",
-            overflow: "visible !important",
+            overflow: "visible",
             zIndex: 10,
           }}
-          data-animate="productos-nuevos"
         >
           <div style={styles.sectionHeader}>
             <h2 style={{ ...styles.sectionTitle(darkMode, isMobile), textAlign: "center" }}>
@@ -603,82 +536,89 @@ export default function Catalogo() {
             </p>
           </div>
 
-          <button
-            onClick={() => scrollSlider("nuevoSlider", "left")}
-            style={styles.arrowLeft(isMobile)}
-            className="slider-arrow"
-          >
-            ❮
-          </button>
-          <button
-            onClick={() => scrollSlider("nuevoSlider", "right")}
-            style={styles.arrowRight(isMobile)}
-            className="slider-arrow"
-          >
-            ❯
-          </button>
+          <div style={{ position: "relative", width: "100%" }}>
+            <button
+              onClick={() => scrollSlider("nuevoSlider", "left")}
+              style={styles.arrowLeft(isMobile)}
+              className="slider-arrow"
+              aria-label="Desplazar izquierda"
+            >
+              ❮
+            </button>
+            <button
+              onClick={() => scrollSlider("nuevoSlider", "right")}
+              style={styles.arrowRight(isMobile)}
+              className="slider-arrow"
+              aria-label="Desplazar derecha"
+            >
+              ❯
+            </button>
 
-          <div 
-            id="nuevoSlider" 
-            style={{
-              ...styles.sliderRow,
-              overflowX: "auto",
-              overflowY: "visible",
-              padding: "12px 4px 20px 4px",
-              margin: "0 -4px",
-              WebkitOverflowScrolling: "touch",
-              scrollBehavior: "smooth",
-            }}
-          >
-            {productosNuevos.map((p, index) => (
-              <div
-                key={p.id}
-                className="slider-card"
-                style={{
-                  ...styles.nuevoCard(darkMode, isMobile),
-                  animationDelay: `${index * 0.05}s`,
-                  flexShrink: 0,
-                  position: "relative",
-                  zIndex: 5,
-                }}
-                onClick={() => navigate(`/producto/${p.id}`)}
-              >
-                <div style={styles.nuevoBadge}>🆕 Nuevo</div>
-                <div style={styles.cardImageWrapper}>
-                  <img
-                   src={
-  p.imagenes
-    ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
-    : "https://via.placeholder.com/200"
-}
-                    alt={p.nombre}
-                    className="slider-image"
-                    style={styles.sliderImage}
-                    loading="lazy"
-                  />
-                </div>
-                <div style={styles.cardContent}>
-                  <h3 style={styles.cardTitle(isMobile)}>{p.nombre}</h3>
-                  <div style={styles.cardPriceContainer}>
-                    <span style={styles.cardPrice(isMobile)}>${p.precio}</span>
+            <div 
+              id="nuevoSlider" 
+              style={{
+                display: "flex",
+                gap: "16px",
+                overflowX: "auto",
+                overflowY: "visible",
+                padding: "12px 40px 20px 40px",
+                WebkitOverflowScrolling: "touch",
+                scrollBehavior: "smooth",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                position: "relative",
+                zIndex: 5,
+              }}
+            >
+              {productosNuevos.map((p, index) => (
+                <div
+                  key={p.id}
+                  className="slider-card"
+                  style={{
+                    ...styles.nuevoCard(darkMode, isMobile),
+                    flexShrink: 0,
+                    position: "relative",
+                    zIndex: 5,
+                    minWidth: isMobile ? "165px" : "240px",
+                    maxWidth: isMobile ? "165px" : "240px",
+                    opacity: 1,
+                    transform: "none",
+                  }}
+                  onClick={() => navigate(`/producto/${p.id}`)}
+                >
+                  <div style={styles.nuevoBadge}>🆕 Nuevo</div>
+                  <div style={styles.cardImageWrapper}>
+                    <img
+                      src={
+                        p.imagenes
+                          ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
+                          : "https://via.placeholder.com/200"
+                      }
+                      alt={p.nombre}
+                      className="slider-image"
+                      style={styles.sliderImage}
+                      loading="lazy"
+                    />
                   </div>
-                  <button style={styles.cardButton} className="btn-shine">
-                    Ver producto →
-                  </button>
+                  <div style={styles.cardContent}>
+                    <h3 style={styles.cardTitle(isMobile)}>{p.nombre}</h3>
+                    <div style={styles.cardPriceContainer}>
+                      <span style={styles.cardPrice(isMobile)}>${p.precio}</span>
+                    </div>
+                    <button style={styles.cardButton} className="btn-shine">
+                      Ver producto →
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* PRODUCTOS EN OFERTA - SOLO SE MUESTRA SI mostrarOfertas ES true */}
+      {/* ===== PRODUCTOS EN OFERTA - CENTRADOS ===== */}
       {mostrarOfertas && productosOferta.length > 0 && (
-        <div 
-          style={styles.ofertaProductosWrapper(isMobile)}
-          data-animate="ofertas-productos"
-          className={`scale-up-section ${visibleSections["ofertas-productos"] ? "is-visible" : ""}`}
-        >
+        <div style={styles.ofertaProductosWrapper(isMobile)}>
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
               🔥 Productos en Oferta
@@ -712,42 +652,59 @@ export default function Catalogo() {
             </div>
           </div>
 
-          <div style={styles.ofertaProductosGrid(isMobile)}>
-            {productosOferta.slice(0, 6).map((p, index) => (
-              <div
-                key={p.id}
-                style={{
-                  ...styles.productCard(darkMode, isMobile),
-                  animationDelay: `${index * 0.1}s`,
-                }}
-                className="product-card-animated"
-                onClick={() => navigate(`/producto/${p.id}`)}
-              >
-                <div style={styles.ofertaProductoBadge}>🔥 OFERTA</div>
-                <img
-                 src={
-  p.imagenes
-    ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
-    : "https://via.placeholder.com/300"
-}
-                  alt={p.nombre}
-                  style={styles.productImage(isMobile)}
-                  loading="lazy"
-                />
-                <h3 style={styles.productName(darkMode, isMobile)}>
-                  {p.nombre}
-                </h3>
-                <div style={styles.productPrices}>
-                  <span style={styles.productOldPrice}>${p.precio}</span>
-                  <span style={styles.productNewPrice}>
-                    ${p.precioOferta || p.precio}
-                  </span>
+          {/* Grid centrado para productos en oferta */}
+          <div style={{
+            display: "flex",
+            justifyContent: "center",
+            width: "100%",
+            maxWidth: "100%",
+          }}>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
+              gap: isMobile ? "14px" : "22px",
+              width: "100%",
+              maxWidth: isMobile ? "100%" : "900px",
+              justifyContent: "center",
+            }}>
+              {productosOferta.slice(0, 6).map((p, index) => (
+                <div
+                  key={p.id}
+                  style={{
+                    ...styles.productCard(darkMode, isMobile),
+                    opacity: 1,
+                    transform: "none",
+                    width: "100%",
+                    maxWidth: "100%",
+                  }}
+                  onClick={() => navigate(`/producto/${p.id}`)}
+                >
+                  <div style={styles.ofertaProductoBadge}>🔥 OFERTA</div>
+                  <img
+                    src={
+                      p.imagenes
+                        ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
+                        : "https://via.placeholder.com/300"
+                    }
+                    alt={p.nombre}
+                    style={styles.productImage(isMobile)}
+                    loading="lazy"
+                  />
+                  <h3 style={styles.productName(darkMode, isMobile)}>
+                    {p.nombre}
+                  </h3>
+                  <div style={styles.productPrices}>
+                    <span style={styles.productOldPrice}>${p.precio}</span>
+                    <span style={styles.productNewPrice}>
+                      ${p.precioOferta || (p.precio * 0.8).toFixed(2)}
+                    </span>
+                  </div>
+                  <button style={styles.productButton} className="btn-shine">
+                    Ver producto →
+                  </button>
                 </div>
-                <button style={styles.productButton} className="btn-shine">
-                  Ver producto →
-                </button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {productosOferta.length > 6 && (
@@ -766,11 +723,7 @@ export default function Catalogo() {
 
       {/* MENSAJE CUANDO LAS OFERTAS HAN TERMINADO */}
       {!mostrarOfertas && productosOferta.length > 0 && (
-        <div 
-          style={styles.ofertaProductosWrapper(isMobile)}
-          data-animate="ofertas-productos"
-          className={`scale-up-section ${visibleSections["ofertas-productos"] ? "is-visible" : ""}`}
-        >
+        <div style={styles.ofertaProductosWrapper(isMobile)}>
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
               ⏰ ¡Ofertas Finalizadas!
@@ -806,17 +759,16 @@ export default function Catalogo() {
         </div>
       )}
 
-      {/* CATEGORÍAS MÁS VENDIDAS - VISIBILIDAD COMPLETA */}
+      {/* ===== CATEGORÍAS MÁS VENDIDAS ===== */}
       {categoriasDestacadas.length > 0 && (
         <div
           className="slider-section"
           style={{
             ...styles.section(isMobile),
             position: "relative",
-            overflow: "visible !important",
+            overflow: "visible",
             zIndex: 10,
           }}
-          data-animate="mas-vendidas"
         >
           <div style={styles.sectionHeader}>
             <h2 style={{ ...styles.sectionTitle(darkMode, isMobile), textAlign: "center" }}>
@@ -827,76 +779,86 @@ export default function Catalogo() {
             </p>
           </div>
 
-          <button
-            onClick={() => scrollSlider("vendidasSlider", "left")}
-            style={styles.arrowLeft(isMobile)}
-            className="slider-arrow"
-          >
-            ❮
-          </button>
-          <button
-            onClick={() => scrollSlider("vendidasSlider", "right")}
-            style={styles.arrowRight(isMobile)}
-            className="slider-arrow"
-          >
-            ❯
-          </button>
+          <div style={{ position: "relative", width: "100%" }}>
+            <button
+              onClick={() => scrollSlider("vendidasSlider", "left")}
+              style={styles.arrowLeft(isMobile)}
+              className="slider-arrow"
+              aria-label="Desplazar izquierda"
+            >
+              ❮
+            </button>
+            <button
+              onClick={() => scrollSlider("vendidasSlider", "right")}
+              style={styles.arrowRight(isMobile)}
+              className="slider-arrow"
+              aria-label="Desplazar derecha"
+            >
+              ❯
+            </button>
 
-          <div 
-            id="vendidasSlider" 
-            style={{
-              ...styles.sliderRow,
-              overflowX: "auto",
-              overflowY: "visible",
-              padding: "12px 4px 20px 4px",
-              margin: "0 -4px",
-              WebkitOverflowScrolling: "touch",
-              scrollBehavior: "smooth",
-            }}
-          >
-            {categoriasDestacadas.map((p, index) => (
-              <div
-                key={index}
-                className="slider-card"
-                style={{
-                  ...styles.sliderCard(darkMode, isMobile),
-                  animationDelay: `${index * 0.05}s`,
-                  flexShrink: 0,
-                  position: "relative",
-                  zIndex: 5,
-                }}
-                onClick={() => navigate(`/categoria-id/${p.categoria_id}`)}
-              >
-                <div style={styles.cardImageWrapper}>
-                  <img
-                    src={obtenerImagen(p)}
-                    alt={p.nombre}
-                    className="slider-image"
-                    style={styles.sliderImage}
-                    loading="lazy"
-                  />
+            <div 
+              id="vendidasSlider" 
+              style={{
+                display: "flex",
+                gap: "16px",
+                overflowX: "auto",
+                overflowY: "visible",
+                padding: "12px 40px 20px 40px",
+                WebkitOverflowScrolling: "touch",
+                scrollBehavior: "smooth",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                position: "relative",
+                zIndex: 5,
+              }}
+            >
+              {categoriasDestacadas.map((p, index) => (
+                <div
+                  key={index}
+                  className="slider-card"
+                  style={{
+                    ...styles.sliderCard(darkMode, isMobile),
+                    flexShrink: 0,
+                    position: "relative",
+                    zIndex: 5,
+                    minWidth: isMobile ? "165px" : "240px",
+                    maxWidth: isMobile ? "165px" : "240px",
+                    opacity: 1,
+                    transform: "none",
+                  }}
+                  onClick={() => navigate(`/categoria-id/${p.categoria_id}`)}
+                >
+                  <div style={styles.cardImageWrapper}>
+                    <img
+                      src={obtenerImagen(p)}
+                      alt={p.nombre}
+                      className="slider-image"
+                      style={styles.sliderImage}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div style={styles.cardContent}>
+                    <h3 style={styles.cardTitle(isMobile)}>{p.categoria}</h3>
+                    <div style={styles.cardBadge}>⭐ Popular</div>
+                  </div>
                 </div>
-                <div style={styles.cardContent}>
-                  <h3 style={styles.cardTitle(isMobile)}>{p.categoria}</h3>
-                  <div style={styles.cardBadge}>⭐ Popular</div>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* PRODUCTOS DESTACADOS - VISIBILIDAD COMPLETA */}
+      {/* ===== PRODUCTOS DESTACADOS ===== */}
       {destacados.length > 0 && (
         <div
           className="slider-section"
           style={{
             ...styles.section(isMobile),
             position: "relative",
-            overflow: "visible !important",
+            overflow: "visible",
             zIndex: 10,
           }}
-          data-animate="destacados"
         >
           <div style={styles.sectionHeader}>
             <h2 style={{ ...styles.sectionTitle(darkMode, isMobile), textAlign: "center" }}>
@@ -907,84 +869,95 @@ export default function Catalogo() {
             </p>
           </div>
 
-          <button
-            onClick={() => scrollSlider("destacadosSlider", "left")}
-            style={styles.arrowLeft(isMobile)}
-            className="slider-arrow"
-          >
-            ❮
-          </button>
-          <button
-            onClick={() => scrollSlider("destacadosSlider", "right")}
-            style={styles.arrowRight(isMobile)}
-            className="slider-arrow"
-          >
-            ❯
-          </button>
+          <div style={{ position: "relative", width: "100%" }}>
+            <button
+              onClick={() => scrollSlider("destacadosSlider", "left")}
+              style={styles.arrowLeft(isMobile)}
+              className="slider-arrow"
+              aria-label="Desplazar izquierda"
+            >
+              ❮
+            </button>
+            <button
+              onClick={() => scrollSlider("destacadosSlider", "right")}
+              style={styles.arrowRight(isMobile)}
+              className="slider-arrow"
+              aria-label="Desplazar derecha"
+            >
+              ❯
+            </button>
 
-          <div 
-            id="destacadosSlider" 
-            style={{
-              ...styles.sliderRow,
-              overflowX: "auto",
-              overflowY: "visible",
-              padding: "12px 4px 20px 4px",
-              margin: "0 -4px",
-              WebkitOverflowScrolling: "touch",
-              scrollBehavior: "smooth",
-            }}
-          >
-            {destacados.map((p, index) => (
-              <div
-                key={index}
-                className="slider-card"
-                style={{
-                  ...styles.sliderCard(darkMode, isMobile),
-                  animationDelay: `${index * 0.05}s`,
-                  flexShrink: 0,
-                  position: "relative",
-                  zIndex: 5,
-                }}
-                onClick={() => navigate(`/producto/${p.id}`)}
-              >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleFavorito(p);
-                  }}
+            <div 
+              id="destacadosSlider" 
+              style={{
+                display: "flex",
+                gap: "16px",
+                overflowX: "auto",
+                overflowY: "visible",
+                padding: "12px 40px 20px 40px",
+                WebkitOverflowScrolling: "touch",
+                scrollBehavior: "smooth",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                position: "relative",
+                zIndex: 5,
+              }}
+            >
+              {destacados.map((p, index) => (
+                <div
+                  key={index}
+                  className="slider-card"
                   style={{
-                    ...styles.favBtn,
-                    background: esFavorito(p.id) ? "#dc2626" : "rgba(255,255,255,0.9)",
-                    color: esFavorito(p.id) ? "#fff" : "#333",
-                    zIndex: 15,
+                    ...styles.sliderCard(darkMode, isMobile),
+                    flexShrink: 0,
+                    position: "relative",
+                    zIndex: 5,
+                    minWidth: isMobile ? "165px" : "240px",
+                    maxWidth: isMobile ? "165px" : "240px",
+                    opacity: 1,
+                    transform: "none",
                   }}
+                  onClick={() => navigate(`/producto/${p.id}`)}
                 >
-                  {esFavorito(p.id) ? "❤️" : "🤍"}
-                </button>
-                <div style={styles.cardImageWrapper}>
-                  <img
-                    src={obtenerImagen(p)}
-                    alt={p.nombre}
-                    className="slider-image"
-                    style={styles.sliderImage}
-                    loading="lazy"
-                  />
-                </div>
-                <div style={styles.cardContent}>
-                  <h3 style={styles.cardTitle(isMobile)}>{p.nombre}</h3>
-                  {!isMobile && <p style={styles.cardDesc}>{p.descripcion}</p>}
-                  <div style={styles.cardPriceContainer}>
-                    <span style={styles.cardPrice(isMobile)}>${p.precio}</span>
-                    {p.precioOferta && (
-                      <span style={styles.cardOldPrice}>${p.precio}</span>
-                    )}
-                  </div>
-                  <button style={styles.cardButton} className="btn-shine">
-                    Ver producto →
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorito(p);
+                    }}
+                    style={{
+                      ...styles.favBtn,
+                      background: esFavorito(p.id) ? "#dc2626" : "rgba(255,255,255,0.9)",
+                      color: esFavorito(p.id) ? "#fff" : "#333",
+                      zIndex: 15,
+                    }}
+                  >
+                    {esFavorito(p.id) ? "❤️" : "🤍"}
                   </button>
+                  <div style={styles.cardImageWrapper}>
+                    <img
+                      src={obtenerImagen(p)}
+                      alt={p.nombre}
+                      className="slider-image"
+                      style={styles.sliderImage}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div style={styles.cardContent}>
+                    <h3 style={styles.cardTitle(isMobile)}>{p.nombre}</h3>
+                    {!isMobile && <p style={styles.cardDesc}>{p.descripcion}</p>}
+                    <div style={styles.cardPriceContainer}>
+                      <span style={styles.cardPrice(isMobile)}>${p.precio}</span>
+                      {p.precioOferta && (
+                        <span style={styles.cardOldPrice}>${p.precio}</span>
+                      )}
+                    </div>
+                    <button style={styles.cardButton} className="btn-shine">
+                      Ver producto →
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -998,74 +971,51 @@ export default function Catalogo() {
           100% { transform: rotate(360deg); }
         }
 
-        /* ===== ANIMACIONES DE SCROLL ===== */
-        .fade-in-section {
-          opacity: 0;
-          transform: translateY(30px);
-          transition: opacity ${animationDuration} ease, transform ${animationDuration} ease;
-          will-change: transform, opacity;
-        }
-        
-        .fade-in-section.is-visible {
-          opacity: 1;
-          transform: translateY(0);
+        /* ===== FORZAR QUE TODOS LOS ELEMENTOS SEAN VISIBLES Y FIJOS ===== */
+        * {
+          animation: none !important;
+          transition: none !important;
         }
 
-        .slide-up-section {
-          opacity: 0;
-          transform: translateY(60px);
-          transition: opacity ${animationDuration} cubic-bezier(0.22, 1, 0.36, 1), 
-                      transform ${animationDuration} cubic-bezier(0.22, 1, 0.36, 1);
-          will-change: transform, opacity;
-        }
-        
-        .slide-up-section.is-visible {
-          opacity: 1;
-          transform: translateY(0);
+        [data-animate] {
+          opacity: 1 !important;
+          transform: none !important;
+          visibility: visible !important;
+          pointer-events: auto !important;
         }
 
-        .scale-up-section {
-          opacity: 0;
-          transform: scale(0.95);
-          transition: opacity ${animationDuration} ease, 
-                      transform ${animationDuration} cubic-bezier(0.34, 1.56, 0.64, 1);
-          will-change: transform, opacity;
-        }
-        
-        .scale-up-section.is-visible {
-          opacity: 1;
-          transform: scale(1);
+        [data-animate].is-visible {
+          opacity: 1 !important;
+          transform: none !important;
         }
 
-        /* ===== ANIMACIONES DE TARJETAS ===== */
-        .category-card-animated {
-          opacity: 0;
-          transform: translateY(30px);
-          animation: cardFadeUp 0.6s ease forwards;
+        .slider-card {
+          opacity: 1 !important;
+          transform: none !important;
+          visibility: visible !important;
         }
 
-        .category-card-hover {
-          transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        .slider-card:hover {
+          transform: translateY(-8px) scale(1.02) !important;
+          box-shadow: 0 12px 40px rgba(0,0,0,0.15) !important;
+          z-index: 20 !important;
+        }
+
+        .slider-card:hover .slider-image {
+          transform: scale(1.08) !important;
+        }
+
+        .slider-card:hover .card-button {
+          background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+          transform: scale(1.02) !important;
         }
 
         .category-card-hover:hover {
-          transform: translateY(-10px) scale(1.02);
-          box-shadow: 0 20px 50px rgba(59, 130, 246, 0.25);
+          transform: translateY(-10px) scale(1.02) !important;
+          box-shadow: 0 20px 50px rgba(59, 130, 246, 0.25) !important;
         }
 
-        .product-card-animated {
-          opacity: 0;
-          transform: translateY(30px);
-          animation: cardFadeUp 0.6s ease forwards;
-        }
-
-        .banner-card-animated {
-          opacity: 0;
-          transform: scale(0.95);
-          animation: bannerFadeIn 0.7s ease forwards;
-        }
-
-        /* ===== MEJORAS PARA SLIDERS - VISIBILIDAD COMPLETA ===== */
+        /* ===== MEJORAS PARA SLIDERS ===== */
         .slider-section {
           overflow: visible !important;
           position: relative;
@@ -1084,110 +1034,17 @@ export default function Catalogo() {
         .slider-section #nuevoSlider,
         .slider-section #vendidasSlider,
         .slider-section #destacadosSlider {
-          overflow: visible !important;
-          padding: 12px 4px 20px 4px !important;
-          margin: 0 -4px !important;
+          overflow-x: auto !important;
+          overflow-y: visible !important;
+          padding: 12px 40px 20px 40px !important;
+          margin: 0 !important;
         }
 
         .slider-section .slider-arrow {
           z-index: 50 !important;
         }
 
-        .slider-card {
-          opacity: 0;
-          animation: cardSlideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-          transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-          position: relative;
-          overflow: visible;
-        }
-
-        .slider-card:hover {
-          transform: translateY(-8px) scale(1.02);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.15);
-          z-index: 20 !important;
-        }
-
-        .slider-card:hover .slider-image {
-          transform: scale(1.08);
-        }
-
-        .slider-card:hover .card-button {
-          background: linear-gradient(135deg, #2563eb, #1d4ed8);
-          transform: scale(1.02);
-        }
-
-        .slider-card::after {
-          content: '';
-          position: absolute;
-          top: -50%;
-          left: -50%;
-          width: 200%;
-          height: 200%;
-          background: radial-gradient(circle, rgba(59,130,246,0.04) 0%, transparent 70%);
-          opacity: 0;
-          transition: opacity 0.5s ease;
-          pointer-events: none;
-          border-radius: 50%;
-          z-index: -1;
-        }
-
-        .slider-card:hover::after {
-          opacity: 1;
-        }
-
-        .slider-image {
-          transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        .card-button {
-          transition: all 0.3s ease;
-        }
-
         /* ===== KEYFRAMES ===== */
-        @keyframes cardFadeUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes cardSlideUp {
-          from {
-            opacity: 0;
-            transform: translateY(40px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        @keyframes bannerFadeIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        @keyframes pulseBubble {
-          0%, 100% {
-            transform: scale(1);
-            box-shadow: 0 4px 20px rgba(59,130,246,0.4);
-          }
-          50% {
-            transform: scale(1.05);
-            box-shadow: 0 8px 40px rgba(59,130,246,0.8), 0 0 60px rgba(59,130,246,0.3);
-          }
-        }
-
         @keyframes timerPulse {
           0%, 100% {
             box-shadow: 0 0 30px rgba(59,130,246,0.2), inset 0 0 30px rgba(59,130,246,0.05);
@@ -1208,13 +1065,13 @@ export default function Catalogo() {
 
         /* ===== EFECTOS ESPECIALES ===== */
         .timer-glow {
-          animation: timerPulse 2s ease-in-out infinite;
+          animation: timerPulse 2s ease-in-out infinite !important;
         }
 
         .btn-glow {
           position: relative;
           overflow: hidden;
-          transition: all 0.3s ease;
+          transition: all 0.3s ease !important;
         }
 
         .btn-glow::before {
@@ -1228,9 +1085,9 @@ export default function Catalogo() {
           background-size: 200% 200%;
           border-radius: 14px;
           opacity: 0;
-          transition: opacity 0.3s ease;
+          transition: opacity 0.3s ease !important;
           z-index: -1;
-          animation: shimmer 3s ease-in-out infinite;
+          animation: shimmer 3s ease-in-out infinite !important;
         }
 
         .btn-glow:hover::before {
@@ -1242,143 +1099,295 @@ export default function Catalogo() {
           overflow: hidden;
         }
 
-        .btn-shine::after {
-          content: '';
-          position: absolute;
-          top: -50%;
-          left: -50%;
-          width: 200%;
-          height: 200%;
-          background: linear-gradient(
-            45deg,
-            transparent 30%,
-            rgba(255, 255, 255, 0.15) 50%,
-            transparent 70%
-          );
-          transform: rotate(45deg) translateX(-100%);
-          transition: transform 0.6s ease;
-        }
-
-        .btn-shine:hover::after {
-          transform: rotate(45deg) translateX(100%);
-        }
-
         .slider-arrow {
-          transition: all 0.3s ease;
+          transition: all 0.3s ease !important;
           z-index: 50 !important;
         }
 
         .slider-arrow:hover {
-          transform: translateY(-50%) scale(1.1);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-          background: rgba(255,255,255,1);
+          transform: translateY(-50%) scale(1.1) !important;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+          background: rgba(255,255,255,1) !important;
         }
 
-        /* ===== SCROLLBAR PERSONALIZADA ===== */
-        ::-webkit-scrollbar {
-          width: 8px;
+        /* ===== HERO BANNER ===== */
+        .hero-wrapper {
+          width: 100%;
+          max-width: 100%;
+          padding: 0;
+          margin: 0;
+          overflow: hidden;
+          background: #0f172a;
+        }
+
+        .hero-container {
+          position: relative;
+          width: 100%;
+          max-width: 100%;
+          overflow: hidden;
+          background: #0f172a;
+        }
+
+        .hero-slide {
+          position: relative;
+          width: 100%;
+          display: none;
+          cursor: pointer;
+        }
+
+        .hero-slide.active {
+          display: block;
+        }
+
+        .hero-image-wrapper {
+          position: relative;
+          width: 100%;
+          overflow: hidden;
+          background: #0f172a;
+        }
+
+        .hero-image {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: cover;
+          object-position: center;
+        }
+
+        .hero-overlay {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          padding: 20px 24px;
+          background: linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.4) 60%, transparent 100%);
+          color: #ffffff;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          pointer-events: none;
+        }
+
+        .hero-title {
+          font-size: 20px;
+          font-weight: 800;
+          margin: 0 0 4px 0;
+          line-height: 1.2;
+          letter-spacing: -0.02em;
+          text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+          max-width: 85%;
+        }
+
+        .hero-description {
+          font-size: 12px;
+          margin: 0;
+          opacity: 0.9;
+          text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+          max-width: 85%;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          line-height: 1.4;
+        }
+
+        .hero-indicators {
+          position: absolute;
+          bottom: 12px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          gap: 8px;
+          z-index: 10;
+        }
+
+        .hero-dot {
           height: 8px;
+          width: 8px;
+          min-width: 8px;
+          border-radius: 50%;
+          border: none;
+          cursor: pointer;
+          padding: 0;
+          background: rgba(255,255,255,0.4);
+          transition: all 0.3s ease !important;
         }
 
-        ::-webkit-scrollbar-track {
-          background: rgba(0,0,0,0.05);
+        .hero-dot.active {
+          background: #3b82f6;
+          width: 24px;
           border-radius: 4px;
         }
 
-        ::-webkit-scrollbar-thumb {
-          background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-          border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(135deg, #2563eb, #7c3aed);
-        }
-
-        /* ===== PREFERENCIA DE REDUCCIÓN DE MOVIMIENTO ===== */
-        @media (prefers-reduced-motion: reduce) {
-          .fade-in-section,
-          .slide-up-section,
-          .scale-up-section {
-            opacity: 1 !important;
-            transform: none !important;
-            transition: none !important;
+        /* ===== MÓVIL ===== */
+        @media (max-width: 767px) {
+          .hero-image-wrapper {
+            min-height: 280px;
+            max-height: 70vh;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+            background: #0f172a;
           }
           
-          .category-card-animated,
-          .product-card-animated,
-          .banner-card-animated,
-          .slider-card {
-            animation: none !important;
-            opacity: 1 !important;
+          .hero-image {
+            width: 100%;
+            height: 100%;
+            min-height: 280px;
+            max-height: 70vh;
+            object-fit: contain;
+            object-position: center;
+            display: block;
+            background: #0f172a;
+          }
+
+          .hero-overlay {
+            padding: 20px 20px 24px;
+          }
+
+          .hero-title {
+            font-size: 22px;
+            max-width: 90%;
+            margin-bottom: 6px;
+          }
+
+          .hero-description {
+            font-size: 13px;
+            max-width: 90%;
+            -webkit-line-clamp: 2;
+          }
+
+          .hero-indicators {
+            bottom: 12px;
+            gap: 8px;
+          }
+
+          .hero-dot {
+            height: 8px;
+            width: 8px;
+            min-width: 8px;
+          }
+
+          .hero-dot.active {
+            width: 22px;
+          }
+
+          .slider-section .slider-arrow {
+            width: 30px !important;
+            height: 30px !important;
+            font-size: 12px !important;
+          }
+        }
+
+        /* ===== TABLET ===== */
+        @media (min-width: 768px) and (max-width: 1024px) {
+          .hero-image-wrapper {
+            min-height: 350px;
+            max-height: 55vh;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
           }
           
-          .timer-glow {
-            animation: none !important;
+          .hero-image {
+            width: 100%;
+            height: 100%;
+            min-height: 350px;
+            max-height: 55vh;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+          }
+
+          .hero-overlay {
+            padding: 28px 36px 32px;
+          }
+
+          .hero-title {
+            font-size: 30px;
+            max-width: 70%;
+          }
+
+          .hero-description {
+            font-size: 16px;
+            max-width: 60%;
+            -webkit-line-clamp: 2;
+          }
+
+          .hero-indicators {
+            bottom: 16px;
+            gap: 10px;
+          }
+
+          .hero-dot {
+            height: 10px;
+            width: 10px;
+            min-width: 10px;
+          }
+
+          .hero-dot.active {
+            width: 30px;
+          }
+        }
+
+        /* ===== DESKTOP ===== */
+        @media (min-width: 1025px) {
+          .hero-image-wrapper {
+            min-height: 450px;
+            max-height: 70vh;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
           }
           
-          .btn-glow::before {
-            animation: none !important;
+          .hero-image {
+            width: 100%;
+            height: 100%;
+            min-height: 450px;
+            max-height: 70vh;
+            object-fit: cover;
+            object-position: center;
+            display: block;
           }
-          
-          .btn-shine::after {
-            display: none !important;
+
+          .hero-overlay {
+            padding: 50px 60px;
+          }
+
+          .hero-title {
+            font-size: 46px;
+            max-width: 60%;
+            margin-bottom: 8px;
+          }
+
+          .hero-description {
+            font-size: 20px;
+            max-width: 50%;
+            -webkit-line-clamp: unset;
+          }
+
+          .hero-indicators {
+            bottom: 24px;
+            gap: 12px;
+          }
+
+          .hero-dot {
+            height: 12px;
+            width: 12px;
+            min-width: 12px;
+          }
+
+          .hero-dot.active {
+            width: 40px;
           }
         }
 
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 768px) {
-          .category-card-animated {
-            animation-duration: 0.4s;
+        @media (max-width: 480px) {
+          .slider-section #nuevoSlider,
+          .slider-section #vendidasSlider,
+          .slider-section #destacadosSlider {
+            padding: 12px 30px 20px 30px !important;
           }
-          
-          .product-card-animated {
-            animation-duration: 0.4s;
-          }
-          
-          .banner-card-animated {
-            animation-duration: 0.5s;
-          }
-
-          .slider-card {
-            animation-duration: 0.3s;
-          }
-        }
-
-        /* ===== ESTILOS ADICIONALES PARA SLIDERS ===== */
-        #nuevoSlider::-webkit-scrollbar,
-        #vendidasSlider::-webkit-scrollbar,
-        #destacadosSlider::-webkit-scrollbar {
-          height: 4px;
-        }
-
-        #nuevoSlider::-webkit-scrollbar-thumb,
-        #vendidasSlider::-webkit-scrollbar-thumb,
-        #destacadosSlider::-webkit-scrollbar-thumb {
-          background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-          border-radius: 2px;
-        }
-
-        #nuevoSlider::-webkit-scrollbar-track,
-        #vendidasSlider::-webkit-scrollbar-track,
-        #destacadosSlider::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
-        /* ===== PREVENIR RE-OBSERVACIÓN ===== */
-        [data-animate].is-visible {
-          opacity: 1 !important;
-          transform: translateY(0) !important;
-          pointer-events: auto !important;
-        }
-
-        /* ===== SHIMMER TEXT ===== */
-        .text-gradient {
-          background: linear-gradient(90deg, #60a5fa, #3b82f6, #1d4ed8, #3b82f6, #60a5fa);
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: shimmer 3s linear infinite;
         }
       `}</style>
     </div>
@@ -1386,10 +1395,9 @@ export default function Catalogo() {
 }
 
 // =================================================
-// ESTILOS MODERNOS Y ELEGANTES
+// ESTILOS - COMPLETOS
 // =================================================
 const styles = {
-  // ===== LOADER =====
   loaderContainer: {
     display: "flex",
     flexDirection: "column",
@@ -1411,8 +1419,6 @@ const styles = {
     fontSize: "16px",
     fontWeight: "500",
   },
-
-  // ===== PAGE =====
   page: (darkMode) => ({
     background: darkMode 
       ? "linear-gradient(180deg, #0f172a 0%, #1a2332 30%, #0f172a 60%, #1a2332 100%)"
@@ -1421,15 +1427,11 @@ const styles = {
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
     overflowX: "hidden",
     color: darkMode ? "#f1f5f9" : "#0f172a",
-    transition: "all 0.3s ease",
   }),
-
-  // ===== SECTION HEADER =====
   sectionHeader: {
     textAlign: "center",
     marginBottom: "28px",
   },
-
   sectionTitle: (darkMode, isMobile, type) => ({
     fontSize: isMobile ? "24px" : "38px",
     fontWeight: "800",
@@ -1442,15 +1444,12 @@ const styles = {
       WebkitTextFillColor: "transparent",
     }),
   }),
-
   sectionSubtitle: (isMobile) => ({
     fontSize: isMobile ? "14px" : "18px",
     color: "#94a3b8",
     fontWeight: "400",
     marginTop: "2px",
   }),
-
-  // ===== BUTTONS =====
   buttonPrimary: (darkMode, isMobile) => ({
     padding: isMobile ? "12px 28px" : "14px 44px",
     fontSize: isMobile ? "14px" : "16px",
@@ -1460,11 +1459,9 @@ const styles = {
     border: "none",
     borderRadius: "14px",
     cursor: "pointer",
-    transition: "all 0.3s ease",
     boxShadow: "0 4px 24px rgba(59,130,246,0.35)",
     letterSpacing: "0.3px",
   }),
-
   buttonDanger: (darkMode, isMobile) => ({
     padding: isMobile ? "12px 28px" : "14px 44px",
     fontSize: isMobile ? "14px" : "16px",
@@ -1474,124 +1471,29 @@ const styles = {
     border: "none",
     borderRadius: "14px",
     cursor: "pointer",
-    transition: "all 0.3s ease",
     boxShadow: "0 4px 24px rgba(220,38,38,0.35)",
     letterSpacing: "0.3px",
   }),
-
-  // ===== HERO =====
-  heroWrapper: (isMobile) => ({
-    padding: isMobile ? "8px 12px" : "20px 32px",
-    width: "100%",
-    boxSizing: "border-box",
-  }),
-
-  heroContainer: {
-    position: "relative",
-    width: "100%",
-    borderRadius: "28px",
-    overflow: "hidden",
-    background: "transparent",
-    boxShadow: "0 8px 40px rgba(0,0,0,0.08)",
-    aspectRatio: "16/5",
-    minHeight: "200px",
-  },
-
-  heroSlide: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    transition: "opacity 0.8s ease-in-out",
-    cursor: "pointer",
-  },
-
-  heroImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    display: "block",
-  },
-
-  heroOverlay: (isMobile) => ({
-    position: "absolute",
-    inset: 0,
-    background: "linear-gradient(to top, rgba(15,23,42,0.85) 0%, rgba(15,23,42,0.2) 60%, rgba(15,23,42,0) 100%)",
-    color: "#fff",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "flex-end",
-    padding: isMobile ? "16px" : "40px",
-  }),
-
-  heroTitle: (isMobile) => ({
-    fontSize: isMobile ? "22px" : "44px",
-    fontWeight: "800",
-    marginBottom: "4px",
-    lineHeight: "1.15",
-    letterSpacing: "-0.02em",
-    textShadow: "0 4px 20px rgba(0,0,0,0.3)",
-  }),
-
-  heroDesc: (isMobile) => ({
-    fontSize: isMobile ? "12px" : "18px",
-    maxWidth: "600px",
-    opacity: 0.9,
-    margin: 0,
-    textShadow: "0 2px 10px rgba(0,0,0,0.3)",
-    display: isMobile ? "-webkit-box" : "block",
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
-    overflow: "hidden",
-  }),
-
-  heroIndicators: {
-    position: "absolute",
-    bottom: "16px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    display: "flex",
-    gap: "8px",
-    zIndex: 10,
-  },
-
-  heroDot: {
-    height: "10px",
-    borderRadius: "5px",
-    border: "none",
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-    padding: 0,
-  },
-
-  // ===== CATEGORÍAS =====
   categoriesSection: (isMobile) => ({
     margin: isMobile ? "16px 12px" : "32px 32px",
     padding: isMobile ? "20px 12px" : "40px 24px",
     background: "transparent",
     borderRadius: isMobile ? "16px" : "24px",
   }),
-
   categoriesGrid: (isMobile) => ({
     display: "grid",
-    gridTemplateColumns: isMobile
-      ? "repeat(2, 1fr)"
-      : "repeat(4, 1fr)",
+    gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
     gap: isMobile ? "16px" : "24px",
   }),
-
   categoryCardWrapper: {
     width: "100%",
   },
-
   categoryCard: (darkMode) => ({
     background: darkMode ? "rgba(30,41,59,0.8)" : "rgba(255,255,255,0.9)",
     backdropFilter: "blur(10px)",
     borderRadius: "20px",
     overflow: "hidden",
     cursor: "pointer",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
     border: darkMode ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.04)",
     position: "relative",
@@ -1599,7 +1501,6 @@ const styles = {
     display: "flex",
     flexDirection: "column",
   }),
-
   categoryBubble: (darkMode) => ({
     position: "absolute",
     top: "12px",
@@ -1609,10 +1510,8 @@ const styles = {
     padding: "6px 14px",
     borderRadius: "20px",
     boxShadow: "0 4px 20px rgba(59,130,246,0.4)",
-    animation: "pulseBubble 1.5s ease-in-out infinite",
     border: "2px solid rgba(255,255,255,0.2)",
   }),
-
   categoryBubbleText: (isMobile) => ({
     color: "#fff",
     fontSize: isMobile ? "10px" : "13px",
@@ -1621,79 +1520,66 @@ const styles = {
     textTransform: "uppercase",
     textShadow: "0 2px 8px rgba(0,0,0,0.2)",
   }),
-
   categoryCardImage: {
     width: "100%",
     height: "180px",
     objectFit: "cover",
-    transition: "transform 0.5s ease",
     background: "#f8fafc",
   },
-
   categoryCardFooter: {
     padding: "12px 16px 16px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
   },
-
   categoryCardCount: (isMobile) => ({
     fontSize: isMobile ? "12px" : "14px",
     color: "#64748b",
     fontWeight: "500",
     margin: 0,
   }),
-
   categoryCardArrow: {
     fontSize: "20px",
     fontWeight: "300",
     color: "#3b82f6",
-    transition: "transform 0.3s ease",
   },
-
   categoriesFooter: {
     display: "flex",
     justifyContent: "center",
     marginTop: "28px",
   },
-
-  // ===== OFERTAS BANNER =====
   ofertasBannerWrapper: (isMobile) => ({
     margin: isMobile ? "16px 12px" : "32px 32px",
     padding: isMobile ? "16px 12px" : "32px 24px",
     background: "transparent",
     borderRadius: isMobile ? "16px" : "24px",
+    width: "auto",
+    maxWidth: "100%",
   }),
-
   ofertasBannerGrid: (isMobile, totalBanners) => ({
     display: "grid",
-    gridTemplateColumns: isMobile
-      ? "1fr"
-      : totalBanners <= 2 
-        ? `repeat(${totalBanners}, 1fr)`
-        : "repeat(3, 1fr)",
+    gridTemplateColumns: isMobile ? "1fr" : totalBanners === 1 ? "1fr" : totalBanners === 2 ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
     gap: isMobile ? "16px" : "20px",
+    width: "100%",
+    maxWidth: "100%",
   }),
-
   ofertaBannerCard: (darkMode, isMobile) => ({
     borderRadius: isMobile ? "14px" : "18px",
     overflow: "hidden",
     cursor: "pointer",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    boxShadow: darkMode
-      ? "0 4px 20px rgba(0,0,0,0.3)"
-      : "0 4px 20px rgba(0,0,0,0.06)",
+    boxShadow: darkMode ? "0 4px 20px rgba(0,0,0,0.3)" : "0 4px 20px rgba(0,0,0,0.06)",
     background: darkMode ? "rgba(30,41,59,0.8)" : "rgba(255,255,255,0.9)",
     border: darkMode ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.04)",
+    width: "100%",
+    maxWidth: "100%",
+    height: "100%",
   }),
-
   ofertaBannerImageWrapper: {
     position: "relative",
     width: "100%",
-    paddingTop: "66%",
+    paddingTop: "56.25%",
     overflow: "hidden",
   },
-
   ofertaBannerImage: {
     position: "absolute",
     top: 0,
@@ -1701,9 +1587,7 @@ const styles = {
     width: "100%",
     height: "100%",
     objectFit: "cover",
-    transition: "transform 0.5s ease",
   },
-
   ofertaBannerOverlay: {
     position: "absolute",
     bottom: 0,
@@ -1716,9 +1600,8 @@ const styles = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "flex-end",
-    minHeight: "50%",
+    minHeight: "40%",
   },
-
   ofertaBannerBadge: {
     background: "linear-gradient(135deg, #dc2626, #b91c1c)",
     color: "#fff",
@@ -1730,7 +1613,6 @@ const styles = {
     textTransform: "uppercase",
     boxShadow: "0 2px 12px rgba(220,38,38,0.4)",
   },
-
   ofertaBannerTitle: {
     fontSize: "18px",
     fontWeight: "700",
@@ -1738,15 +1620,12 @@ const styles = {
     textAlign: "center",
     textShadow: "0 2px 8px rgba(0,0,0,0.5)",
   },
-
   ofertaBannerDesc: {
     fontSize: "13px",
     opacity: 0.8,
     margin: "4px 0 0 0",
     textShadow: "0 2px 8px rgba(0,0,0,0.5)",
   },
-
-  // ===== PRODUCTOS EN OFERTA =====
   ofertaProductosWrapper: (isMobile) => ({
     margin: isMobile ? "16px 12px" : "32px 32px",
     padding: isMobile ? "20px 12px" : "40px 24px",
@@ -1754,23 +1633,17 @@ const styles = {
     borderRadius: isMobile ? "16px" : "24px",
     position: "relative",
     overflow: "hidden",
+    width: "auto",
+    maxWidth: "100%",
   }),
-
-  ofertaProductosGrid: (isMobile) => ({
-    display: "grid",
-    gridTemplateColumns: isMobile
-      ? "repeat(2, 1fr)"
-      : "repeat(3, 1fr)",
-    gap: isMobile ? "14px" : "22px",
-  }),
-
-  // ===== TIMER =====
   timerContainer: {
     display: "flex",
     justifyContent: "center",
     marginBottom: "28px",
+    width: "100%",
+    maxWidth: "100%",
+    overflow: "hidden",
   },
-
   timerBox: {
     display: "flex",
     alignItems: "center",
@@ -1781,15 +1654,15 @@ const styles = {
     borderRadius: "20px",
     border: "2px solid rgba(96,165,250,0.2)",
     boxShadow: "0 0 40px rgba(59,130,246,0.15), inset 0 0 40px rgba(59,130,246,0.05)",
+    flexWrap: "wrap",
+    justifyContent: "center",
   },
-
   timerItem: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     minWidth: "55px",
   },
-
   timerNumber: {
     fontSize: "32px",
     fontWeight: "800",
@@ -1798,7 +1671,6 @@ const styles = {
     WebkitTextFillColor: "transparent",
     letterSpacing: "2px",
   },
-
   timerLabel: {
     fontSize: "11px",
     textTransform: "uppercase",
@@ -1807,34 +1679,30 @@ const styles = {
     letterSpacing: "1px",
     fontWeight: "600",
   },
-
   timerSeparator: {
     color: "#60a5fa",
     fontSize: "32px",
     fontWeight: "700",
     opacity: 0.4,
   },
-
-  // ===== PRODUCT CARD =====
   productCard: (darkMode, isMobile) => ({
-    background: darkMode
-      ? "rgba(30,41,59,0.8)"
-      : "rgba(255,255,255,0.9)",
+    background: darkMode ? "rgba(30,41,59,0.8)" : "rgba(255,255,255,0.9)",
     backdropFilter: "blur(10px)",
     borderRadius: isMobile ? "14px" : "20px",
     padding: isMobile ? "14px" : "20px",
     boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
     cursor: "pointer",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    border: darkMode
-      ? "1px solid rgba(255,255,255,0.06)"
-      : "1px solid rgba(0,0,0,0.04)",
+    border: darkMode ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.04)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     position: "relative",
+    width: "100%",
+    maxWidth: "100%",
+    height: "100%",
+    minHeight: "280px",
+    overflow: "hidden",
   }),
-
   ofertaProductoBadge: {
     position: "absolute",
     top: "10px",
@@ -1849,7 +1717,6 @@ const styles = {
     letterSpacing: "0.3px",
     boxShadow: "0 2px 10px rgba(220,38,38,0.4)",
   },
-
   productImage: (isMobile) => ({
     width: "100%",
     height: isMobile ? "120px" : "180px",
@@ -1858,8 +1725,8 @@ const styles = {
     marginBottom: "10px",
     background: "rgba(255,255,255,0.3)",
     padding: "10px",
+    maxWidth: "100%",
   }),
-
   productName: (darkMode, isMobile) => ({
     fontSize: isMobile ? "13px" : "16px",
     fontWeight: "600",
@@ -1867,27 +1734,32 @@ const styles = {
     textAlign: "center",
     color: darkMode ? "#f1f5f9" : "#0f172a",
     lineHeight: "1.3",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+    minHeight: isMobile ? "34px" : "42px",
+    width: "100%",
   }),
-
   productPrices: {
     display: "flex",
     alignItems: "center",
+    justifyContent: "center",
     gap: "12px",
     marginTop: "4px",
+    width: "100%",
+    flexWrap: "wrap",
   },
-
   productOldPrice: {
     color: "#94a3b8",
     textDecoration: "line-through",
     fontSize: "14px",
   },
-
   productNewPrice: {
     color: "#dc2626",
     fontWeight: "700",
     fontSize: "22px",
   },
-
   productButton: {
     marginTop: "12px",
     padding: "8px 20px",
@@ -1896,20 +1768,18 @@ const styles = {
     borderRadius: "10px",
     fontSize: "13px",
     fontWeight: "600",
-    transition: "all 0.3s ease",
     cursor: "pointer",
     width: "100%",
     textAlign: "center",
     border: "none",
+    maxWidth: "100%",
   },
-
   verTodosContainer: {
     display: "flex",
     justifyContent: "center",
     marginTop: "32px",
+    width: "100%",
   },
-
-  // ===== SLIDER SECCIÓN =====
   section: (isMobile) => ({
     margin: isMobile ? "16px 8px" : "40px 24px",
     background: "transparent",
@@ -1919,24 +1789,9 @@ const styles = {
     overflow: "visible !important",
     position: "relative",
     zIndex: 10,
+    width: "auto",
+    maxWidth: "100%",
   }),
-
-  sliderRow: {
-    display: "flex",
-    gap: "16px",
-    overflowX: "auto",
-    overflowY: "visible",
-    padding: "12px 4px 20px 4px",
-    scrollBehavior: "smooth",
-    WebkitOverflowScrolling: "touch",
-    scrollbarWidth: "none",
-    msOverflowStyle: "none",
-    margin: "0 -4px",
-    position: "relative",
-    zIndex: 5,
-  },
-
-  // ===== SLIDER CARD =====
   sliderCard: (darkMode, isMobile) => ({
     minWidth: isMobile ? "165px" : "240px",
     maxWidth: isMobile ? "165px" : "240px",
@@ -1949,13 +1804,12 @@ const styles = {
     position: "relative",
     flexShrink: 0,
     border: darkMode ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.04)",
-    transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     zIndex: 5,
+    overflow: "hidden",
   }),
-
   nuevoCard: (darkMode, isMobile) => ({
     minWidth: isMobile ? "165px" : "240px",
     maxWidth: isMobile ? "165px" : "240px",
@@ -1968,13 +1822,12 @@ const styles = {
     position: "relative",
     flexShrink: 0,
     border: "2px solid #10b981",
-    transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     zIndex: 5,
+    overflow: "hidden",
   }),
-
   cardImageWrapper: {
     width: "100%",
     position: "relative",
@@ -1982,16 +1835,13 @@ const styles = {
     borderRadius: "14px",
     background: "rgba(248,250,252,0.5)",
   },
-
   sliderImage: {
     width: "100%",
     height: "170px",
     objectFit: "contain",
-    transition: "transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
     padding: "10px",
     background: "linear-gradient(135deg, #f8fafc, #f1f5f9)",
   },
-
   cardContent: {
     width: "100%",
     padding: "12px 4px 4px",
@@ -2000,7 +1850,6 @@ const styles = {
     alignItems: "center",
     gap: "6px",
   },
-
   cardTitle: (isMobile) => ({
     fontSize: isMobile ? "14px" : "16px",
     fontWeight: "600",
@@ -2014,7 +1863,6 @@ const styles = {
     overflow: "hidden",
     minHeight: isMobile ? "36px" : "42px",
   }),
-
   cardPriceContainer: {
     display: "flex",
     alignItems: "center",
@@ -2022,20 +1870,17 @@ const styles = {
     gap: "10px",
     marginTop: "2px",
   },
-
   cardPrice: (isMobile) => ({
     color: "#2563eb",
     fontWeight: "700",
     fontSize: isMobile ? "18px" : "22px",
     letterSpacing: "-0.01em",
   }),
-
   cardOldPrice: {
     color: "#94a3b8",
     textDecoration: "line-through",
     fontSize: "14px",
   },
-
   cardButton: {
     marginTop: "8px",
     padding: "6px 16px",
@@ -2044,13 +1889,11 @@ const styles = {
     borderRadius: "10px",
     fontSize: "13px",
     fontWeight: "600",
-    transition: "all 0.3s ease",
     cursor: "pointer",
     width: "100%",
     textAlign: "center",
     border: "none",
   },
-
   cardBadge: {
     background: "linear-gradient(135deg, #f59e0b, #d97706)",
     color: "#fff",
@@ -2062,7 +1905,6 @@ const styles = {
     letterSpacing: "0.3px",
     marginTop: "2px",
   },
-
   cardDesc: {
     color: "#64748b",
     fontSize: "13px",
@@ -2075,7 +1917,6 @@ const styles = {
     overflow: "hidden",
     minHeight: "36px",
   },
-
   nuevoBadge: {
     position: "absolute",
     top: "10px",
@@ -2090,7 +1931,6 @@ const styles = {
     letterSpacing: "0.3px",
     boxShadow: "0 2px 10px rgba(16,185,129,0.3)",
   },
-
   favBtn: {
     position: "absolute",
     top: "10px",
@@ -2106,49 +1946,45 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-    transition: "all 0.2s ease",
   },
-
-  // ===== ARROWS =====
   arrowLeft: (isMobile) => ({
     position: "absolute",
-    left: isMobile ? "-2px" : "6px",
+    left: isMobile ? "2px" : "8px",
     top: "50%",
     transform: "translateY(-50%)",
     background: "rgba(255,255,255,0.95)",
     border: "1px solid #e2e8f0",
-    width: isMobile ? "34px" : "46px",
-    height: isMobile ? "34px" : "46px",
+    width: isMobile ? "30px" : "44px",
+    height: isMobile ? "30px" : "44px",
     borderRadius: "50%",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: isMobile ? "14px" : "18px",
-    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+    fontSize: isMobile ? "12px" : "18px",
+    boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
     zIndex: 50,
-    transition: "all 0.3s ease",
     backdropFilter: "blur(10px)",
+    userSelect: "none",
   }),
-
   arrowRight: (isMobile) => ({
     position: "absolute",
-    right: isMobile ? "-2px" : "6px",
+    right: isMobile ? "2px" : "8px",
     top: "50%",
     transform: "translateY(-50%)",
     background: "rgba(255,255,255,0.95)",
     border: "1px solid #e2e8f0",
-    width: isMobile ? "34px" : "46px",
-    height: isMobile ? "34px" : "46px",
+    width: isMobile ? "30px" : "44px",
+    height: isMobile ? "30px" : "44px",
     borderRadius: "50%",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: isMobile ? "14px" : "18px",
-    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+    fontSize: isMobile ? "12px" : "18px",
+    boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
     zIndex: 50,
-    transition: "all 0.3s ease",
     backdropFilter: "blur(10px)",
+    userSelect: "none",
   }),
 };
