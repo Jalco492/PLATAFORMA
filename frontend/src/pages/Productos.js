@@ -1543,21 +1543,44 @@ export default function Productos() {
                     {(p.oferta === 1 || p.oferta === true) && (
                       <span style={{...styles.offerBadge, fontSize: "9px", padding: "2px 6px" }}>OFERTA</span>
                     )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleFavorito(p); }}
-                      style={{
-                        ...styles.favBtnModern,
-                        top: "6px",
-                        right: "6px",
-                        width: "28px",
-                        height: "28px",
-                        fontSize: "12px",
-                        background: esFavorito(p.id) ? "#ef4444" : "rgba(255,255,255,0.9)",
-                        color: esFavorito(p.id) ? "#fff" : "#333"
-                      }}
-                    >
-                      {esFavorito(p.id) ? "❤️" : "🤍"}
-                    </button>
+                    
+                    {/* 🔥 BOTONES FAVORITO Y COMPARADOR EN MÓVIL */}
+                    <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleFavorito(p); }}
+                        style={{
+                          ...styles.favBtnModern,
+                          width: "28px",
+                          height: "28px",
+                          fontSize: "12px",
+                          background: esFavorito(p.id) ? "#ef4444" : "rgba(255,255,255,0.9)",
+                          color: esFavorito(p.id) ? "#fff" : "#333",
+                          position: 'relative',
+                          top: '0',
+                          right: '0',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                        }}
+                      >
+                        {esFavorito(p.id) ? "❤️" : "🤍"}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleComparador(p); }}
+                        style={{
+                          ...styles.compareBtnModern,
+                          width: "28px",
+                          height: "28px",
+                          fontSize: "12px",
+                          background: estaComparando(p.id) ? "#6366f1" : "rgba(255,255,255,0.9)",
+                          color: estaComparando(p.id) ? "#fff" : "#333",
+                          position: 'relative',
+                          top: '0',
+                          right: '0',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                        }}
+                      >
+                        {estaComparando(p.id) ? "✓" : "⚖️"}
+                      </button>
+                    </div>
                   </div>
                   <div style={styles.cardContent}>
                     <h3 style={{...styles.cardTitle(darkMode), fontSize: "13px" }}>{resaltarTexto(p.nombre)}</h3>
