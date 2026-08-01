@@ -15,30 +15,25 @@ import {
   FaEnvelope,
   FaChevronRight,
   FaArrowRight,
-  FaClipboardList,
+  FaChevronLeft,
+  FaCreditCard,
+  FaMoneyBillWave,
+  FaCalendarCheck,
+  FaGift,
 } from "react-icons/fa";
 import api from "../services/api";
 
-// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - IGUAL QUE EN COTIZADOR Y PEDIDO
 const getImageUrl = (imagen) => {
   if (!imagen) {
     return "https://via.placeholder.com/200?text=Sin+imagen";
   }
-
-  // Si ya viene con una URL completa la usa directamente
   if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
     return imagen;
   }
-
-  // 🔥 IMPORTANTE: Usar la misma URL del backend
   const API_BASE = process.env.REACT_APP_API_URL || 'https://backend-zuib.onrender.com';
-  
-  // Si la imagen comienza con /, la concatena con el backend
   if (imagen.startsWith("/")) {
     return `${API_BASE}${imagen}`;
   }
-
-  // Si no comienza con /, la agrega
   return `${API_BASE}/${imagen}`;
 };
 
@@ -58,45 +53,93 @@ export default function Navbar({
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ========== ESTADOS ==========
   const [menuProductosAbierto, setMenuProductosAbierto] = useState(false);
   const [menuCategoriasAbierto, setMenuCategoriasAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState("");
+  const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
+  const [mostrarResultados, setMostrarResultados] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isNavbarVisible, setIsNavbarVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [navbarHeight, setNavbarHeight] = useState(0);
   const [isMobileView, setIsMobileView] = useState(window.innerWidth <= 768);
-  
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
   const [subcategoriaSeleccionada, setSubcategoriaSeleccionada] = useState(null);
   const [mostrarSubcategorias, setMostrarSubcategorias] = useState(false);
   const [mostrarTipos, setMostrarTipos] = useState(false);
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
-  
   const [subcategoriaHover, setSubcategoriaHover] = useState(null);
   const [tiposDeSubcategoriaHover, setTiposDeSubcategoriaHover] = useState([]);
   const [mostrarTiposHover, setMostrarTiposHover] = useState(false);
-
   const [productoHoverSubcategoria, setProductoHoverSubcategoria] = useState(null);
   const [productoTiposHover, setProductoTiposHover] = useState([]);
   const [productoMostrarTipos, setProductoMostrarTipos] = useState(false);
-
   const [tiposLocal, setTiposLocal] = useState([]);
   const [productosMobileOpen, setProductosMobileOpen] = useState(false);
   const [categoriasMobileOpen, setCategoriasMobileOpen] = useState(false);
 
-  // ========== REFERENCIAS ==========
   const menuCategoriasRef = useRef(null);
   const navbarRef = useRef(null);
   const linksContainerRef = useRef(null);
-  const subcategoriasScrollRef = useRef(null);
+  const categoriasScrollRef = useRef(null);
   const tiposHoverTimeoutRef = useRef(null);
   const tiposMenuRef = useRef(null);
   const productosMenuRef = useRef(null);
   const productoTiposRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const searchTimeoutRef = useRef(null);
 
-  // ========== EFECTO PARA RESETEAR ESTADOS AL CAMBIAR DE RUTA ==========
+  // ===== COLORES PARA LAS CATEGORÍAS =====
+  const categoryColors = [
+    { bg: 'linear-gradient(135deg, #FF6B6B, #EE5A24)', border: '#EE5A24', text: '#ffffff' },
+    { bg: 'linear-gradient(135deg, #FECA57, #FF9F43)', border: '#FF9F43', text: '#2d3436' },
+    { bg: 'linear-gradient(135deg, #48DBFB, #0ABDE3)', border: '#0ABDE3', text: '#ffffff' },
+    { bg: 'linear-gradient(135deg, #FF9FF3, #F368E0)', border: '#F368E0', text: '#ffffff' },
+    { bg: 'linear-gradient(135deg, #54A0FF, #2E86DE)', border: '#2E86DE', text: '#ffffff' },
+    { bg: 'linear-gradient(135deg, #5F27CD, #341F97)', border: '#341F97', text: '#ffffff' },
+    { bg: 'linear-gradient(135deg, #1DD1A1, #10AC84)', border: '#10AC84', text: '#ffffff' },
+    { bg: 'linear-gradient(135deg, #FF6B6B, #EE5A24)', border: '#EE5A24', text: '#ffffff' },
+    { bg: 'linear-gradient(135deg, #F8A5C2, #F78FB3)', border: '#F78FB3', text: '#2d3436' },
+  ];
+
+  // ===== CATEGORÍAS A MOSTRAR =====
+  const categoriasMostrar = subcategorias.length > 0 ? subcategorias : categorias;
+
+  // ===== BÚSQUEDA EN TIEMPO REAL =====
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      if (busqueda.trim().length > 0) {
+        const texto = busqueda.toLowerCase().trim();
+        const filtrados = productos.filter((p) => {
+          return (
+            (p.nombre || "").toLowerCase().includes(texto) ||
+            (p.descripcion || "").toLowerCase().includes(texto) ||
+            (p.categoria || "").toLowerCase().includes(texto) ||
+            (p.subcategoria || "").toLowerCase().includes(texto) ||
+            (p.sku || "").toString().toLowerCase().includes(texto)
+          );
+        });
+        setResultadosBusqueda(filtrados.slice(0, 6));
+        setMostrarResultados(true);
+      } else {
+        setResultadosBusqueda([]);
+        setMostrarResultados(false);
+      }
+    }, 200);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [busqueda, productos]);
+
+  // Limpiar menús al cambiar de ruta
   useEffect(() => {
     setMenuProductosAbierto(false);
     setMenuCategoriasAbierto(false);
@@ -111,7 +154,8 @@ export default function Navbar({
     setSubcategoriaSeleccionada(null);
     setMostrarSubcategorias(false);
     setMostrarTipos(false);
-    
+    setMostrarResultados(false);
+    setResultadosBusqueda([]);
     if (tiposHoverTimeoutRef.current) {
       clearTimeout(tiposHoverTimeoutRef.current);
       tiposHoverTimeoutRef.current = null;
@@ -136,7 +180,6 @@ export default function Navbar({
 
   const tiposUsar = tipos && tipos.length > 0 ? tipos : tiposLocal;
 
-  // ========== EFECTOS ==========
   useEffect(() => {
     const handleResize = () => {
       setIsMobileView(window.innerWidth <= 768);
@@ -149,7 +192,7 @@ export default function Navbar({
     if (navbarRef.current && linksContainerRef.current) {
       const navbarH = navbarRef.current.offsetHeight;
       const linksH = linksContainerRef.current.offsetHeight;
-      const subH = subcategoriasScrollRef.current ? subcategoriasScrollRef.current.offsetHeight : 0;
+      const subH = categoriasScrollRef.current ? categoriasScrollRef.current.offsetHeight : 0;
       setNavbarHeight(navbarH + linksH + subH);
     }
   };
@@ -165,8 +208,8 @@ export default function Navbar({
     if (linksContainerRef.current) {
       resizeObserver.observe(linksContainerRef.current);
     }
-    if (subcategoriasScrollRef.current) {
-      resizeObserver.observe(subcategoriasScrollRef.current);
+    if (categoriasScrollRef.current) {
+      resizeObserver.observe(categoriasScrollRef.current);
     }
     return () => {
       resizeObserver.disconnect();
@@ -207,7 +250,6 @@ export default function Navbar({
     };
   }, [lastScrollY, isMobileView]);
 
-  // ========== CLICK OUTSIDE ==========
   useEffect(() => {
     const handleClickOutside = (event) => {
       const isClickInsideCategorias = menuCategoriasRef.current?.contains(event.target);
@@ -234,24 +276,20 @@ export default function Navbar({
     };
   }, []);
 
-  const productosFiltrados = productos.filter((p) => {
-    const texto = busqueda.toLowerCase();
-    return (
-      (p.nombre || "").toLowerCase().includes(texto) ||
-      (p.descripcion || "").toLowerCase().includes(texto) ||
-      (p.categoria || "").toLowerCase().includes(texto) ||
-      (p.subcategoria || "").toLowerCase().includes(texto) ||
-      (p.sku || "").toString().toLowerCase().includes(texto)
-    );
-  });
+  const scrollCategories = (direction) => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 350;
+      const newPosition = scrollContainerRef.current.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
+      scrollContainerRef.current.scrollTo({
+        left: newPosition,
+        behavior: 'smooth'
+      });
+    }
+  };
 
-  // 🔥 FUNCIÓN OBTENER IMAGEN - CORREGIDA CON getImageUrl
   const obtenerImagen = (producto) => {
     if (!producto) return "https://via.placeholder.com/200?text=Sin+imagen";
-
     let imagenUrl = "";
-
-    // Prioriza 'imagenes' (puede tener múltiples separadas por coma)
     if (producto.imagenes && producto.imagenes.trim() !== "") {
       imagenUrl = producto.imagenes.split(",")[0].trim();
     } else if (producto.imagen && producto.imagen.trim() !== "") {
@@ -259,16 +297,13 @@ export default function Navbar({
     } else {
       return "https://via.placeholder.com/200?text=Sin+imagen";
     }
-
-    // 🔥 APLICA getImageUrl PARA OBTENER LA URL COMPLETA
     return getImageUrl(imagenUrl);
   };
 
-  // ========== COMPONENTE SOCIAL ICON ==========
   const SocialIcon = ({ children, color, href, size = "normal", isYoutube = false }) => {
     const isMobileIcon = size === "small";
     const sizePx = isMobileIcon ? "26px" : "46px";
-    const iconSize = isMobileIcon ? "10px" : "20px";
+    const iconSize = isMobileIcon ? "10px" : "18px";
     
     return (
       <a
@@ -279,7 +314,7 @@ export default function Navbar({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: isMobileIcon ? "50%" : "10px",
+          borderRadius: isMobileIcon ? "50%" : "12px",
           cursor: "pointer",
           textDecoration: "none",
           transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -289,20 +324,20 @@ export default function Navbar({
           minHeight: sizePx,
           background: isYoutube ? "#ffffff" : color,
           color: isYoutube ? "#FF0000" : "#ffffff",
-          border: isMobileIcon ? "1px solid rgba(255,255,255,0.06)" : "2px solid rgba(59,130,246,0.2)",
+          border: isMobileIcon ? "1px solid rgba(255,255,255,0.06)" : "2px solid rgba(255,255,255,0.1)",
           fontSize: iconSize,
           boxShadow: isYoutube ? "0 2px 12px rgba(255,0,0,0.12)" : `0 2px 12px ${color}30`,
           flexShrink: 0,
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "scale(1.15) rotate(-3deg)";
-          e.currentTarget.style.boxShadow = "0 4px 30px rgba(59,130,246,0.4)";
+          e.currentTarget.style.transform = "scale(1.12)";
+          e.currentTarget.style.boxShadow = "0 4px 30px rgba(59,130,246,0.3)";
           e.currentTarget.style.borderColor = "#60a5fa";
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = "scale(1)";
           e.currentTarget.style.boxShadow = isYoutube ? "0 2px 12px rgba(255,0,0,0.12)" : `0 2px 12px ${color}30`;
-          e.currentTarget.style.borderColor = isMobileIcon ? "rgba(255,255,255,0.06)" : "rgba(59,130,246,0.2)";
+          e.currentTarget.style.borderColor = isMobileIcon ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.1)";
         }}
       >
         {children}
@@ -310,7 +345,6 @@ export default function Navbar({
     );
   };
 
-  // ========== FUNCIONES MANEJADORAS ==========
   const cerrarMenuCategorias = () => {
     setMenuCategoriasAbierto(false);
     setCategoriaSeleccionada(null);
@@ -323,38 +357,11 @@ export default function Navbar({
     setProductoHoverSubcategoria(null);
   };
 
-  const handleCategoriaClick = (catId, e) => {
-    e?.stopPropagation();
-    if (categoriaSeleccionada === catId) {
-      setCategoriaSeleccionada(null);
-      setSubcategoriaSeleccionada(null);
-      setMostrarSubcategorias(false);
-      setMostrarTipos(false);
-    } else {
-      setCategoriaSeleccionada(catId);
-      setSubcategoriaSeleccionada(null);
-      setMostrarSubcategorias(true);
-      setMostrarTipos(false);
-    }
-  };
-
-  const handleSubcategoriaClickBoton = (subId, e) => {
-    e?.stopPropagation();
-    if (subcategoriaSeleccionada === subId) {
-      setSubcategoriaSeleccionada(null);
-      setMostrarTipos(false);
-    } else {
-      setSubcategoriaSeleccionada(subId);
-      setMostrarTipos(true);
-    }
-  };
-
   const handleSubcategoriaHoverScroll = (subId, subNombre) => {
     if (tiposHoverTimeoutRef.current) {
       clearTimeout(tiposHoverTimeoutRef.current);
       tiposHoverTimeoutRef.current = null;
     }
-    
     const tiposFiltrados = tiposUsar.filter(t => Number(t.subcategoria_id) === Number(subId));
     setTiposDeSubcategoriaHover(tiposFiltrados);
     setSubcategoriaHover({ id: subId, nombre: subNombre });
@@ -407,7 +414,6 @@ export default function Navbar({
       clearTimeout(tiposHoverTimeoutRef.current);
       tiposHoverTimeoutRef.current = null;
     }
-    
     const tiposFiltrados = tiposUsar.filter(t => Number(t.subcategoria_id) === Number(subId));
     setProductoTiposHover(tiposFiltrados);
     setProductoHoverSubcategoria({ id: subId, nombre: subNombre });
@@ -484,6 +490,9 @@ export default function Navbar({
     setMenuProductosAbierto(false);
     setProductoMostrarTipos(false);
     setProductoHoverSubcategoria(null);
+    setMostrarResultados(false);
+    setResultadosBusqueda([]);
+    setBusqueda("");
   };
 
   const toggleMobileMenu = () => {
@@ -497,6 +506,8 @@ export default function Navbar({
     setMostrarBuscador(!mostrarBuscador);
     if (!mostrarBuscador) {
       setBusqueda("");
+      setResultadosBusqueda([]);
+      setMostrarResultados(false);
     }
   };
 
@@ -524,24 +535,6 @@ export default function Navbar({
     }
   };
 
-  const handleMouseEnterCategorias = (e) => {
-    e.stopPropagation();
-    setMenuCategoriasAbierto(true);
-  };
-
-  const handleMouseLeaveCategorias = () => {
-    setTimeout(() => {
-      if (!menuCategoriasRef.current?.matches(':hover')) {
-        setMenuCategoriasAbierto(false);
-        setCategoriaSeleccionada(null);
-        setSubcategoriaSeleccionada(null);
-        setMostrarSubcategorias(false);
-        setMostrarTipos(false);
-        setMostrarTiposHover(false);
-      }
-    }, 300);
-  };
-
   const handlePedidoClick = () => {
     navigate("/pedido");
     cerrarMenuCategorias();
@@ -551,6 +544,70 @@ export default function Navbar({
     if (tiposHoverTimeoutRef.current) {
       clearTimeout(tiposHoverTimeoutRef.current);
       tiposHoverTimeoutRef.current = null;
+    }
+  };
+
+  // ===== FUNCIÓN PARA IR A LA SECCIÓN DE OFERTAS - COMO EL BOTÓN DE NUEVOS PRODUCTOS =====
+  const irAOfertas = () => {
+    // Cerrar menús
+    cerrarMenuCategorias();
+    setMobileMenuOpen(false);
+    setMostrarTiposHover(false);
+    setProductoMostrarTipos(false);
+    if (tiposHoverTimeoutRef.current) {
+      clearTimeout(tiposHoverTimeoutRef.current);
+      tiposHoverTimeoutRef.current = null;
+    }
+    
+    // Navegar a la página principal con el hash #ofertas
+    navigate("/#ofertas");
+    
+    // Hacer scroll a la sección de ofertas después de que la página cargue
+    setTimeout(() => {
+      // Buscar la sección de ofertas
+      let ofertasSection = document.getElementById('productos-oferta');
+      
+      if (!ofertasSection) {
+        ofertasSection = document.querySelector('[class*="ofertaProductosWrapper"]');
+      }
+      
+      if (!ofertasSection) {
+        const allElements = document.querySelectorAll('h2, h1, div, section');
+        for (let el of allElements) {
+          if (el.textContent && el.textContent.includes('Productos en Oferta')) {
+            let parent = el;
+            for (let i = 0; i < 5; i++) {
+              if (parent.parentElement) {
+                parent = parent.parentElement;
+                if (parent.className && parent.className.includes('oferta')) {
+                  ofertasSection = parent;
+                  break;
+                }
+              }
+            }
+            if (!ofertasSection) {
+              ofertasSection = el.closest('div') || el;
+            }
+            break;
+          }
+        }
+      }
+      
+      if (ofertasSection) {
+        ofertasSection.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }
+    }, 500);
+  };
+
+  // ===== FUNCIÓN PARA BUSCAR =====
+  const handleSearchSubmit = () => {
+    if (busqueda.trim()) {
+      navigate(`/productos?buscar=${encodeURIComponent(busqueda)}`);
+      setMostrarResultados(false);
+      setResultadosBusqueda([]);
     }
   };
 
@@ -574,183 +631,337 @@ export default function Navbar({
           0% { background-position: -200% center; }
           100% { background-position: 200% center; }
         }
+        @keyframes logoElectric {
+          0% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(37,99,235,0.3)); }
+          50% { transform: scale(1.05); filter: drop-shadow(0 0 60px rgba(37,99,235,0.6)); }
+          100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(37,99,235,0.3)); }
+        }
         @keyframes gradientMove {
           0% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
         }
-        @keyframes glowPulse {
-          0% { box-shadow: 0 0 20px rgba(59,130,246,0.15); }
-          50% { box-shadow: 0 0 40px rgba(59,130,246,0.25); }
-          100% { box-shadow: 0 0 20px rgba(59,130,246,0.15); }
-        }
-        @keyframes logoElectric {
-          0% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(37,99,235,0.3)); }
-          50% { transform: scale(1.03) rotate(-0.5deg); filter: drop-shadow(0 0 50px rgba(37,99,235,0.7)); }
-          100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(37,99,235,0.3)); }
-        }
-        @keyframes scrollSubcategorias {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
 
-        .subcategorias-track {
+        /* ===== CONTENEDOR DE PAGOS - MÁS GRANDE ===== */
+        .pagos-container {
           display: flex;
-          animation: scrollSubcategorias 35s linear infinite;
-          width: max-content;
-        }
-        .subcategorias-track:hover {
-          animation-play-state: paused;
+          align-items: center;
+          gap: 8px;
+          background: rgba(255,255,255,0.03);
+          padding: 4px 14px;
+          border-radius: 25px;
+          border: 1px solid rgba(255,255,255,0.06);
+          flex-shrink: 0;
+          flex-wrap: nowrap;
+          height: 40px;
         }
 
-        .subcategoria-item {
-          flex: 0 0 auto;
-          padding: 10px 28px;
-          margin: 0 6px;
-          background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(37,99,235,0.06));
-          border: 1.5px solid rgba(59,130,246,0.2);
-          border-radius: 50px;
-          color: #e0e7ff;
-          font-weight: 600;
-          font-size: 15px;
-          cursor: pointer;
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        .pagos-container .pago-item {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 4px 10px;
+          border-radius: 14px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #94a3b8;
           white-space: nowrap;
-          backdrop-filter: blur(8px);
-          letter-spacing: 0.8px;
-          position: relative;
-          text-transform: uppercase;
-          box-shadow: 0 2px 15px rgba(59,130,246,0.05);
+          transition: all 0.3s ease;
+          height: 28px;
         }
 
-        .subcategoria-item::before {
-          content: '';
-          position: absolute;
-          inset: -1.5px;
-          border-radius: 50px;
-          padding: 1.5px;
-          background: linear-gradient(135deg, rgba(59,130,246,0.3), transparent, rgba(59,130,246,0.3));
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          opacity: 0;
-          transition: opacity 0.4s ease;
+        .pagos-container .pago-item:hover {
+          background: rgba(59,130,246,0.08);
+          color: #e2e8f0;
+          transform: scale(1.05);
         }
 
-        .subcategoria-item:hover::before {
-          opacity: 1;
-        }
-
-        .subcategoria-item:hover {
-          background: linear-gradient(135deg, rgba(59,130,246,0.25), rgba(37,99,235,0.15));
-          transform: translateY(-3px) scale(1.04);
-          border-color: rgba(96,165,250,0.5);
-          color: #ffffff;
-          box-shadow: 0 8px 35px rgba(59,130,246,0.25), 0 0 60px rgba(59,130,246,0.05);
-        }
-
-        .subcategoria-item .sub-indicator {
-          display: inline-block;
-          margin-left: 8px;
-          font-size: 10px;
-          color: #60a5fa;
-          transition: transform 0.3s ease;
-        }
-
-        .subcategoria-item:hover .sub-indicator {
-          transform: translateX(3px) scale(1.2);
-        }
-
-        .subcategoria-item .sub-icon {
-          display: inline-block;
-          margin-right: 8px;
+        .pagos-container .pago-item .pago-icon {
           font-size: 14px;
+          color: #60a5fa;
         }
 
-        .subcategorias-container {
+        .pagos-container .pago-item.highlight {
+          color: #60a5fa;
+          font-weight: 600;
+        }
+
+        .pagos-container .pago-item.highlight .pago-icon {
+          color: #f093fb;
+        }
+
+        /* ===== CONTENEDOR DE CATEGORÍAS - MÁS ALTO ===== */
+        .categorias-container {
           width: 100%;
-          background: linear-gradient(135deg, #0a1628, #0f2147, #0a1628);
-          background-size: 300% 300%;
-          animation: gradientMove 10s ease infinite;
+          min-height: 140px;
+          max-height: 160px;
+          background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 100%);
+          backdrop-filter: blur(12px);
           border-top: 2px solid rgba(59,130,246,0.15);
           border-bottom: 2px solid rgba(59,130,246,0.15);
-          overflow: hidden;
-          padding: 10px 0;
+          padding: 12px 20px;
           position: relative;
-          backdrop-filter: blur(12px);
-          box-shadow: inset 0 4px 30px rgba(0,0,0,0.3), 0 4px 30px rgba(59,130,246,0.05);
-          min-height: 60px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          overflow: hidden;
+          box-shadow: 0 4px 40px rgba(0,0,0,0.3);
         }
 
-        .subcategorias-container::before,
-        .subcategorias-container::after {
+        .categorias-container::before {
           content: '';
           position: absolute;
           top: 0;
+          left: 0;
+          right: 0;
           bottom: 0;
-          width: 80px;
-          z-index: 2;
+          background: linear-gradient(90deg, transparent, rgba(59,130,246,0.03), transparent);
+          background-size: 200% 100%;
+          animation: gradientMove 6s ease-in-out infinite;
           pointer-events: none;
         }
 
-        .subcategorias-container::before {
-          left: 0;
-          background: linear-gradient(90deg, rgba(10,22,40,1) 0%, rgba(10,22,40,0.8) 50%, transparent 100%);
-        }
-
-        .subcategorias-container::after {
-          right: 0;
-          background: linear-gradient(270deg, rgba(10,22,40,1) 0%, rgba(10,22,40,0.8) 50%, transparent 100%);
-        }
-
-        .subcategorias-wrapper {
+        .categorias-header {
           display: flex;
-          overflow: hidden;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0 10px 10px 10px;
+          border-bottom: 2px solid rgba(59,130,246,0.1);
+          margin-bottom: 10px;
+          flex-shrink: 0;
           position: relative;
-          width: 100%;
+          z-index: 1;
+        }
+
+        .categorias-title {
+          font-size: 20px;
+          font-weight: 800;
+          background: linear-gradient(90deg, #60a5fa, #a78bfa, #60a5fa);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          letter-spacing: 2px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          text-transform: uppercase;
+        }
+
+        .categorias-title .title-icon {
+          color: #60a5fa;
+          font-size: 18px;
+          -webkit-text-fill-color: initial;
+          background: none;
+        }
+
+        .ver-todos-btn {
+          background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(99,102,241,0.2));
+          border: 2px solid rgba(59,130,246,0.3);
+          color: #93c5fd;
+          padding: 8px 22px;
+          border-radius: 22px;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          white-space: nowrap;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          height: 36px;
+        }
+
+        .ver-todos-btn:hover {
+          background: linear-gradient(135deg, rgba(59,130,246,0.3), rgba(99,102,241,0.3));
+          border-color: #60a5fa;
+          transform: scale(1.05);
+          box-shadow: 0 4px 30px rgba(59,130,246,0.2);
+        }
+
+        .ver-todos-btn .btn-arrow {
+          transition: transform 0.3s ease;
+        }
+
+        .ver-todos-btn:hover .btn-arrow {
+          transform: translateX(6px);
+        }
+
+        .categorias-scroll-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          flex: 1;
+          min-height: 55px;
+          padding: 0 50px;
+          z-index: 1;
+        }
+
+        .categorias-scroll {
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          scroll-behavior: smooth;
+          padding: 4px 0;
+          flex: 1;
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+          align-items: center;
+        }
+
+        .categorias-scroll::-webkit-scrollbar {
+          display: none;
+        }
+
+        /* ===== FLECHAS CENTRADAS ===== */
+        .scroll-arrow {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          background: rgba(15,23,42,0.95);
+          backdrop-filter: blur(12px);
+          border: 2.5px solid rgba(59,130,246,0.3);
+          color: #93c5fd;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 20;
+          font-size: 14px;
+          box-shadow: 0 4px 30px rgba(0,0,0,0.4), 0 0 30px rgba(59,130,246,0.05);
+          opacity: 1 !important;
+          pointer-events: auto !important;
+        }
+
+        .scroll-arrow:hover {
+          background: rgba(59,130,246,0.2);
+          border-color: #60a5fa;
+          transform: translateY(-50%) scale(1.12);
+          box-shadow: 0 8px 40px rgba(59,130,246,0.3);
+          color: #ffffff;
+        }
+
+        .scroll-arrow:active {
+          transform: translateY(-50%) scale(0.92);
+        }
+
+        .scroll-arrow-left {
+          left: 6px;
+        }
+
+        .scroll-arrow-right {
+          right: 6px;
+        }
+
+        /* ===== ITEMS DE CATEGORÍA ===== */
+        .categoria-item {
+          flex: 0 0 auto;
+          padding: 8px 22px;
+          min-width: 110px;
+          border-radius: 14px;
+          color: #ffffff;
+          font-weight: 700;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          white-space: nowrap;
+          letter-spacing: 0.5px;
+          position: relative;
+          text-transform: uppercase;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          border: 2px solid rgba(255,255,255,0.15);
+          background: var(--cat-bg, linear-gradient(135deg, #667eea, #764ba2));
+          box-shadow: 0 4px 25px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+          text-shadow: 0 2px 15px rgba(0,0,0,0.3);
+          min-height: 38px;
+          height: 38px;
+        }
+
+        .categoria-item::before {
+          content: '';
+          position: absolute;
+          top: -1px;
+          left: -1px;
+          right: -1px;
+          bottom: -1px;
+          border-radius: 15px;
+          background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+          opacity: 0;
+          transition: opacity 0.3s ease;
+          z-index: -1;
+        }
+
+        .categoria-item:hover {
+          transform: translateY(-2px) scale(1.04);
+          border-color: rgba(255,255,255,0.4);
+          box-shadow: 0 8px 30px rgba(0,0,0,0.3), 0 0 30px rgba(59,130,246,0.15);
+        }
+
+        .categoria-item:hover::before {
+          opacity: 1;
+        }
+
+        .categoria-item .cat-icon {
+          font-size: 11px;
+          opacity: 0.6;
+          transition: all 0.3s ease;
+        }
+
+        .categoria-item:hover .cat-icon {
+          opacity: 1;
+          transform: scale(1.3) rotate(10deg);
         }
 
         .tipos-hover-menu {
           position: fixed;
           background: rgba(8,12,30,0.98);
           backdrop-filter: blur(25px);
-          border: 1.5px solid rgba(59,130,246,0.25);
-          border-radius: 20px;
-          box-shadow: 0 25px 80px rgba(0,0,0,0.9), 0 0 60px rgba(59,130,246,0.03);
-          padding: 18px 22px;
+          border: 2px solid rgba(59,130,246,0.3);
+          border-radius: 18px;
+          box-shadow: 0 30px 100px rgba(0,0,0,0.9), 0 0 60px rgba(59,130,246,0.05);
+          padding: 20px 24px;
           min-width: 200px;
-          max-width: 400px;
-          max-height: 350px;
+          max-width: 380px;
+          max-height: 400px;
           overflow-y: auto;
           z-index: 99999;
-          animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          animation: slideDown 0.25s cubic-bezier(0.4, 0, 0.2, 1);
           left: 50%;
           transform: translateX(-50%);
           margin-top: 12px;
         }
 
         .tipos-hover-menu::-webkit-scrollbar {
-          width: 3px;
+          width: 4px;
         }
         .tipos-hover-menu::-webkit-scrollbar-track {
           background: rgba(59,130,246,0.03);
           border-radius: 10px;
         }
         .tipos-hover-menu::-webkit-scrollbar-thumb {
-          background: linear-gradient(180deg, rgba(59,130,246,0.3), rgba(37,99,235,0.1));
+          background: linear-gradient(180deg, rgba(59,130,246,0.4), rgba(37,99,235,0.2));
           border-radius: 10px;
         }
 
         .tipos-hover-menu .tipo-item {
-          padding: 10px 16px;
+          padding: 10px 18px;
           cursor: pointer;
           color: #c7d2fe;
-          font-weight: 500;
+          font-weight: 600;
           font-size: 14px;
           transition: all 0.25s ease;
           border-radius: 10px;
           margin: 3px 0;
-          border-left: 2.5px solid transparent;
+          border-left: 3px solid transparent;
           display: flex;
           align-items: center;
           gap: 8px;
@@ -758,15 +969,15 @@ export default function Navbar({
 
         .tipos-hover-menu .tipo-item::before {
           content: '▸';
-          color: rgba(59,130,246,0.3);
+          color: rgba(59,130,246,0.4);
           font-size: 12px;
           transition: all 0.3s ease;
         }
 
         .tipos-hover-menu .tipo-item:hover {
-          background: rgba(59,130,246,0.1);
+          background: rgba(59,130,246,0.08);
           color: #ffffff;
-          border-left: 2.5px solid #60a5fa;
+          border-left: 3px solid #60a5fa;
           transform: translateX(4px);
         }
 
@@ -776,25 +987,26 @@ export default function Navbar({
         }
 
         .tipos-hover-menu .ver-todos {
-          border-top: 1px solid rgba(59,130,246,0.1);
+          border-top: 2px solid rgba(59,130,246,0.08);
           padding-top: 12px;
           margin-top: 6px;
           color: #60a5fa;
           font-weight: 700;
           text-align: center;
           cursor: pointer;
-          padding: 10px 16px;
+          padding: 10px 18px;
           border-radius: 10px;
           transition: all 0.25s ease;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
+          font-size: 14px;
         }
 
         .tipos-hover-menu .ver-todos:hover {
-          background: rgba(59,130,246,0.08);
-          transform: scale(1.02);
+          background: rgba(59,130,246,0.06);
+          transform: scale(1.03);
         }
 
         .tipos-hover-menu .ver-todos .arrow-icon {
@@ -806,16 +1018,17 @@ export default function Navbar({
         }
 
         .tipos-hover-menu .menu-header {
-          border-bottom: 1.5px solid rgba(59,130,246,0.12);
+          border-bottom: 2px solid rgba(59,130,246,0.1);
           padding-bottom: 10px;
           margin-bottom: 12px;
           color: #ffffff;
-          font-size: 15px;
-          font-weight: 700;
-          text-shadow: 0 0 30px rgba(59,130,246,0.1);
+          font-size: 16px;
+          font-weight: 800;
           display: flex;
           align-items: center;
           gap: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
 
         .tipos-hover-menu .menu-header .header-icon {
@@ -825,14 +1038,14 @@ export default function Navbar({
 
         .productos-dropdown-menu {
           position: absolute;
-          top: calc(100% + 8px);
+          top: calc(100% + 10px);
           left: 50%;
           transform: translateX(-50%);
           background: rgba(10,10,30,0.98);
           border: 2px solid rgba(59,130,246,0.3);
-          border-radius: 12px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-          padding: 6px;
+          border-radius: 16px;
+          box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+          padding: 8px;
           min-width: 280px;
           max-width: 400px;
           max-height: 600px;
@@ -846,20 +1059,16 @@ export default function Navbar({
         .productos-dropdown-menu::-webkit-scrollbar {
           display: none !important;
         }
-        .productos-dropdown-menu {
-          -ms-overflow-style: none !important;
-          scrollbar-width: none !important;
-        }
 
         .producto-submenu-tipos {
           position: absolute;
           top: -6px;
-          left: calc(100% + 4px);
+          left: calc(100% + 6px);
           background: rgba(10,10,30,0.98);
           border: 2px solid rgba(59,130,246,0.25);
-          border-radius: 12px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-          padding: 6px;
+          border-radius: 14px;
+          box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+          padding: 8px;
           min-width: 200px;
           max-width: 280px;
           max-height: 400px;
@@ -870,14 +1079,14 @@ export default function Navbar({
         }
 
         .producto-submenu-tipos::-webkit-scrollbar {
-          width: 3px;
+          width: 4px;
         }
         .producto-submenu-tipos::-webkit-scrollbar-track {
           background: rgba(59,130,246,0.03);
           border-radius: 10px;
         }
         .producto-submenu-tipos::-webkit-scrollbar-thumb {
-          background: linear-gradient(180deg, rgba(59,130,246,0.3), rgba(37,99,235,0.1));
+          background: linear-gradient(180deg, rgba(59,130,246,0.4), rgba(37,99,235,0.2));
           border-radius: 10px;
         }
 
@@ -888,61 +1097,44 @@ export default function Navbar({
           -webkit-text-fill-color: transparent;
           background-clip: text;
           animation: shimmerBlue 3s linear infinite;
-          text-shadow: 0 0 40px rgba(59,130,246,0.3);
         }
 
         .logo-electric {
           animation: logoElectric 3.5s ease-in-out infinite;
           transition: all 0.4s ease;
           cursor: pointer;
-          filter: drop-shadow(0 0 20px rgba(37,99,235,0.3));
+          filter: drop-shadow(0 0 30px rgba(37,99,235,0.2));
         }
 
         .logo-electric:hover {
-          transform: scale(1.1) rotate(-2deg);
-          filter: drop-shadow(0 0 60px rgba(37,99,235,0.9));
+          transform: scale(1.08);
+          filter: drop-shadow(0 0 80px rgba(37,99,235,0.7));
         }
 
         .nav-link-hover {
           cursor: pointer;
           font-weight: 700;
-          font-size: clamp(18px, 1.4vw, 24px);
-          padding: 12px 28px;
-          border-radius: 12px;
+          font-size: clamp(16px, 1.3vw, 20px);
+          padding: 10px 24px;
+          border-radius: 10px;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           white-space: nowrap;
           position: relative;
           background: transparent;
           border: none;
           letter-spacing: 0.5px;
-          color: #60a5fa;
-          text-shadow: 0 0 20px rgba(59,130,246,0.4), 0 0 60px rgba(59,130,246,0.2);
+          color: #94a3b8;
+          text-transform: uppercase;
+          height: 44px;
+          display: flex;
+          align-items: center;
         }
 
         .nav-link-hover:hover {
-          transform: scale(1.08) translateY(-2px);
-          color: #93c5fd;
-          text-shadow: 0 0 30px rgba(59,130,246,0.6), 0 0 80px rgba(59,130,246,0.3);
-          background: rgba(59,130,246,0.1);
-          border-radius: 12px;
-        }
-
-        .nav-link-hover::after {
-          content: '';
-          position: absolute;
-          bottom: -2px;
-          left: 50%;
-          width: 0;
-          height: 3px;
-          background: linear-gradient(90deg, #60a5fa, #3b82f6, #60a5fa);
-          transition: all 0.3s ease;
-          transform: translateX(-50%);
-          border-radius: 3px;
-          box-shadow: 0 0 20px rgba(59,130,246,0.5);
-        }
-
-        .nav-link-hover:hover::after {
-          width: 70%;
+          transform: scale(1.05);
+          color: #60a5fa;
+          background: rgba(59,130,246,0.08);
+          box-shadow: 0 4px 30px rgba(59,130,246,0.05);
         }
 
         .desktop-productos-btn {
@@ -951,186 +1143,137 @@ export default function Navbar({
           cursor: pointer;
           display: flex;
           align-items: center;
-          gap: 8px;
-          font-size: clamp(18px, 1.4vw, 24px);
+          gap: 6px;
+          font-size: clamp(16px, 1.3vw, 20px);
           font-weight: 700;
-          padding: 12px 28px;
-          border-radius: 12px;
+          padding: 10px 24px;
+          border-radius: 10px;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           letter-spacing: 0.5px;
           position: relative;
-          color: #60a5fa;
-          text-shadow: 0 0 20px rgba(59,130,246,0.4), 0 0 60px rgba(59,130,246,0.2);
+          color: #94a3b8;
+          text-transform: uppercase;
+          height: 44px;
         }
 
         .desktop-productos-btn:hover {
-          transform: scale(1.08) translateY(-2px);
-          color: #93c5fd;
-          text-shadow: 0 0 30px rgba(59,130,246,0.6), 0 0 80px rgba(59,130,246,0.3);
-          background: rgba(59,130,246,0.1);
-          border-radius: 12px;
+          transform: scale(1.05);
+          color: #60a5fa;
+          background: rgba(59,130,246,0.08);
+          box-shadow: 0 4px 30px rgba(59,130,246,0.05);
         }
 
-        .desktop-productos-btn::after {
-          content: '';
-          position: absolute;
-          bottom: -2px;
-          left: 50%;
-          width: 0;
-          height: 3px;
-          background: linear-gradient(90deg, #60a5fa, #3b82f6, #60a5fa);
-          transition: all 0.3s ease;
-          transform: translateX(-50%);
-          border-radius: 3px;
-          box-shadow: 0 0 20px rgba(59,130,246,0.5);
-        }
-
-        .desktop-productos-btn:hover::after {
-          width: 70%;
-        }
-
+        /* ===== ESTILO PARA EL BOTÓN DE NUEVOS PRODUCTOS ===== */
         .nuevos-badge {
-          background: linear-gradient(135deg, #60a5fa, #3b82f6, #1d4ed8);
+          background: linear-gradient(135deg, #0003cc, #f5576c);
           color: #ffffff;
-          font-size: clamp(14px, 1.2vw, 20px);
+          font-size: clamp(12px, 1vw, 16px);
           font-weight: 800;
-          padding: 10px 24px;
+          padding: 8px 22px;
           border-radius: 999px;
           border: none;
           cursor: pointer;
           animation: pulse 2s ease infinite;
-          box-shadow: 0 2px 30px rgba(59,130,246,0.6);
+          box-shadow: 0 4px 30px rgba(245,87,108,0.4);
           letter-spacing: 0.5px;
           text-transform: uppercase;
           transition: all 0.3s ease;
           display: inline-flex;
           align-items: center;
           gap: 6px;
+          height: 38px;
         }
 
         .nuevos-badge:hover {
-          transform: scale(1.1) !important;
-          box-shadow: 0 4px 50px rgba(59,130,246,0.8) !important;
+          transform: scale(1.08) !important;
+          box-shadow: 0 8px 50px rgba(245,87,108,0.6) !important;
+        }
+
+        /* ===== ESTILO PARA EL BOTÓN DE PROMOCIONES ===== */
+        .promociones-btn {
+          background: linear-gradient(135deg, #FF6B6B, #EE5A24);
+          color: #ffffff;
+          border: none;
+          padding: 6px 18px;
+          border-radius: 20px;
+          font-weight: 700;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          animation: pulse 2s ease infinite;
+          box-shadow: 0 4px 20px rgba(238, 90, 36, 0.3);
+          white-space: nowrap;
+          flex-shrink: 0;
+          height: 36px;
+        }
+
+        .promociones-btn:hover {
+          transform: scale(1.08);
+          box-shadow: 0 8px 40px rgba(238, 90, 36, 0.5);
+        }
+
+        .promociones-btn .btn-icon {
+          font-size: 14px;
         }
 
         .dropdown-item {
-          padding: 10px 18px;
+          padding: 10px 20px;
           cursor: pointer;
           color: #bfdbfe;
-          font-weight: 500;
+          font-weight: 600;
           margin: 0;
           font-size: 15px;
           transition: all 0.2s ease;
-          border-radius: 6px;
+          border-radius: 8px;
           border-left: 3px solid transparent;
-          letter-spacing: 0.3px;
         }
 
         .dropdown-item:hover {
           transform: translateX(4px);
-          background: rgba(59,130,246,0.1);
+          background: rgba(59,130,246,0.06);
           color: #ffffff;
           border-left: 3px solid #60a5fa;
         }
 
-        .search-toggle-btn {
-          background: rgba(59,130,246,0.08);
-          border: 2px solid rgba(59,130,246,0.15);
-          color: #bfdbfe;
-          width: 46px;
-          height: 46px;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          backdrop-filter: blur(5px);
-          flex-shrink: 0;
-        }
-
-        .search-toggle-btn:hover {
-          background: rgba(59,130,246,0.2);
-          transform: scale(1.1) rotate(5deg);
-          border-color: #60a5fa;
-          box-shadow: 0 0 30px rgba(59,130,246,0.15);
-        }
-
-        .search-overlay {
-          position: fixed;
-          top: 0;
+        /* ===== RESULTADOS DE BÚSQUEDA ===== */
+        .search-results-dropdown {
+          position: absolute;
+          top: calc(100% + 8px);
           left: 0;
           right: 0;
-          bottom: 0;
-          background: rgba(0,0,0,0.92);
-          backdrop-filter: blur(15px);
-          z-index: 999999;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          animation: slideDown 0.3s ease;
-        }
-
-        .search-overlay-content {
-          width: 90%;
-          max-width: 600px;
-          background: rgba(26,26,46,0.98);
-          border-radius: 20px;
-          padding: 30px;
-          border: 2px solid rgba(59,130,246,0.3);
-          box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-          position: relative;
-        }
-
-        .search-overlay-input {
-          width: 100%;
-          padding: 16px 24px;
-          border-radius: 35px;
+          background: rgba(10,10,30,0.98);
+          backdrop-filter: blur(20px);
           border: 2px solid rgba(59,130,246,0.2);
-          outline: none;
-          font-size: 18px;
-          font-weight: 500;
-          background: rgba(255,255,255,0.95);
-          color: #111827;
-          transition: all 0.3s ease;
-          box-sizing: border-box;
+          border-radius: 16px;
+          padding: 8px;
+          max-height: 350px;
+          overflow-y: auto;
+          box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+          z-index: 100000;
+          animation: slideDown 0.2s ease;
+          min-width: 280px;
         }
 
-        .search-overlay-input:focus {
-          border-color: #60a5fa;
-          box-shadow: 0 0 45px rgba(59,130,246,0.2);
-          transform: scale(1.02);
+        .search-results-dropdown::-webkit-scrollbar {
+          width: 4px;
         }
-
-        .search-overlay-close {
-          position: absolute;
-          top: 20px;
-          right: 30px;
-          color: #fff;
-          font-size: 30px;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          background: rgba(59,130,246,0.1);
-          width: 50px;
-          height: 50px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 2px solid rgba(59,130,246,0.2);
+        .search-results-dropdown::-webkit-scrollbar-track {
+          background: rgba(59,130,246,0.03);
+          border-radius: 10px;
         }
-
-        .search-overlay-close:hover {
-          transform: scale(1.1) rotate(90deg);
-          background: rgba(59,130,246,0.2);
-          border-color: #60a5fa;
+        .search-results-dropdown::-webkit-scrollbar-thumb {
+          background: rgba(59,130,246,0.3);
+          border-radius: 10px;
         }
 
         .search-result-item {
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 10px 14px;
+          padding: 8px 14px;
           cursor: pointer;
           border-radius: 10px;
           transition: all 0.2s ease;
@@ -1138,46 +1281,122 @@ export default function Navbar({
         }
 
         .search-result-item:hover {
-          background: rgba(59,130,246,0.08);
+          background: rgba(59,130,246,0.06);
           transform: scale(1.02);
         }
 
+        .search-result-item:last-child {
+          border-bottom: none;
+        }
+
         .search-result-item img {
-          width: 45px;
-          height: 45px;
+          width: 40px;
+          height: 40px;
           object-fit: cover;
           border-radius: 8px;
         }
 
-        .search-result-item h4 {
+        .search-result-item .result-info {
+          flex: 1;
+        }
+
+        .search-result-item .result-info h4 {
           margin: 0;
-          color: #fff;
-          font-size: 15px;
+          color: #e2e8f0;
+          font-size: 14px;
           font-weight: 600;
         }
 
-        .search-result-item p {
+        .search-result-item .result-info p {
           margin: 0;
           color: #94a3b8;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 500;
+        }
+
+        .search-result-item .result-price {
+          color: #60a5fa;
+          font-weight: 700;
+          font-size: 14px;
+        }
+
+        .search-no-results {
+          padding: 20px;
+          text-align: center;
+          color: #94a3b8;
+          font-size: 14px;
+        }
+
+        .search-container {
+          display: flex;
+          align-items: center;
+          background: rgba(255,255,255,0.05);
+          border: 2px solid rgba(255,255,255,0.08);
+          border-radius: 30px;
+          padding: 2px 4px 2px 18px;
+          transition: all 0.3s ease;
+          flex: 1;
+          max-width: 260px;
+          position: relative;
+          height: 38px;
+        }
+
+        .search-container:focus-within {
+          border-color: #60a5fa;
+          box-shadow: 0 0 30px rgba(59,130,246,0.1);
+          background: rgba(255,255,255,0.08);
+        }
+
+        .search-container input {
+          background: transparent;
+          border: none;
+          outline: none;
+          color: #e2e8f0;
+          font-size: 13px;
+          padding: 6px 0;
+          width: 100%;
+          font-weight: 500;
+          height: 30px;
+        }
+
+        .search-container input::placeholder {
+          color: #64748b;
+          font-weight: 400;
+        }
+
+        .search-container .search-btn {
+          background: linear-gradient(135deg, #3b82f6, #6366f1);
+          border: none;
+          color: #fff;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          flex-shrink: 0;
+        }
+
+        .search-container .search-btn:hover {
+          transform: scale(1.08);
+          box-shadow: 0 4px 20px rgba(59,130,246,0.4);
         }
 
         .links-container {
           width: 100%;
-          background: linear-gradient(135deg, #0c1a3a, #1a2d6e, #0c1a3a);
-          background-size: 400% 400%;
-          animation: gradientMove 8s ease infinite;
-          border-top: 3px solid rgba(96,165,250,0.5);
-          border-bottom: 3px solid rgba(96,165,250,0.5);
+          background: linear-gradient(135deg, #0a0a1a 0%, #141433 100%);
+          backdrop-filter: blur(10px);
+          border-top: 2px solid rgba(59,130,246,0.1);
+          border-bottom: 2px solid rgba(59,130,246,0.1);
           display: flex;
           justify-content: center;
-          padding: 12px 0;
-          box-shadow: 0 4px 40px rgba(59,130,246,0.15), inset 0 0 60px rgba(59,130,246,0.05);
-          animation: glowPulse 3s ease-in-out infinite, gradientMove 8s ease infinite;
+          padding: 8px 0;
+          box-shadow: 0 4px 40px rgba(0,0,0,0.2);
           position: relative;
           overflow: visible !important;
-          min-height: 70px;
+          min-height: 60px;
           z-index: 4999;
         }
 
@@ -1186,109 +1405,25 @@ export default function Navbar({
           flex-wrap: nowrap;
           justify-content: center;
           align-items: center;
-          gap: 4px;
+          gap: 2px;
           width: 100%;
-          padding: 0 10px;
+          padding: 0 15px;
           overflow: visible !important;
           position: relative;
           z-index: 1;
-        }
-
-        .dropdown-wrapper {
-          position: relative;
-          z-index: 99999;
-        }
-
-        .dropdown-menu {
-          position: absolute;
-          top: calc(100% + 8px);
-          left: 50%;
-          transform: translateX(-50%);
-          background: rgba(10,10,30,0.98);
-          border: 2px solid rgba(59,130,246,0.3);
-          border-radius: 12px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-          padding: 6px;
-          min-width: 220px;
-          max-width: 700px;
-          max-height: 600px;
-          overflow-y: visible !important;
-          overflow-x: visible !important;
-          animation: slideUp 0.25s ease;
-          z-index: 99999;
-          backdrop-filter: blur(10px);
-        }
-
-        .dropdown-menu::-webkit-scrollbar {
-          display: none !important;
-        }
-        .dropdown-menu {
-          -ms-overflow-style: none !important;
-          scrollbar-width: none !important;
-        }
-
-        .dropdown-submenu {
-          position: absolute;
-          top: -6px;
-          left: calc(100% + 4px);
-          background: rgba(10,10,30,0.98);
-          border: 2px solid rgba(59,130,246,0.25);
-          border-radius: 12px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-          padding: 6px;
-          min-width: 220px;
-          max-width: 300px;
-          max-height: 600px;
-          overflow-y: visible !important;
-          overflow-x: visible !important;
-          animation: slideUp 0.25s ease;
-          z-index: 99999;
-          backdrop-filter: blur(10px);
-        }
-
-        .dropdown-submenu::-webkit-scrollbar {
-          display: none !important;
-        }
-        .dropdown-submenu {
-          -ms-overflow-style: none !important;
-          scrollbar-width: none !important;
-        }
-
-        .dropdown-submenu-tipos {
-          position: absolute;
-          top: -6px;
-          left: calc(100% + 4px);
-          background: rgba(10,10,30,0.98);
-          border: 2px solid rgba(59,130,246,0.25);
-          border-radius: 12px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-          padding: 6px;
-          min-width: 200px;
-          max-width: 280px;
-          max-height: 600px;
-          overflow-y: visible !important;
-          overflow-x: visible !important;
-          animation: slideUp 0.25s ease;
-          z-index: 99999;
-          backdrop-filter: blur(10px);
-        }
-
-        .dropdown-submenu-tipos::-webkit-scrollbar {
-          display: none !important;
-        }
-        .dropdown-submenu-tipos {
-          -ms-overflow-style: none !important;
-          scrollbar-width: none !important;
         }
 
         .menu-item-with-submenu {
           position: relative;
         }
 
-        /* ===== ESTILOS MEJORADOS PARA MÓVIL ===== */
+        /* ===== ESTILOS MÓVIL ===== */
         @media (max-width: 768px) {
           .social-desktop { display: none !important; }
           .nav-links-desktop { display: none !important; }
+          .search-container { display: none !important; }
+          .pagos-container { display: none !important; }
+          .promociones-btn { display: none !important; }
           
           .navbar-content {
             gap: 2px !important;
@@ -1297,7 +1432,7 @@ export default function Navbar({
             min-height: auto !important;
             background: rgba(10,10,26,0.98) !important;
             backdrop-filter: blur(20px) !important;
-            border-bottom: 1px solid rgba(59,130,246,0.06) !important;
+            border-bottom: 1px solid rgba(255,255,255,0.04) !important;
           }
           
           .mobile-top-row {
@@ -1318,14 +1453,14 @@ export default function Navbar({
           }
           
           .mobile-logo img {
-            width: 26px !important;
-            height: 26px !important;
+            width: 28px !important;
+            height: 28px !important;
             object-fit: contain;
           }
           
           .mobile-logo-text {
             display: block !important;
-            font-size: 11px !important;
+            font-size: 12px !important;
             font-weight: 700 !important;
             color: #ffffff !important;
             letter-spacing: 0.3px;
@@ -1343,22 +1478,22 @@ export default function Navbar({
           }
           
           .mobile-social a {
-            width: 24px !important;
-            height: 24px !important;
-            min-width: 24px !important;
-            min-height: 24px !important;
-            font-size: 8px !important;
+            width: 26px !important;
+            height: 26px !important;
+            min-width: 26px !important;
+            min-height: 26px !important;
+            font-size: 9px !important;
             border-radius: 50% !important;
             border: 1px solid rgba(255,255,255,0.04) !important;
           }
           
           .mobile-search-btn {
-            background: rgba(59,130,246,0.06);
-            border: 1px solid rgba(59,130,246,0.1);
-            color: #bfdbfe;
-            width: 28px;
-            height: 28px;
-            min-width: 28px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            color: #94a3b8;
+            width: 30px;
+            height: 30px;
+            min-width: 30px;
             border-radius: 6px;
             display: flex;
             align-items: center;
@@ -1366,23 +1501,23 @@ export default function Navbar({
             cursor: pointer;
             transition: all 0.3s ease;
             flex-shrink: 0;
-            font-size: 10px;
+            font-size: 11px;
           }
           
           .mobile-search-btn:hover {
-            background: rgba(59,130,246,0.15);
+            background: rgba(59,130,246,0.08);
             border-color: #60a5fa;
-            transform: scale(1.05);
+            color: #60a5fa;
           }
           
           .mobile-hamburger-btn {
-            width: 28px !important;
-            height: 28px !important;
-            min-width: 28px !important;
+            width: 30px !important;
+            height: 30px !important;
+            min-width: 30px !important;
             border-radius: 6px !important;
-            background: rgba(59,130,246,0.06);
-            border: 1px solid rgba(59,130,246,0.1);
-            color: #fff;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            color: #94a3b8;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1391,51 +1526,49 @@ export default function Navbar({
             flex-shrink: 0;
             position: relative;
             z-index: 10001;
-            font-size: 10px;
+            font-size: 11px;
           }
           
           .mobile-hamburger-btn:hover {
-            background: rgba(59,130,246,0.12);
+            background: rgba(59,130,246,0.08);
             border-color: #60a5fa;
+            color: #60a5fa;
           }
           
           .mobile-nav-links {
             display: flex !important;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 1px;
-            padding: 3px 0 1px 0;
-            border-top: 1px solid rgba(59,130,246,0.03);
+            gap: 2px;
+            padding: 4px 0 2px 0;
+            border-top: 1px solid rgba(255,255,255,0.03);
             width: 100%;
           }
           
           .mobile-nav-link {
-            font-size: 9px;
-            font-weight: 600;
-            padding: 2px 6px;
-            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
             cursor: pointer;
             transition: all 0.3s ease;
             background: transparent;
             border: none;
             color: #94a3b8;
-            text-shadow: 0 0 20px rgba(59,130,246,0.03);
             white-space: nowrap;
             display: flex;
             align-items: center;
-            gap: 1px;
+            gap: 2px;
           }
           
           .mobile-nav-link:hover {
-            transform: scale(1.05);
             color: #60a5fa;
-            text-shadow: 0 0 30px rgba(59,130,246,0.15);
             background: rgba(59,130,246,0.04);
           }
           
           .mobile-nav-link .nuevos-badge {
-            font-size: 5px !important;
-            padding: 1px 4px !important;
+            font-size: 6px !important;
+            padding: 1px 5px !important;
             animation: pulse 2s ease infinite;
             box-shadow: 0 2px 8px rgba(59,130,246,0.2);
           }
@@ -1448,20 +1581,20 @@ export default function Navbar({
             right: -8px;
             background: rgba(10,10,30,0.98);
             backdrop-filter: blur(20px);
-            border-radius: 0 0 14px 14px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            border-radius: 0 0 16px 16px;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.6);
             padding: 4px 0;
             max-height: calc(100vh - 80px);
             overflow-y: auto;
             animation: slideDown 0.3s ease;
             z-index: 10000;
-            border-top: 2px solid rgba(59,130,246,0.2);
+            border-top: 2px solid rgba(59,130,246,0.15);
             margin-top: 2px;
             width: calc(100% + 16px);
           }
           
           .mobile-dropdown-menu::-webkit-scrollbar {
-            width: 2px;
+            width: 3px;
           }
           .mobile-dropdown-menu::-webkit-scrollbar-track {
             background: transparent;
@@ -1474,37 +1607,97 @@ export default function Navbar({
           .mobile-menu-item {
             display: flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
+            gap: 8px;
+            padding: 8px 14px;
             cursor: pointer;
             transition: all 0.2s ease;
             border: none;
             background: transparent;
             width: 100%;
             text-align: left;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 600;
-            border-radius: 4px;
+            border-radius: 6px;
             color: #c7d2fe;
-            text-shadow: 0 0 20px rgba(59,130,246,0.03);
           }
           
           .mobile-menu-item:hover {
-            transform: scale(1.02);
             color: #ffffff;
-            text-shadow: 0 0 30px rgba(59,130,246,0.15);
-            background: rgba(59,130,246,0.05);
+            background: rgba(59,130,246,0.04);
           }
           
           .mobile-menu-item .nuevos-badge {
-            font-size: 8px !important;
-            padding: 1px 6px !important;
+            font-size: 9px !important;
+            padding: 1px 8px !important;
+          }
+
+          .mobile-pagos-container {
+            display: flex !important;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 6px 4px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            margin: 2px 0;
+            border: 1px solid rgba(255,255,255,0.04);
+            align-items: center;
+          }
+
+          .mobile-pagos-container .pago-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 500;
+            color: #94a3b8;
+            background: rgba(255,255,255,0.03);
+            white-space: nowrap;
+            height: 24px;
+          }
+
+          .mobile-pagos-container .pago-item .pago-icon {
+            font-size: 10px;
+            color: #60a5fa;
+          }
+
+          .mobile-pagos-container .pago-item.highlight {
+            color: #60a5fa;
+            font-weight: 600;
+            background: rgba(59,130,246,0.06);
+          }
+
+          .mobile-pagos-container .pago-item.highlight .pago-icon {
+            color: #f093fb;
+          }
+
+          /* ===== BOTÓN PROMOCIONES MÓVIL ===== */
+          .mobile-promociones-btn {
+            background: linear-gradient(135deg, #FF6B6B, #EE5A24);
+            color: #ffffff;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            animation: pulse 2s ease infinite;
+            box-shadow: 0 2px 10px rgba(238, 90, 36, 0.3);
+            white-space: nowrap;
+            height: 24px;
+          }
+
+          .mobile-promociones-btn:hover {
+            transform: scale(1.05);
           }
           
           .links-container { display: none !important; }
-          .subcategorias-container { display: none !important; }
-          .search-toggle-btn { display: none !important; }
-          .dropdown-wrapper { display: none !important; }
+          .categorias-container { display: none !important; }
           
           .tipos-hover-menu { 
             position: fixed !important;
@@ -1512,9 +1705,20 @@ export default function Navbar({
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
             width: 90% !important;
-            max-width: 330px !important;
+            max-width: 350px !important;
             z-index: 999999 !important;
             margin-top: 0 !important;
+          }
+
+          .search-results-dropdown {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            width: 90% !important;
+            max-width: 400px !important;
+            z-index: 999999 !important;
+            max-height: 400px !important;
           }
         }
 
@@ -1527,10 +1731,14 @@ export default function Navbar({
           .mobile-dropdown-menu { display: none !important; }
           .mobile-top-row { display: none !important; }
           .mobile-search-btn { display: none !important; }
-          .search-toggle-btn { display: flex !important; }
-          .links-container { display: flex !important; }
-          .subcategorias-container { display: block !important; }
           .mobile-hamburger-btn { display: none !important; }
+          .mobile-pagos-container { display: none !important; }
+          .mobile-promociones-btn { display: none !important; }
+          .search-container { display: flex !important; }
+          .pagos-container { display: flex !important; }
+          .promociones-btn { display: flex !important; }
+          .links-container { display: flex !important; }
+          .categorias-container { display: flex !important; }
         }
 
         .navbar-spacer { display: none !important; }
@@ -1548,8 +1756,8 @@ export default function Navbar({
           alignItems: "center",
           width: "100%",
           maxWidth: "100%",
-          padding: isMobileView ? "3px 8px" : "16px 24px",
-          background: darkMode ? "#0a0a1a" : "#0a0a2a",
+          padding: isMobileView ? "4px 10px" : "12px 30px",
+          background: darkMode ? "#0a0a1a" : "linear-gradient(135deg, #0a0a2a 0%, #0f0f3a 100%)",
           color: "#fff",
           position: "fixed",
           top: 0,
@@ -1557,13 +1765,13 @@ export default function Navbar({
           right: 0,
           zIndex: 5000,
           boxShadow: isMobileView 
-            ? "0 2px 12px rgba(0,0,0,0.3)" 
-            : "0 4px 40px rgba(59,130,246,0.08)",
+            ? "0 2px 15px rgba(0,0,0,0.3)" 
+            : "0 4px 50px rgba(0,0,0,0.3), 0 0 80px rgba(59,130,246,0.02)",
           borderBottom: isMobileView 
-            ? "1px solid rgba(59,130,246,0.04)" 
-            : "none",
+            ? "1px solid rgba(255,255,255,0.04)" 
+            : "2px solid rgba(59,130,246,0.08)",
           boxSizing: "border-box",
-          minHeight: isMobileView ? "auto" : "160px",
+          minHeight: isMobileView ? "auto" : "120px",
           transform: isNavbarVisible ? 'translateY(0)' : 'translateY(-100%)',
           opacity: isNavbarVisible ? 1 : 0,
           transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -1580,9 +1788,10 @@ export default function Navbar({
               justifyContent: 'space-between',
               width: '100%',
               maxWidth: '1400px',
-              gap: '20px',
-              padding: '10px 0'
+              gap: '12px',
+              padding: '2px 0'
             }}>
+              {/* Logo */}
               <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, cursor: 'pointer' }}
                 onClick={() => navigate("/")}
               >
@@ -1591,82 +1800,213 @@ export default function Navbar({
                   alt="FRAY FLOORING"
                   className="logo-electric"
                   style={{
-                    height: '120px',
+                    height: '80px',
                     width: 'auto',
-                    maxHeight: '130px',
+                    maxHeight: '90px',
                     objectFit: 'contain',
                     display: 'block'
                   }}
                 />
               </div>
 
+              {/* Título Fray Flooring */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '15px',
+                gap: '6px',
                 flex: 1,
                 justifyContent: 'center'
               }}>
                 <span className="texto-blue" style={{
-                  fontSize: 'clamp(52px, 7vw, 90px)',
+                  fontSize: 'clamp(36px, 4.5vw, 60px)',
                   fontWeight: '900',
-                  letterSpacing: '6px',
+                  letterSpacing: '4px',
                   whiteSpace: 'nowrap'
                 }}>
                   Fray
                 </span>
                 <span style={{
-                  fontSize: 'clamp(32px, 4.5vw, 58px)',
+                  fontSize: 'clamp(20px, 2.5vw, 38px)',
                   fontWeight: '700',
-                  letterSpacing: '10px',
+                  letterSpacing: '6px',
                   whiteSpace: 'nowrap',
                   color: '#ffffff',
-                  textShadow: '0 0 40px rgba(255,255,255,0.15)',
+                  textShadow: '0 2px 30px rgba(255,255,255,0.05)',
                 }}>
                   Flooring
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                <div className="social-desktop" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Buscador, Pagos, Promociones e Iconos */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '10px', 
+                flexShrink: 0
+              }}>
+                {/* Buscador con resultados en tiempo real */}
+                <div className="search-container" style={{ position: 'relative' }}>
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="🔍 Buscar..."
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSearchSubmit();
+                      }
+                    }}
+                    onFocus={() => {
+                      if (busqueda.trim().length > 0 && resultadosBusqueda.length > 0) {
+                        setMostrarResultados(true);
+                      }
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => setMostrarResultados(false), 200);
+                    }}
+                  />
+                  <button className="search-btn" onClick={handleSearchSubmit}>
+                    <FaSearch size={13} />
+                  </button>
+
+                  {/* Resultados de búsqueda en tiempo real */}
+                  {mostrarResultados && resultadosBusqueda.length > 0 && (
+                    <div className="search-results-dropdown">
+                      {resultadosBusqueda.map((p) => (
+                        <div 
+                          key={p.id} 
+                          className="search-result-item"
+                          onClick={() => {
+                            navigate(`/producto/${p.id}`);
+                            setMostrarResultados(false);
+                            setResultadosBusqueda([]);
+                            setBusqueda("");
+                          }}
+                        >
+                          <img 
+                            src={obtenerImagen(p)} 
+                            alt={p.nombre}
+                            onError={(e) => {
+                              e.target.src = "https://via.placeholder.com/200?text=Sin+imagen";
+                            }}
+                          />
+                          <div className="result-info">
+                            <h4>{p.nombre}</h4>
+                            <p>{p.categoria || p.subcategoria || ''}</p>
+                          </div>
+                          <span className="result-price">${p.precio}</span>
+                        </div>
+                      ))}
+                      <div style={{ 
+                        padding: '8px 14px', 
+                        textAlign: 'center', 
+                        color: '#60a5fa', 
+                        fontSize: '13px', 
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        borderTop: '1px solid rgba(59,130,246,0.1)',
+                        marginTop: '4px'
+                      }}
+                      onClick={handleSearchSubmit}
+                      >
+                        Ver todos los resultados →
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Contenedor de Pagos - MÁS GRANDE */}
+                <div className="pagos-container">
+                  <div className="pago-item highlight">
+                    <FaCreditCard className="pago-icon" />
+                    Tarjeta
+                  </div>
+                  <div className="pago-item">
+                    <FaMoneyBillWave className="pago-icon" />
+                    Transferencia
+                  </div>
+                  <div className="pago-item">
+                    <FaMoneyBillWave className="pago-icon" />
+                    Efectivo
+                  </div>
+                  <div className="pago-item highlight">
+                    <FaCalendarCheck className="pago-icon" />
+                    Meses sin intereses
+                  </div>
+                </div>
+
+              {/* Botón Promociones - IGUAL QUE NUEVOS PRODUCTOS */}
+<button 
+  className="promociones-btn" 
+  onClick={() => {
+    // Cerrar menús
+    cerrarMenuCategorias();
+    setMobileMenuOpen(false);
+    setMostrarTiposHover(false);
+    setProductoMostrarTipos(false);
+    if (tiposHoverTimeoutRef.current) {
+      clearTimeout(tiposHoverTimeoutRef.current);
+      tiposHoverTimeoutRef.current = null;
+    }
+    setMostrarResultados(false);
+    setResultadosBusqueda([]);
+    setBusqueda("");
+    
+    // Navegar a la página principal con el hash #ofertas
+    navigate("/#ofertas");
+    
+    // Hacer scroll a la sección de ofertas después de que la página cargue
+    setTimeout(() => {
+      const ofertasSection = document.getElementById('productos-oferta');
+      if (ofertasSection) {
+        ofertasSection.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }
+    }, 600);
+  }}
+>
+  <FaGift className="btn-icon" />
+  Promociones
+</button>
+                {/* Iconos Sociales */}
+                <div className="social-desktop" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <SocialIcon color="#1877F2" href="https://www.facebook.com/people/FRAY-Flooring/61587688868988/">
-                    <FaFacebookF size={20} />
+                    <FaFacebookF size={16} />
                   </SocialIcon>
                   <SocialIcon color="#E4405F" href="https://www.instagram.com/fray_flooring?igsh=b3pucDR1bjltMGQ2">
-                    <FaInstagram size={20} />
+                    <FaInstagram size={16} />
                   </SocialIcon>
                   <SocialIcon color="#010101" href="https://www.tiktok.com/@fray_flooring6">
-                    <FaTiktok size={20} />
+                    <FaTiktok size={16} />
                   </SocialIcon>
                   <SocialIcon color="#25D366" href="https://wa.me/525610026370">
-                    <FaWhatsapp size={20} />
+                    <FaWhatsapp size={16} />
                   </SocialIcon>
                   <SocialIcon color="#FF0000" href="https://www.youtube.com/@FrayFlooring" isYoutube={true}>
-                    <FaYoutube size={20} />
+                    <FaYoutube size={16} />
                   </SocialIcon>
                   <SocialIcon color="#38bdf8" href="tel:+525610026370">
-                    <FaPhone size={20} />
+                    <FaPhone size={16} />
                   </SocialIcon>
                 </div>
-                <button className="search-toggle-btn" onClick={toggleBuscador}>
-                  <FaSearch size={22} />
-                </button>
               </div>
             </div>
           </>
         )}
 
-        {/* ===== VERSIÓN MÓVIL OPTIMIZADA ===== */}
+        {/* ===== VERSIÓN MÓVIL ===== */}
         {isMobileView && (
           <div style={{
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
-            gap: '1px',
-            padding: '1px 0',
+            gap: '2px',
+            padding: '2px 0',
             position: 'relative'
           }}>
-            {/* Fila superior: Logo | Social | Botones */}
             <div className="mobile-top-row">
               <div className="mobile-logo" onClick={() => navigate("/")}>
                 <img src="/logo.png" alt="Logo" />
@@ -1697,31 +2037,55 @@ export default function Navbar({
               </div>
 
               <button className="mobile-search-btn" onClick={toggleBuscador}>
-                <FaSearch size={10} />
+                <FaSearch size={11} />
               </button>
 
               <button 
                 className="mobile-hamburger-btn"
                 onClick={toggleMobileMenu}
                 style={{
-                  background: mobileMenuOpen ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.04)',
-                  border: mobileMenuOpen ? '1px solid #60a5fa' : '1px solid rgba(59,130,246,0.08)',
+                  background: mobileMenuOpen ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.04)',
+                  border: mobileMenuOpen ? '1px solid #60a5fa' : '1px solid rgba(255,255,255,0.06)',
+                  color: mobileMenuOpen ? '#60a5fa' : '#94a3b8'
                 }}
               >
-                {mobileMenuOpen ? <FaTimes size={10} /> : <FaBars size={10} />}
+                {mobileMenuOpen ? <FaTimes size={11} /> : <FaBars size={11} />}
               </button>
             </div>
 
-            {/* Navegación rápida */}
+            {/* Pagos en móvil - MÁS GRANDE */}
+            <div className="mobile-pagos-container">
+              <div className="pago-item highlight">
+                <FaCreditCard className="pago-icon" />
+                Tarjeta
+              </div>
+              <div className="pago-item">
+                <FaMoneyBillWave className="pago-icon" />
+                Transferencia
+              </div>
+              <div className="pago-item">
+                <FaMoneyBillWave className="pago-icon" />
+                Efectivo
+              </div>
+              <div className="pago-item highlight">
+                <FaCalendarCheck className="pago-icon" />
+                Meses sin intereses
+              </div>
+              <button className="mobile-promociones-btn" onClick={irAOfertas}>
+                <FaGift size={9} />
+                Promos
+              </button>
+            </div>
+
             <div className="mobile-nav-links">
               <button className="mobile-nav-link" onClick={() => navigate("/")}>
-                <FaHome size={7} /> Inicio
+                <FaHome size={8} /> Inicio
               </button>
               <button className="mobile-nav-link" onClick={() => navigate("/nosotros")}>
-                <FaInfoCircle size={7} /> Nosotros
+                <FaInfoCircle size={8} /> Nosotros
               </button>
               <button className="mobile-nav-link" onClick={() => navigate("/contacto")}>
-                <FaEnvelope size={7} /> Contacto
+                <FaEnvelope size={8} /> Contacto
               </button>
               <button className="mobile-nav-link" onClick={handlePedidoClick}>
                 Pedido
@@ -1731,22 +2095,21 @@ export default function Navbar({
               </button>
             </div>
 
-            {/* Menú desplegable móvil */}
             {mobileMenuOpen && (
               <div className="mobile-dropdown-menu">
                 <button className="mobile-menu-item" onClick={() => handleNavigate("/")}>
-                  <FaHome size={12} color="#60a5fa" /> Inicio
+                  <FaHome size={13} color="#60a5fa" /> Inicio
                 </button>
                 <button className="mobile-menu-item" onClick={() => handleNavigate("/nosotros")}>
-                  <FaInfoCircle size={12} color="#60a5fa" /> Nosotros
+                  <FaInfoCircle size={13} color="#60a5fa" /> Nosotros
                 </button>
                 <button className="mobile-menu-item" onClick={() => handleNavigate("/contacto")}>
-                  <FaEnvelope size={12} color="#60a5fa" /> Contacto
+                  <FaEnvelope size={13} color="#60a5fa" /> Contacto
                 </button>
                 <button className="mobile-menu-item" onClick={handlePedidoClick} style={{ fontWeight: '700', color: '#60a5fa' }}>
                   Pedido
                 </button>
-                <div style={{ height: '1px', background: 'rgba(59,130,246,0.04)', margin: '2px 10px' }} />
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.04)', margin: '2px 10px' }} />
                 
                 <button className="mobile-menu-item" onClick={irATodosLosProductos} style={{ fontWeight: '700', color: '#60a5fa' }}>
                   🛍 Todos los productos
@@ -1761,7 +2124,7 @@ export default function Navbar({
                     {categorias.map(cat => (
                       <button key={cat.id} className="mobile-menu-item"
                         onClick={() => { handleVerTodasClick(cat.id); setMobileMenuOpen(false); }}
-                        style={{ paddingLeft: '24px', fontSize: '11px' }}>
+                        style={{ paddingLeft: '24px', fontSize: '12px' }}>
                         {cat.nombre}
                       </button>
                     ))}
@@ -1769,7 +2132,7 @@ export default function Navbar({
                 )}
                 
                 <button className="mobile-menu-item" onClick={() => { navigate("/#productos-nuevos"); setMobileMenuOpen(false); }}>
-                  <span className="nuevos-badge" style={{ fontSize: '9px', padding: '1px 8px' }}>✨ NUEVOS</span>
+                  <span className="nuevos-badge" style={{ fontSize: '10px', padding: '1px 10px' }}>✨ NUEVOS</span>
                 </button>
                 
                 <button className="mobile-menu-item" onClick={() => setCategoriasMobileOpen(!categoriasMobileOpen)}>
@@ -1785,7 +2148,7 @@ export default function Navbar({
                             fontWeight: categoriaSeleccionada === cat.id ? '700' : '500',
                             color: categoriaSeleccionada === cat.id ? '#60a5fa' : '#c7d2fe',
                             paddingLeft: '24px',
-                            fontSize: '11px'
+                            fontSize: '12px'
                           }}>
                           {cat.nombre} {categoriaSeleccionada === cat.id ? '▼' : '►'}
                         </button>
@@ -1798,7 +2161,7 @@ export default function Navbar({
                                     fontWeight: subcategoriaSeleccionada === sub.id ? '700' : '500',
                                     color: subcategoriaSeleccionada === sub.id ? '#60a5fa' : '#c7d2fe',
                                     paddingLeft: '38px',
-                                    fontSize: '10px'
+                                    fontSize: '11px'
                                   }}>
                                   • {sub.nombre} {subcategoriaSeleccionada === sub.id ? '▼' : '►'}
                                 </button>
@@ -1807,13 +2170,13 @@ export default function Navbar({
                                     {tiposUsar.filter(t => Number(t.subcategoria_id) === Number(sub.id)).map(tipo => (
                                       <button key={tipo.id} className="mobile-menu-item"
                                         onClick={() => { handleTipoClick(tipo.id); setMobileMenuOpen(false); }}
-                                        style={{ fontSize: '9px', paddingLeft: '52px', color: '#94a3b8' }}>
+                                        style={{ fontSize: '10px', paddingLeft: '52px', color: '#94a3b8' }}>
                                         • {tipo.nombre}
                                       </button>
                                     ))}
                                     <button className="mobile-menu-item"
                                       onClick={() => { handleSubcategoriaClick(sub.nombre); setMobileMenuOpen(false); }}
-                                      style={{ color: '#60a5fa', fontWeight: '600', paddingLeft: '52px', fontSize: '10px' }}>
+                                      style={{ color: '#60a5fa', fontWeight: '600', paddingLeft: '52px', fontSize: '11px' }}>
                                       📂 Ver toda la subcategoría
                                     </button>
                                   </div>
@@ -1822,7 +2185,7 @@ export default function Navbar({
                             ))}
                             <button className="mobile-menu-item"
                               onClick={() => { handleVerTodasClick(cat.id); setMobileMenuOpen(false); }}
-                              style={{ color: '#60a5fa', fontWeight: '700', paddingLeft: '38px', fontSize: '11px' }}>
+                              style={{ color: '#60a5fa', fontWeight: '700', paddingLeft: '38px', fontSize: '12px' }}>
                               📂 Ver toda la categoría
                             </button>
                           </div>
@@ -1844,7 +2207,7 @@ export default function Navbar({
           className="links-container"
           style={{
             position: 'fixed',
-            top: isNavbarVisible ? '160px' : '-100%',
+            top: isNavbarVisible ? '120px' : '-100%',
             left: 0,
             right: 0,
             zIndex: 4999,
@@ -1852,8 +2215,8 @@ export default function Navbar({
             opacity: isNavbarVisible ? 1 : 0,
             transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
             pointerEvents: isNavbarVisible ? 'auto' : 'none',
-            padding: '12px 0',
-            minHeight: '70px',
+            padding: '6px 0',
+            minHeight: '55px',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -1881,22 +2244,22 @@ export default function Navbar({
                     className="dropdown-item"
                     onClick={irATodosLosProductos}
                     style={{
-                      padding: '10px 18px',
+                      padding: '10px 20px',
                       cursor: 'pointer',
                       color: '#bfdbfe',
                       fontWeight: '700',
-                      fontSize: '15px',
+                      fontSize: '16px',
                       transition: 'all 0.2s ease',
-                      borderRadius: '6px',
+                      borderRadius: '8px',
                       borderLeft: '3px solid #60a5fa',
-                      background: 'rgba(59,130,246,0.05)',
-                      marginBottom: '4px'
+                      background: 'rgba(59,130,246,0.04)',
+                      marginBottom: '6px'
                     }}
                   >
                     🛍 Todos nuestros productos
                   </div>
 
-                  <div style={{ height: '1px', background: 'rgba(59,130,246,0.1)', margin: '4px 8px' }} />
+                  <div style={{ height: '2px', background: 'rgba(255,255,255,0.05)', margin: '6px 10px' }} />
 
                   {subcategorias && subcategorias.length > 0 ? (
                     subcategorias.map(sub => {
@@ -1916,13 +2279,13 @@ export default function Navbar({
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
-                              padding: '8px 16px',
+                              padding: '8px 18px',
                               cursor: 'pointer',
                               color: '#bfdbfe',
-                              fontWeight: '500',
+                              fontWeight: '600',
                               fontSize: '14px',
                               transition: 'all 0.2s ease',
-                              borderRadius: '6px',
+                              borderRadius: '8px',
                               borderLeft: '3px solid transparent'
                             }}
                           >
@@ -1940,12 +2303,12 @@ export default function Navbar({
                               onMouseLeave={handleProductoTiposHoverLeave}
                             >
                               <div style={{ 
-                                padding: '6px 12px 8px', 
+                                padding: '8px 14px 10px', 
                                 color: '#ffffff', 
                                 fontSize: '13px', 
                                 fontWeight: '700',
-                                borderBottom: '1px solid rgba(59,130,246,0.1)',
-                                marginBottom: '4px'
+                                borderBottom: '2px solid rgba(255,255,255,0.05)',
+                                marginBottom: '6px'
                               }}>
                                 📦 {sub.nombre}
                               </div>
@@ -1955,31 +2318,31 @@ export default function Navbar({
                                   className="dropdown-item"
                                   onClick={() => handleTipoClick(tipo.id)}
                                   style={{
-                                    padding: '8px 16px',
+                                    padding: '8px 18px',
                                     cursor: 'pointer',
                                     color: '#c7d2fe',
                                     fontWeight: '500',
                                     fontSize: '13px',
                                     transition: 'all 0.2s ease',
-                                    borderRadius: '6px',
+                                    borderRadius: '8px',
                                     borderLeft: '2.5px solid transparent'
                                   }}
                                 >
                                   • {tipo.nombre}
                                 </div>
                               ))}
-                              <div style={{ height: '1px', background: 'rgba(59,130,246,0.08)', margin: '4px 8px' }} />
+                              <div style={{ height: '2px', background: 'rgba(255,255,255,0.04)', margin: '6px 10px' }} />
                               <div 
                                 className="dropdown-item"
                                 onClick={() => handleSubcategoriaClick(sub.nombre)}
                                 style={{
-                                  padding: '8px 16px',
+                                  padding: '8px 18px',
                                   cursor: 'pointer',
                                   color: '#60a5fa',
                                   fontWeight: '700',
                                   fontSize: '13px',
                                   transition: 'all 0.2s ease',
-                                  borderRadius: '6px',
+                                  borderRadius: '8px',
                                   borderLeft: '2.5px solid transparent',
                                   textAlign: 'center'
                                 }}
@@ -1992,7 +2355,7 @@ export default function Navbar({
                       );
                     })
                   ) : (
-                    <div style={{ padding: '10px 16px', color: '#94a3b8', fontSize: '14px' }}>
+                    <div style={{ padding: '10px 18px', color: '#94a3b8', fontSize: '14px' }}>
                       No hay subcategorías disponibles
                     </div>
                   )}
@@ -2007,7 +2370,7 @@ export default function Navbar({
               NUEVOS PRODUCTOS
             </button>
             
-            <button onClick={handlePedidoClick} className="nav-link-hover" style={{ color: '#93c5fd' }}>
+            <button onClick={handlePedidoClick} className="nav-link-hover" style={{ color: '#94a3b8' }}>
               Pedido
             </button>
             
@@ -2020,14 +2383,14 @@ export default function Navbar({
         </div>
       )}
 
-      {/* ===== SUBCATEGORÍAS SCROLL (Desktop) ===== */}
-      {!isMobileView && subcategorias && subcategorias.length > 0 && (
+      {/* ===== CATEGORÍAS CON FLECHAS CENTRADAS - MÁS ALTO ===== */}
+      {!isMobileView && categoriasMostrar && categoriasMostrar.length > 0 && (
         <div 
-          ref={subcategoriasScrollRef}
-          className="subcategorias-container"
+          ref={categoriasScrollRef}
+          className="categorias-container"
           style={{
             position: 'fixed',
-            top: isNavbarVisible ? '260px' : '-100%',
+            top: isNavbarVisible ? '175px' : '-100%',
             left: 0,
             right: 0,
             zIndex: 4998,
@@ -2037,37 +2400,74 @@ export default function Navbar({
             pointerEvents: isNavbarVisible ? 'auto' : 'none',
           }}
         >
-          <div className="subcategorias-wrapper">
-            <div className="subcategorias-track">
-              {subcategorias.map((sub) => (
-                <span 
-                  key={sub.id} 
-                  className="subcategoria-item"
-                  onMouseEnter={() => handleSubcategoriaHoverScroll(sub.id, sub.nombre)}
-                  onMouseLeave={handleSubcategoriaLeaveScroll}
-                  onClick={() => handleSubcategoriaClick(sub.nombre)}
-                >
-                  <span className="sub-icon">✦</span>
-                  {sub.nombre} 
-                  <span className="sub-indicator">▸</span>
-                </span>
-              ))}
+          <div className="categorias-header">
+            <div className="categorias-title">
+              <span className="title-icon">✦</span>
+              EXPLORA NUESTROS PRODUCTOS
             </div>
-            <div className="subcategorias-track">
-              {subcategorias.map((sub) => (
-                <span 
-                  key={`dup-${sub.id}`} 
-                  className="subcategoria-item"
-                  onMouseEnter={() => handleSubcategoriaHoverScroll(sub.id, sub.nombre)}
-                  onMouseLeave={handleSubcategoriaLeaveScroll}
-                  onClick={() => handleSubcategoriaClick(sub.nombre)}
-                >
-                  <span className="sub-icon">✦</span>
-                  {sub.nombre} 
-                  <span className="sub-indicator">▸</span>
-                </span>
-              ))}
+            <button 
+              className="ver-todos-btn"
+              onClick={irATodosLosProductos}
+            >
+              Ver todos
+              <span className="btn-arrow"><FaArrowRight size={10} /></span>
+            </button>
+          </div>
+
+          <div className="categorias-scroll-wrapper">
+            <button 
+              className="scroll-arrow scroll-arrow-left"
+              onClick={() => scrollCategories('left')}
+              aria-label="Desplazar categorías a la izquierda"
+            >
+              <FaChevronLeft size={16} />
+            </button>
+
+            <div 
+              ref={scrollContainerRef}
+              className="categorias-scroll"
+            >
+              {categoriasMostrar.map((cat, index) => {
+                const color = categoryColors[index % categoryColors.length];
+                const nombre = cat.nombre || cat.name || `Categoría ${index + 1}`;
+                return (
+                  <div 
+                    key={cat.id || index} 
+                    className="categoria-item"
+                    style={{
+                      '--cat-bg': color.bg,
+                      background: color.bg,
+                      borderColor: 'rgba(255,255,255,0.15)',
+                      color: color.text || '#ffffff'
+                    }}
+                    onClick={() => {
+                      if (cat.nombre) {
+                        handleSubcategoriaClick(cat.nombre);
+                      } else if (cat.id) {
+                        handleVerTodasClick(cat.id);
+                      }
+                    }}
+                    onMouseEnter={() => {
+                      if (cat.id && cat.nombre) {
+                        handleSubcategoriaHoverScroll(cat.id, cat.nombre);
+                      }
+                    }}
+                    onMouseLeave={handleSubcategoriaLeaveScroll}
+                  >
+                    <span className="cat-icon">✦</span>
+                    {nombre}
+                  </div>
+                );
+              })}
             </div>
+
+            <button 
+              className="scroll-arrow scroll-arrow-right"
+              onClick={() => scrollCategories('right')}
+              aria-label="Desplazar categorías a la derecha"
+            >
+              <FaChevronRight size={16} />
+            </button>
           </div>
         </div>
       )}
@@ -2078,7 +2478,7 @@ export default function Navbar({
           ref={tiposMenuRef}
           className="tipos-hover-menu"
           style={{
-            top: isNavbarVisible ? '316px' : '-100%',
+            top: isNavbarVisible ? '330px' : '-100%',
             opacity: isNavbarVisible ? 1 : 0,
             transition: 'all 0.3s ease',
           }}
@@ -2110,8 +2510,8 @@ export default function Navbar({
         </div>
       )}
 
-      {/* ===== OVERLAY DE BÚSQUEDA ===== */}
-      {mostrarBuscador && (
+      {/* ===== OVERLAY DE BÚSQUEDA (Móvil) ===== */}
+      {mostrarBuscador && isMobileView && (
         <div className="search-overlay" onClick={toggleBuscador}>
           <div className="search-overlay-content" onClick={(e) => e.stopPropagation()}>
             <button className="search-overlay-close" onClick={toggleBuscador}>
@@ -2121,22 +2521,40 @@ export default function Navbar({
               type="text"
               placeholder="🔍 Buscar productos..."
               value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
+              onChange={(e) => {
+                setBusqueda(e.target.value);
+                if (e.target.value.trim().length > 0) {
+                  const texto = e.target.value.toLowerCase().trim();
+                  const filtrados = productos.filter((p) => {
+                    return (
+                      (p.nombre || "").toLowerCase().includes(texto) ||
+                      (p.descripcion || "").toLowerCase().includes(texto) ||
+                      (p.categoria || "").toLowerCase().includes(texto) ||
+                      (p.subcategoria || "").toLowerCase().includes(texto) ||
+                      (p.sku || "").toString().toLowerCase().includes(texto)
+                    );
+                  });
+                  setResultadosBusqueda(filtrados.slice(0, 6));
+                  setMostrarResultados(true);
+                } else {
+                  setResultadosBusqueda([]);
+                  setMostrarResultados(false);
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  navigate(`/productos?buscar=${encodeURIComponent(busqueda)}`);
+                  handleSearchSubmit();
                   toggleBuscador();
                 }
               }}
               className="search-overlay-input"
               autoFocus
             />
-            {busqueda.trim() !== "" && (
+            {busqueda.trim() !== "" && resultadosBusqueda.length > 0 && (
               <div style={{ marginTop: '16px', maxHeight: '350px', overflowY: 'auto' }}>
-                {productosFiltrados.slice(0, 8).map((p) => (
+                {resultadosBusqueda.map((p) => (
                   <div key={p.id} className="search-result-item"
                     onClick={() => { navigate(`/producto/${p.id}`); toggleBuscador(); }}>
-                    {/* 🔥 IMAGEN CORREGIDA */}
                     <img 
                       src={obtenerImagen(p)} 
                       alt={p.nombre}
@@ -2150,6 +2568,29 @@ export default function Navbar({
                     </div>
                   </div>
                 ))}
+                <div style={{ padding: '10px', textAlign: 'center' }}>
+                  <button 
+                    onClick={() => { handleSearchSubmit(); toggleBuscador(); }}
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                      border: 'none',
+                      color: '#fff',
+                      padding: '8px 20px',
+                      borderRadius: '20px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    Ver todos los resultados →
+                  </button>
+                </div>
+              </div>
+            )}
+            {busqueda.trim() !== "" && resultadosBusqueda.length === 0 && (
+              <div style={{ marginTop: '16px', textAlign: 'center', color: '#94a3b8', padding: '20px' }}>
+                No se encontraron productos
               </div>
             )}
           </div>

@@ -615,149 +615,148 @@ export default function Catalogo() {
           </div>
         </div>
       )}
+{/* ===== PRODUCTOS EN OFERTA - CENTRADOS ===== */}
+{mostrarOfertas && productosOferta.length > 0 && (
+  <div id="productos-oferta" style={styles.ofertaProductosWrapper(isMobile)}>
+    <div style={styles.sectionHeader}>
+      <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
+        🔥 Productos en Oferta
+      </h2>
+      <p style={styles.sectionSubtitle(isMobile)}>
+        Aprovecha antes de que termine el tiempo
+      </p>
+    </div>
 
-      {/* ===== PRODUCTOS EN OFERTA - CENTRADOS ===== */}
-      {mostrarOfertas && productosOferta.length > 0 && (
-        <div style={styles.ofertaProductosWrapper(isMobile)}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
-              🔥 Productos en Oferta
-            </h2>
-            <p style={styles.sectionSubtitle(isMobile)}>
-              Aprovecha antes de que termine el tiempo
-            </p>
-          </div>
+    <div style={styles.timerContainer}>
+      <div style={styles.timerBox} className="timer-glow">
+        <div style={styles.timerItem}>
+          <span style={styles.timerNumber}>{String(tiempoRestante.dias).padStart(2, '0')}</span>
+          <span style={styles.timerLabel}>Días</span>
+        </div>
+        <span style={styles.timerSeparator}>:</span>
+        <div style={styles.timerItem}>
+          <span style={styles.timerNumber}>{String(tiempoRestante.horas).padStart(2, '0')}</span>
+          <span style={styles.timerLabel}>Horas</span>
+        </div>
+        <span style={styles.timerSeparator}>:</span>
+        <div style={styles.timerItem}>
+          <span style={styles.timerNumber}>{String(tiempoRestante.minutos).padStart(2, '0')}</span>
+          <span style={styles.timerLabel}>Min</span>
+        </div>
+        <span style={styles.timerSeparator}>:</span>
+        <div style={styles.timerItem}>
+          <span style={styles.timerNumber}>{String(tiempoRestante.segundos).padStart(2, '0')}</span>
+          <span style={styles.timerLabel}>Seg</span>
+        </div>
+      </div>
+    </div>
 
-          <div style={styles.timerContainer}>
-            <div style={styles.timerBox} className="timer-glow">
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>{String(tiempoRestante.dias).padStart(2, '0')}</span>
-                <span style={styles.timerLabel}>Días</span>
-              </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>{String(tiempoRestante.horas).padStart(2, '0')}</span>
-                <span style={styles.timerLabel}>Horas</span>
-              </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>{String(tiempoRestante.minutos).padStart(2, '0')}</span>
-                <span style={styles.timerLabel}>Min</span>
-              </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>{String(tiempoRestante.segundos).padStart(2, '0')}</span>
-                <span style={styles.timerLabel}>Seg</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Grid centrado para productos en oferta */}
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            width: "100%",
-            maxWidth: "100%",
-          }}>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
-              gap: isMobile ? "14px" : "22px",
+    {/* Grid centrado para productos en oferta */}
+    <div style={{
+      display: "flex",
+      justifyContent: "center",
+      width: "100%",
+      maxWidth: "100%",
+    }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
+        gap: isMobile ? "14px" : "22px",
+        width: "100%",
+        maxWidth: isMobile ? "100%" : "900px",
+        justifyContent: "center",
+      }}>
+        {productosOferta.slice(0, 6).map((p, index) => (
+          <div
+            key={p.id}
+            style={{
+              ...styles.productCard(darkMode, isMobile),
+              opacity: 1,
+              transform: "none",
               width: "100%",
-              maxWidth: isMobile ? "100%" : "900px",
-              justifyContent: "center",
-            }}>
-              {productosOferta.slice(0, 6).map((p, index) => (
-                <div
-                  key={p.id}
-                  style={{
-                    ...styles.productCard(darkMode, isMobile),
-                    opacity: 1,
-                    transform: "none",
-                    width: "100%",
-                    maxWidth: "100%",
-                  }}
-                  onClick={() => navigate(`/producto/${p.id}`)}
-                >
-                  <div style={styles.ofertaProductoBadge}>🔥 OFERTA</div>
-                  <img
-                    src={
-                      p.imagenes
-                        ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
-                        : "https://via.placeholder.com/300"
-                    }
-                    alt={p.nombre}
-                    style={styles.productImage(isMobile)}
-                    loading="lazy"
-                  />
-                  <h3 style={styles.productName(darkMode, isMobile)}>
-                    {p.nombre}
-                  </h3>
-                  <div style={styles.productPrices}>
-                    <span style={styles.productOldPrice}>${p.precio}</span>
-                    <span style={styles.productNewPrice}>
-                      ${p.precioOferta || (p.precio * 0.8).toFixed(2)}
-                    </span>
-                  </div>
-                  <button style={styles.productButton} className="btn-shine">
-                    Ver producto →
-                  </button>
-                </div>
-              ))}
+              maxWidth: "100%",
+            }}
+            onClick={() => navigate(`/producto/${p.id}`)}
+          >
+            <div style={styles.ofertaProductoBadge}>🔥 OFERTA</div>
+            <img
+              src={
+                p.imagenes
+                  ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
+                  : "https://via.placeholder.com/300"
+              }
+              alt={p.nombre}
+              style={styles.productImage(isMobile)}
+              loading="lazy"
+            />
+            <h3 style={styles.productName(darkMode, isMobile)}>
+              {p.nombre}
+            </h3>
+            <div style={styles.productPrices}>
+              <span style={styles.productOldPrice}>${p.precio}</span>
+              <span style={styles.productNewPrice}>
+                ${p.precioOferta || (p.precio * 0.8).toFixed(2)}
+              </span>
             </div>
+            <button style={styles.productButton} className="btn-shine">
+              Ver producto →
+            </button>
           </div>
+        ))}
+      </div>
+    </div>
 
-          {productosOferta.length > 6 && (
-            <div style={styles.verTodosContainer}>
-              <button
-                style={styles.buttonDanger(darkMode, isMobile)}
-                onClick={irAMasVendidos}
-                className="btn-glow"
-              >
-                Ver todos los productos en oferta →
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+    {productosOferta.length > 6 && (
+      <div style={styles.verTodosContainer}>
+        <button
+          style={styles.buttonDanger(darkMode, isMobile)}
+          onClick={irAMasVendidos}
+          className="btn-glow"
+        >
+          Ver todos los productos en oferta →
+        </button>
+      </div>
+    )}
+  </div>
+)}
 
-      {/* MENSAJE CUANDO LAS OFERTAS HAN TERMINADO */}
-      {!mostrarOfertas && productosOferta.length > 0 && (
-        <div style={styles.ofertaProductosWrapper(isMobile)}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
-              ⏰ ¡Ofertas Finalizadas!
-            </h2>
-            <p style={styles.sectionSubtitle(isMobile)}>
-              Las ofertas especiales han terminado. ¡Vuelve pronto para más promociones!
-            </p>
-          </div>
-          
-          <div style={styles.timerContainer}>
-            <div style={styles.timerBox}>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>00</span>
-                <span style={styles.timerLabel}>Días</span>
-              </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>00</span>
-                <span style={styles.timerLabel}>Horas</span>
-              </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>00</span>
-                <span style={styles.timerLabel}>Min</span>
-              </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>00</span>
-                <span style={styles.timerLabel}>Seg</span>
-              </div>
-            </div>
-          </div>
+{/* MENSAJE CUANDO LAS OFERTAS HAN TERMINADO */}
+{!mostrarOfertas && productosOferta.length > 0 && (
+  <div id="productos-oferta" style={styles.ofertaProductosWrapper(isMobile)}>
+    <div style={styles.sectionHeader}>
+      <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
+        ⏰ ¡Ofertas Finalizadas!
+      </h2>
+      <p style={styles.sectionSubtitle(isMobile)}>
+        Las ofertas especiales han terminado. ¡Vuelve pronto para más promociones!
+      </p>
+    </div>
+    
+    <div style={styles.timerContainer}>
+      <div style={styles.timerBox}>
+        <div style={styles.timerItem}>
+          <span style={styles.timerNumber}>00</span>
+          <span style={styles.timerLabel}>Días</span>
         </div>
-      )}
+        <span style={styles.timerSeparator}>:</span>
+        <div style={styles.timerItem}>
+          <span style={styles.timerNumber}>00</span>
+          <span style={styles.timerLabel}>Horas</span>
+        </div>
+        <span style={styles.timerSeparator}>:</span>
+        <div style={styles.timerItem}>
+          <span style={styles.timerNumber}>00</span>
+          <span style={styles.timerLabel}>Min</span>
+        </div>
+        <span style={styles.timerSeparator}>:</span>
+        <div style={styles.timerItem}>
+          <span style={styles.timerNumber}>00</span>
+          <span style={styles.timerLabel}>Seg</span>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* ===== CATEGORÍAS MÁS VENDIDAS ===== */}
       {categoriasDestacadas.length > 0 && (
