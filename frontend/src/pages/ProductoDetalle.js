@@ -1899,7 +1899,7 @@ const getImagenActual = () => {
 }
 
 // ============================================================
-// ESTILOS CSS (completos con animaciones mejoradas y CORRECCIÓN RESPONSIVE)
+// ESTILOS CSS (completos con animaciones mejoradas)
 // ============================================================
 if (typeof document !== "undefined") {
   const styleSheet = document.createElement("style");
@@ -1952,7 +1952,7 @@ if (typeof document !== "undefined") {
     /* ----- BADGES ----- */
     .badges-container {
       position: absolute;
-      top: 65px;
+      top: 15px;
       left: 15px;
       z-index: 20;
       display: flex;
@@ -1978,7 +1978,7 @@ if (typeof document !== "undefined") {
     /* ----- FAVORITOS ----- */
     .fav-btn {
       position: absolute;
-      top: 90px;
+      top: 15px;
       right: 15px;
       width: 50px;
       height: 50px;
@@ -3327,14 +3327,9 @@ if (typeof document !== "undefined") {
     }
 
     /* ========================================================= */
-    /* 🔥 RESPONSIVE: MÓVILES (<768px) CORREGIDO */
+    /* 🔥 RESPONSIVE: MÓVILES (<768px) */
     /* ========================================================= */
     @media (max-width: 767px) {
-      .producto-detalle-container {
-        padding: 16px;
-        gap: 20px;
-        border-radius: 16px;
-      }
       .producto-detalle-left {
         flex: 1 1 100%;
         max-width: 100%;
@@ -3343,49 +3338,26 @@ if (typeof document !== "undefined") {
         flex: 1 1 100%;
         max-width: 100%;
       }
-      
-      /* Galería */
       .main-image-container {
-        height: 350px;
-        border-radius: 14px;
-        margin-top: 150px;
-      }
-      .thumb {
-        width: 50px;
-        height: 50px;
-        border-radius: 8px;
-      }
-      .thumbs-container {
-        gap: 8px;
-        margin-top: 12px;
-      }
-      
-      /* Títulos y Precios */
-      .product-title {
-        font-size: 20px;
-        letter-spacing: 0;
+        height: 280px;
       }
       .precio-normal-brillante,
       .precio-oferta-brillante {
-        font-size: 26px;
-        gap: 8px;
+        font-size: 28px;
       }
       .precio-unidad-brillante {
-        font-size: 12px;
-        padding: 2px 10px;
+        font-size: 14px;
+        padding: 2px 12px;
       }
-      .precio-brillante-wrapper {
-        padding: 6px 14px;
-        border-radius: 14px;
+      .product-title {
+        font-size: 22px;
       }
-      .precio-anterior {
-        font-size: 18px;
+      .thumb {
+        width: 55px;
+        height: 55px;
       }
-      
-      /* Botones de acción */
       .botones-acciones {
         flex-direction: column;
-        gap: 8px;
       }
       .btn-ficha-tecnica,
       .btn-agregar-cotizador,
@@ -3394,195 +3366,70 @@ if (typeof document !== "undefined") {
         min-width: 100%;
         padding: 12px 16px;
         font-size: 14px;
-        border-radius: 10px;
       }
-      
-      /* Categorías y datos */
-      .category-box {
-        gap: 6px;
+      .tipo-grupo-header {
+        flex-wrap: wrap;
       }
-      .category-tag, .subcategory-tag, .type-tag {
-        font-size: 11px;
-        padding: 4px 10px;
-      }
-      .data-box {
-        padding: 14px;
-      }
-      .data-item {
-        font-size: 14px;
-      }
-      .stock-box {
-        padding: 10px 14px;
-      }
-      
-      /* Cotizador */
-      .cotizador-box {
-        padding: 12px;
-      }
-      .cotizador-title {
-        font-size: 16px;
-        margin-bottom: 14px;
-      }
-      .guia-medicion {
-        padding: 14px;
-      }
-      .guia-grid {
-        grid-template-columns: 1fr 1fr;
+      .full-width-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
         gap: 12px;
       }
-      .guia-img {
-        height: 90px;
+      .related-image {
+        height: 100px;
       }
-      .guia-card h4 {
-        font-size: 14px;
-        margin: 8px 0 4px 0;
+      .full-width-related-wrapper {
+        padding: 0 10px;
       }
-      .guia-card p {
-        font-size: 12px;
-      }
-      .selector-modo {
-        flex-direction: column;
-        gap: 8px;
-        padding: 12px;
+      .full-width-related-section {
+        padding: 0 5px;
       }
       .medidas-grid {
         grid-template-columns: 1fr;
-        gap: 6px;
       }
-      .input-field {
+      .carrusel-controls-right {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .modelo-carrusel-item-right {
+        min-width: 120px;
+        max-width: 150px;
         padding: 10px;
-        font-size: 15px;
+      }
+      .modelo-carrusel-img-right {
+        height: 90px;
+      }
+      .sugeridos-title {
+        font-size: 18px;
+      }
+      .sugeridos-subtitle {
+        font-size: 14px;
+      }
+      .sugeridos-banner {
+        padding: 14px 16px;
+      }
+      .cotizador-box {
+        padding: 15px;
+      }
+      .guia-grid {
+        grid-template-columns: 1fr;
+      }
+      .guia-img {
+        height: 120px;
       }
       .desperdicio-box {
         gap: 6px;
       }
       .des-btn {
-        padding: 8px 10px;
+        padding: 8px 12px;
         font-size: 13px;
-        min-width: 44px;
+        min-width: 50px;
       }
-      .resultado-cotizacion {
-        padding: 14px;
-      }
-      .total-estimado {
-        font-size: 20px;
-      }
-      .form-cliente {
-        padding: 14px;
-      }
-      
-      /* Carrusel Modelos */
       .modelos-carrusel-right {
-        padding: 12px;
-        border-radius: 14px;
-      }
-      .modelos-carrusel-header-right {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 6px;
-      }
-      .carrusel-controls-right {
-        width: 100%;
-        justify-content: flex-start;
-        gap: 4px;
-      }
-      .carrusel-btn-right {
-        width: 28px;
-        height: 28px;
-        font-size: 10px;
+        padding: 14px;
       }
       .modelo-carrusel-item-right {
-        min-width: 120px;
-        max-width: 140px;
-        padding: 10px;
-      }
-      .modelo-carrusel-item-right img {
-        height: 90px;
-      }
-      .modelo-carrusel-nombre-right {
-        font-size: 11px;
-        height: 26px;
-      }
-      .modelo-carrusel-precio-right {
-        font-size: 13px;
-      }
-      .btn-ver-todos-modelos-right {
-        font-size: 12px;
-        padding: 10px 14px;
-      }
-      
-      /* Secciones relacionadas */
-      .full-width-related-wrapper {
-        padding: 0 10px;
-      }
-      .full-width-related-section {
-        padding: 0;
-        margin-top: 30px;
-      }
-      .related-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 4px;
-        margin-bottom: 16px;
-      }
-      .section-title {
-        font-size: 18px;
-      }
-      .full-width-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-      }
-      .related-image {
-        height: 100px;
-      }
-      .related-card, .sugerido-card {
-        padding: 10px;
-        border-radius: 14px;
-      }
-      .related-card h4, .sugerido-card h4 {
-        font-size: 13px;
-        margin: 6px 0;
-      }
-      .related-price, .precio-of {
-        font-size: 15px;
-      }
-      .precio-ant {
-        font-size: 12px;
-      }
-      
-      /* Banner sugeridos */
-      .sugeridos-banner {
-        padding: 12px 16px;
-      }
-      .sugeridos-title {
-        font-size: 16px;
-      }
-      .sugeridos-subtitle {
-        font-size: 13px;
-      }
-      .sugeridos-label {
-        font-size: 10px;
-        padding: 4px 12px;
-      }
-      
-      /* Agrupados por tipo */
-      .tipo-grupo-header {
-        padding: 10px 14px;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .tipo-grupo-title {
-        font-size: 14px;
-      }
-      .tipo-grupo-count {
-        font-size: 11px;
-        padding: 2px 10px;
-      }
-      
-      /* Modales */
-      .modal-image {
-        max-width: 95%;
-        max-height: 80%;
+        min-width: 110px;
+        max-width: 130px;
       }
     }
   `;
