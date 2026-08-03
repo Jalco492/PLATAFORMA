@@ -1227,25 +1227,32 @@ export default function Navbar({
           box-shadow: 0 4px 30px rgba(59,130,246,0.05);
         }
 
-        .nuevos-badge {
-          background: linear-gradient(135deg, #2563eb, #3b82f6);
-          color: #ffffff;
-          font-size: clamp(13px, 1vw, 16px);
-          font-weight: 800;
-          padding: 8px 22px;
-          border-radius: 999px;
-          border: none;
-          cursor: pointer;
-          animation: pulse 2s ease infinite;
-          box-shadow: 0 4px 30px rgba(37,99,235,0.4);
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-          transition: all 0.3s ease;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          height: 38px;
-        }
+       .nuevos-badge {
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #ffffff;
+  font-size: clamp(13px, 1vw, 16px);
+  font-weight: 800;
+  padding: 8px 22px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  animation: pulse 2s ease infinite;
+  box-shadow: 0 4px 30px rgba(37,99,235,0.4);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  
+  /* ===== NUEVAS PROPIEDADES PARA UNA SOLA LÍNEA ===== */
+  white-space: nowrap;        /* Evita que el texto se divida en varias líneas */
+  flex-shrink: 0;            /* Evita que el elemento se encoja */
+  min-width: fit-content;    /* Mantiene el ancho mínimo necesario */
+  overflow: hidden;          /* Oculta el desbordamiento */
+  text-overflow: ellipsis;   /* Muestra "..." si el texto es muy largo */
+}
 
         .nuevos-badge:hover {
           transform: scale(1.08) !important;
