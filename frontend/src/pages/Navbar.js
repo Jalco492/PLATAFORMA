@@ -37,6 +37,36 @@ const getImageUrl = (imagen) => {
   return `${API_BASE}/${imagen}`;
 };
 
+// ===== CATEGORÍAS PREDEFINIDAS =====
+const CATEGORIAS_PREDEFINIDAS = [
+  { id: 1, nombre: "MÁRMOL", icon: "✦" },
+  { id: 2, nombre: "ALFOMBRA", icon: "✦" },
+  { id: 3, nombre: "DECK MODULAR", icon: "✦" },
+  { id: 4, nombre: "DECK FALCON", icon: "✦" },
+  { id: 5, nombre: "ESPEJÓ", icon: "✦" },
+  { id: 6, nombre: "LAMBININ EXTERIOR", icon: "✦" },
+  { id: 7, nombre: "LAMBININ INTERIOR", icon: "✦" },
+  { id: 8, nombre: "LAMINADO", icon: "✦" },
+  { id: 9, nombre: "LINÓLEO", icon: "✦" },
+  { id: 10, nombre: "MURO EXTERIOR", icon: "✦" },
+  { id: 11, nombre: "PASTO SINTETICO", icon: "✦" },
+];
+
+// ===== COLORES PARA LAS CATEGORÍAS =====
+const categoryColors = [
+  { bg: 'linear-gradient(135deg, #FF6B6B, #EE5A24)', border: '#EE5A24', text: '#ffffff' },
+  { bg: 'linear-gradient(135deg, #FECA57, #FF9F43)', border: '#FF9F43', text: '#2d3436' },
+  { bg: 'linear-gradient(135deg, #48DBFB, #0ABDE3)', border: '#0ABDE3', text: '#ffffff' },
+  { bg: 'linear-gradient(135deg, #FF9FF3, #F368E0)', border: '#F368E0', text: '#ffffff' },
+  { bg: 'linear-gradient(135deg, #54A0FF, #2E86DE)', border: '#2E86DE', text: '#ffffff' },
+  { bg: 'linear-gradient(135deg, #5F27CD, #341F97)', border: '#341F97', text: '#ffffff' },
+  { bg: 'linear-gradient(135deg, #1DD1A1, #10AC84)', border: '#10AC84', text: '#ffffff' },
+  { bg: 'linear-gradient(135deg, #FF6B6B, #EE5A24)', border: '#EE5A24', text: '#ffffff' },
+  { bg: 'linear-gradient(135deg, #F8A5C2, #F78FB3)', border: '#F78FB3', text: '#2d3436' },
+  { bg: 'linear-gradient(135deg, #A29BFE, #6C5CE7)', border: '#6C5CE7', text: '#ffffff' },
+  { bg: 'linear-gradient(135deg, #55E6C1, #1ABC9C)', border: '#1ABC9C', text: '#ffffff' },
+];
+
 export default function Navbar({
   darkMode,
   setDarkMode,
@@ -90,21 +120,10 @@ export default function Navbar({
   const searchInputRef = useRef(null);
   const searchTimeoutRef = useRef(null);
 
-  // ===== COLORES PARA LAS CATEGORÍAS =====
-  const categoryColors = [
-    { bg: 'linear-gradient(135deg, #FF6B6B, #EE5A24)', border: '#EE5A24', text: '#ffffff' },
-    { bg: 'linear-gradient(135deg, #FECA57, #FF9F43)', border: '#FF9F43', text: '#2d3436' },
-    { bg: 'linear-gradient(135deg, #48DBFB, #0ABDE3)', border: '#0ABDE3', text: '#ffffff' },
-    { bg: 'linear-gradient(135deg, #FF9FF3, #F368E0)', border: '#F368E0', text: '#ffffff' },
-    { bg: 'linear-gradient(135deg, #54A0FF, #2E86DE)', border: '#2E86DE', text: '#ffffff' },
-    { bg: 'linear-gradient(135deg, #5F27CD, #341F97)', border: '#341F97', text: '#ffffff' },
-    { bg: 'linear-gradient(135deg, #1DD1A1, #10AC84)', border: '#10AC84', text: '#ffffff' },
-    { bg: 'linear-gradient(135deg, #FF6B6B, #EE5A24)', border: '#EE5A24', text: '#ffffff' },
-    { bg: 'linear-gradient(135deg, #F8A5C2, #F78FB3)', border: '#F78FB3', text: '#2d3436' },
-  ];
-
-  // ===== CATEGORÍAS A MOSTRAR =====
-  const categoriasMostrar = subcategorias.length > 0 ? subcategorias : categorias;
+  // ===== USAR CATEGORÍAS PREDEFINIDAS SI NO HAY DATOS =====
+  const categoriasMostrar = subcategorias.length > 0 ? subcategorias : 
+                            categorias.length > 0 ? categorias : 
+                            CATEGORIAS_PREDEFINIDAS;
 
   // ===== BÚSQUEDA EN TIEMPO REAL =====
   useEffect(() => {
@@ -547,9 +566,7 @@ export default function Navbar({
     }
   };
 
-  // ===== FUNCIÓN PARA IR A LA SECCIÓN DE OFERTAS - COMO EL BOTÓN DE NUEVOS PRODUCTOS =====
   const irAOfertas = () => {
-    // Cerrar menús
     cerrarMenuCategorias();
     setMobileMenuOpen(false);
     setMostrarTiposHover(false);
@@ -559,12 +576,9 @@ export default function Navbar({
       tiposHoverTimeoutRef.current = null;
     }
     
-    // Navegar a la página principal con el hash #ofertas
     navigate("/#ofertas");
     
-    // Hacer scroll a la sección de ofertas después de que la página cargue
     setTimeout(() => {
-      // Buscar la sección de ofertas
       let ofertasSection = document.getElementById('productos-oferta');
       
       if (!ofertasSection) {
@@ -602,12 +616,42 @@ export default function Navbar({
     }, 500);
   };
 
-  // ===== FUNCIÓN PARA BUSCAR =====
   const handleSearchSubmit = () => {
     if (busqueda.trim()) {
       navigate(`/productos?buscar=${encodeURIComponent(busqueda)}`);
       setMostrarResultados(false);
       setResultadosBusqueda([]);
+    }
+  };
+
+  // Función para manejar el clic en una categoría predefinida
+  const handleCategoriaPredefinidaClick = (nombre) => {
+    // Buscar si existe una subcategoría con ese nombre
+    const subcategoriaEncontrada = subcategorias.find(
+      sub => sub.nombre && sub.nombre.toUpperCase() === nombre.toUpperCase()
+    );
+    
+    if (subcategoriaEncontrada) {
+      navigate(`/subcategoria/${encodeURIComponent(subcategoriaEncontrada.nombre)}`);
+    } else {
+      // Si no hay subcategoría, buscar por categoría
+      const categoriaEncontrada = categorias.find(
+        cat => cat.nombre && cat.nombre.toUpperCase() === nombre.toUpperCase()
+      );
+      if (categoriaEncontrada) {
+        navigate(`/categoria-id/${categoriaEncontrada.id}`);
+      } else {
+        // Si no hay coincidencia, ir a productos con filtro
+        navigate(`/productos?buscar=${encodeURIComponent(nombre)}`);
+      }
+    }
+    cerrarMenuCategorias();
+    setMobileMenuOpen(false);
+    setMostrarTiposHover(false);
+    setProductoMostrarTipos(false);
+    if (tiposHoverTimeoutRef.current) {
+      clearTimeout(tiposHoverTimeoutRef.current);
+      tiposHoverTimeoutRef.current = null;
     }
   };
 
@@ -641,33 +685,38 @@ export default function Navbar({
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
         }
+        @keyframes glowPulse {
+          0% { box-shadow: 0 0 5px rgba(59,130,246,0.2), inset 0 0 5px rgba(59,130,246,0.1); }
+          50% { box-shadow: 0 0 25px rgba(59,130,246,0.4), inset 0 0 15px rgba(59,130,246,0.2); }
+          100% { box-shadow: 0 0 5px rgba(59,130,246,0.2), inset 0 0 5px rgba(59,130,246,0.1); }
+        }
 
-        /* ===== CONTENEDOR DE PAGOS - MÁS GRANDE ===== */
+        /* ===== CONTENEDOR DE PAGOS ===== */
         .pagos-container {
           display: flex;
           align-items: center;
           gap: 8px;
           background: rgba(255,255,255,0.03);
-          padding: 4px 14px;
+          padding: 6px 16px;
           border-radius: 25px;
           border: 1px solid rgba(255,255,255,0.06);
           flex-shrink: 0;
           flex-wrap: nowrap;
-          height: 40px;
+          height: 46px;
         }
 
         .pagos-container .pago-item {
           display: flex;
           align-items: center;
-          gap: 5px;
-          padding: 4px 10px;
-          border-radius: 14px;
-          font-size: 13px;
-          font-weight: 500;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 16px;
+          font-size: 15px;
+          font-weight: 600;
           color: #94a3b8;
           white-space: nowrap;
           transition: all 0.3s ease;
-          height: 28px;
+          height: 32px;
         }
 
         .pagos-container .pago-item:hover {
@@ -677,29 +726,29 @@ export default function Navbar({
         }
 
         .pagos-container .pago-item .pago-icon {
-          font-size: 14px;
+          font-size: 16px;
           color: #60a5fa;
         }
 
         .pagos-container .pago-item.highlight {
           color: #60a5fa;
-          font-weight: 600;
+          font-weight: 700;
         }
 
         .pagos-container .pago-item.highlight .pago-icon {
           color: #f093fb;
         }
 
-        /* ===== CONTENEDOR DE CATEGORÍAS - MÁS ALTO ===== */
+        /* ===== CONTENEDOR DE CATEGORÍAS ===== */
         .categorias-container {
           width: 100%;
-          min-height: 140px;
-          max-height: 160px;
+          min-height: 110px;
+          max-height: 130px;
           background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 100%);
           backdrop-filter: blur(12px);
           border-top: 2px solid rgba(59,130,246,0.15);
           border-bottom: 2px solid rgba(59,130,246,0.15);
-          padding: 12px 20px;
+          padding: 8px 20px;
           position: relative;
           display: flex;
           flex-direction: column;
@@ -723,18 +772,17 @@ export default function Navbar({
 
         .categorias-header {
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          padding: 0 10px 10px 10px;
+          padding: 0 10px 6px 10px;
           border-bottom: 2px solid rgba(59,130,246,0.1);
-          margin-bottom: 10px;
+          margin-bottom: 6px;
           flex-shrink: 0;
           position: relative;
           z-index: 1;
         }
 
         .categorias-title {
-          font-size: 20px;
+          font-size: 16px;
           font-weight: 800;
           background: linear-gradient(90deg, #60a5fa, #a78bfa, #60a5fa);
           background-size: 200% auto;
@@ -744,13 +792,13 @@ export default function Navbar({
           letter-spacing: 2px;
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           text-transform: uppercase;
         }
 
         .categorias-title .title-icon {
           color: #60a5fa;
-          font-size: 18px;
+          font-size: 14px;
           -webkit-text-fill-color: initial;
           background: none;
         }
@@ -759,19 +807,21 @@ export default function Navbar({
           background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(99,102,241,0.2));
           border: 2px solid rgba(59,130,246,0.3);
           color: #93c5fd;
-          padding: 8px 22px;
-          border-radius: 22px;
-          font-size: 14px;
+          padding: 6px 18px;
+          border-radius: 20px;
+          font-size: 13px;
           font-weight: 700;
           cursor: pointer;
+          margin-top: 15px;
           transition: all 0.3s ease;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
+           margin-left: 1300px;
           white-space: nowrap;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          height: 36px;
+          height: 32px;
         }
 
         .ver-todos-btn:hover {
@@ -794,17 +844,17 @@ export default function Navbar({
           display: flex;
           align-items: center;
           flex: 1;
-          min-height: 55px;
+          min-height: 42px;
           padding: 0 50px;
           z-index: 1;
         }
 
         .categorias-scroll {
           display: flex;
-          gap: 12px;
+          gap: 10px;
           overflow-x: auto;
           scroll-behavior: smooth;
-          padding: 4px 0;
+          padding: 2px 0;
           flex: 1;
           -ms-overflow-style: none;
           scrollbar-width: none;
@@ -815,13 +865,12 @@ export default function Navbar({
           display: none;
         }
 
-        /* ===== FLECHAS CENTRADAS ===== */
         .scroll-arrow {
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
-          width: 38px;
-          height: 38px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
           background: rgba(15,23,42,0.95);
           backdrop-filter: blur(12px);
@@ -833,7 +882,7 @@ export default function Navbar({
           cursor: pointer;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           z-index: 20;
-          font-size: 14px;
+          font-size: 12px;
           box-shadow: 0 4px 30px rgba(0,0,0,0.4), 0 0 30px rgba(59,130,246,0.05);
           opacity: 1 !important;
           pointer-events: auto !important;
@@ -859,11 +908,11 @@ export default function Navbar({
           right: 6px;
         }
 
-        /* ===== ITEMS DE CATEGORÍA ===== */
+        /* ===== ESTILO MEJORADO PARA CATEGORÍAS ===== */
         .categoria-item {
           flex: 0 0 auto;
           padding: 8px 22px;
-          min-width: 110px;
+          min-width: 120px;
           border-radius: 14px;
           color: #ffffff;
           font-weight: 700;
@@ -871,19 +920,20 @@ export default function Navbar({
           cursor: pointer;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           white-space: nowrap;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.8px;
           position: relative;
           text-transform: uppercase;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          border: 2px solid rgba(255,255,255,0.15);
+          border: 2px solid rgba(255,255,255,0.12);
           background: var(--cat-bg, linear-gradient(135deg, #667eea, #764ba2));
           box-shadow: 0 4px 25px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
           text-shadow: 0 2px 15px rgba(0,0,0,0.3);
-          min-height: 38px;
-          height: 38px;
+          min-height: 36px;
+          height: 36px;
+          animation: glowPulse 3s ease-in-out infinite;
         }
 
         .categoria-item::before {
@@ -901,9 +951,10 @@ export default function Navbar({
         }
 
         .categoria-item:hover {
-          transform: translateY(-2px) scale(1.04);
+          transform: translateY(-2px) scale(1.05);
           border-color: rgba(255,255,255,0.4);
-          box-shadow: 0 8px 30px rgba(0,0,0,0.3), 0 0 30px rgba(59,130,246,0.15);
+          box-shadow: 0 8px 35px rgba(0,0,0,0.3), 0 0 40px rgba(59,130,246,0.15);
+          animation-play-state: paused;
         }
 
         .categoria-item:hover::before {
@@ -911,14 +962,27 @@ export default function Navbar({
         }
 
         .categoria-item .cat-icon {
-          font-size: 11px;
-          opacity: 0.6;
+          font-size: 12px;
+          opacity: 0.7;
           transition: all 0.3s ease;
         }
 
         .categoria-item:hover .cat-icon {
           opacity: 1;
-          transform: scale(1.3) rotate(10deg);
+          transform: scale(1.4) rotate(10deg);
+        }
+
+        .categoria-item .cat-badge {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          background: rgba(59,130,246,0.9);
+          color: #fff;
+          font-size: 7px;
+          font-weight: 700;
+          padding: 1px 6px;
+          border-radius: 20px;
+          border: 1px solid rgba(255,255,255,0.2);
         }
 
         .tipos-hover-menu {
@@ -1045,10 +1109,10 @@ export default function Navbar({
           border: 2px solid rgba(59,130,246,0.3);
           border-radius: 16px;
           box-shadow: 0 30px 80px rgba(0,0,0,0.8);
-          padding: 8px;
-          min-width: 280px;
-          max-width: 400px;
-          max-height: 600px;
+          padding: 6px;
+          min-width: 260px;
+          max-width: 380px;
+          max-height: 500px;
           overflow-y: visible !important;
           overflow-x: visible !important;
           animation: slideUp 0.25s ease;
@@ -1068,10 +1132,10 @@ export default function Navbar({
           border: 2px solid rgba(59,130,246,0.25);
           border-radius: 14px;
           box-shadow: 0 30px 80px rgba(0,0,0,0.8);
-          padding: 8px;
-          min-width: 200px;
-          max-width: 280px;
-          max-height: 400px;
+          padding: 6px;
+          min-width: 180px;
+          max-width: 260px;
+          max-height: 350px;
           overflow-y: auto;
           animation: slideUp 0.25s ease;
           z-index: 99999;
@@ -1114,8 +1178,8 @@ export default function Navbar({
         .nav-link-hover {
           cursor: pointer;
           font-weight: 700;
-          font-size: clamp(16px, 1.3vw, 20px);
-          padding: 10px 24px;
+          font-size: clamp(15px, 1.2vw, 18px);
+          padding: 8px 20px;
           border-radius: 10px;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           white-space: nowrap;
@@ -1125,7 +1189,7 @@ export default function Navbar({
           letter-spacing: 0.5px;
           color: #94a3b8;
           text-transform: uppercase;
-          height: 44px;
+          height: 40px;
           display: flex;
           align-items: center;
         }
@@ -1144,16 +1208,16 @@ export default function Navbar({
           display: flex;
           align-items: center;
           gap: 6px;
-          font-size: clamp(16px, 1.3vw, 20px);
+          font-size: clamp(15px, 1.2vw, 18px);
           font-weight: 700;
-          padding: 10px 24px;
+          padding: 8px 20px;
           border-radius: 10px;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           letter-spacing: 0.5px;
           position: relative;
           color: #94a3b8;
           text-transform: uppercase;
-          height: 44px;
+          height: 40px;
         }
 
         .desktop-productos-btn:hover {
@@ -1163,18 +1227,17 @@ export default function Navbar({
           box-shadow: 0 4px 30px rgba(59,130,246,0.05);
         }
 
-        /* ===== ESTILO PARA EL BOTÓN DE NUEVOS PRODUCTOS ===== */
         .nuevos-badge {
-          background: linear-gradient(135deg, #0003cc, #f5576c);
+          background: linear-gradient(135deg, #2563eb, #3b82f6);
           color: #ffffff;
-          font-size: clamp(12px, 1vw, 16px);
+          font-size: clamp(13px, 1vw, 16px);
           font-weight: 800;
           padding: 8px 22px;
           border-radius: 999px;
           border: none;
           cursor: pointer;
           animation: pulse 2s ease infinite;
-          box-shadow: 0 4px 30px rgba(245,87,108,0.4);
+          box-shadow: 0 4px 30px rgba(37,99,235,0.4);
           letter-spacing: 0.5px;
           text-transform: uppercase;
           transition: all 0.3s ease;
@@ -1186,46 +1249,45 @@ export default function Navbar({
 
         .nuevos-badge:hover {
           transform: scale(1.08) !important;
-          box-shadow: 0 8px 50px rgba(245,87,108,0.6) !important;
+          box-shadow: 0 8px 50px rgba(37,99,235,0.6) !important;
         }
 
-        /* ===== ESTILO PARA EL BOTÓN DE PROMOCIONES ===== */
         .promociones-btn {
-          background: linear-gradient(135deg, #FF6B6B, #EE5A24);
+          background: linear-gradient(135deg, #2563eb, #3b82f6);
           color: #ffffff;
           border: none;
-          padding: 6px 18px;
+          padding: 8px 20px;
           border-radius: 20px;
           font-weight: 700;
-          font-size: 14px;
+          font-size: 15px;
           cursor: pointer;
           transition: all 0.3s ease;
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           animation: pulse 2s ease infinite;
-          box-shadow: 0 4px 20px rgba(238, 90, 36, 0.3);
+          box-shadow: 0 4px 20px rgba(37,99,235,0.4);
           white-space: nowrap;
           flex-shrink: 0;
-          height: 36px;
+          height: 38px;
         }
 
         .promociones-btn:hover {
           transform: scale(1.08);
-          box-shadow: 0 8px 40px rgba(238, 90, 36, 0.5);
+          box-shadow: 0 8px 40px rgba(37,99,235,0.6);
         }
 
         .promociones-btn .btn-icon {
-          font-size: 14px;
+          font-size: 16px;
         }
 
         .dropdown-item {
-          padding: 10px 20px;
+          padding: 8px 18px;
           cursor: pointer;
           color: #bfdbfe;
           font-weight: 600;
           margin: 0;
-          font-size: 15px;
+          font-size: 14px;
           transition: all 0.2s ease;
           border-radius: 8px;
           border-left: 3px solid transparent;
@@ -1238,7 +1300,6 @@ export default function Navbar({
           border-left: 3px solid #60a5fa;
         }
 
-        /* ===== RESULTADOS DE BÚSQUEDA ===== */
         .search-results-dropdown {
           position: absolute;
           top: calc(100% + 8px);
@@ -1335,10 +1396,10 @@ export default function Navbar({
           border-radius: 30px;
           padding: 2px 4px 2px 18px;
           transition: all 0.3s ease;
-          flex: 1;
-          max-width: 260px;
+          flex: 0 0 240px;
+          max-width: 280px;
           position: relative;
-          height: 38px;
+          height: 40px;
         }
 
         .search-container:focus-within {
@@ -1352,11 +1413,11 @@ export default function Navbar({
           border: none;
           outline: none;
           color: #e2e8f0;
-          font-size: 13px;
+          font-size: 14px;
           padding: 6px 0;
           width: 100%;
           font-weight: 500;
-          height: 30px;
+          height: 32px;
         }
 
         .search-container input::placeholder {
@@ -1368,8 +1429,8 @@ export default function Navbar({
           background: linear-gradient(135deg, #3b82f6, #6366f1);
           border: none;
           color: #fff;
-          width: 32px;
-          height: 32px;
+          width: 34px;
+          height: 34px;
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -1392,11 +1453,11 @@ export default function Navbar({
           border-bottom: 2px solid rgba(59,130,246,0.1);
           display: flex;
           justify-content: center;
-          padding: 8px 0;
+          padding: 6px 0;
           box-shadow: 0 4px 40px rgba(0,0,0,0.2);
           position: relative;
           overflow: visible !important;
-          min-height: 60px;
+          min-height: 52px;
           z-index: 4999;
         }
 
@@ -1407,6 +1468,7 @@ export default function Navbar({
           align-items: center;
           gap: 2px;
           width: 100%;
+          max-width: 1400px;
           padding: 0 15px;
           overflow: visible !important;
           position: relative;
@@ -1570,7 +1632,7 @@ export default function Navbar({
             font-size: 6px !important;
             padding: 1px 5px !important;
             animation: pulse 2s ease infinite;
-            box-shadow: 0 2px 8px rgba(59,130,246,0.2);
+            box-shadow: 0 2px 8px rgba(37,99,235,0.3);
           }
           
           .mobile-dropdown-menu {
@@ -1629,6 +1691,7 @@ export default function Navbar({
           .mobile-menu-item .nuevos-badge {
             font-size: 9px !important;
             padding: 1px 8px !important;
+            background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
           }
 
           .mobile-pagos-container {
@@ -1647,24 +1710,24 @@ export default function Navbar({
             display: flex;
             align-items: center;
             gap: 4px;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 14px;
+            font-size: 11px;
+            font-weight: 600;
             color: #94a3b8;
             background: rgba(255,255,255,0.03);
             white-space: nowrap;
-            height: 24px;
+            height: 26px;
           }
 
           .mobile-pagos-container .pago-item .pago-icon {
-            font-size: 10px;
+            font-size: 11px;
             color: #60a5fa;
           }
 
           .mobile-pagos-container .pago-item.highlight {
             color: #60a5fa;
-            font-weight: 600;
+            font-weight: 700;
             background: rgba(59,130,246,0.06);
           }
 
@@ -1672,9 +1735,8 @@ export default function Navbar({
             color: #f093fb;
           }
 
-          /* ===== BOTÓN PROMOCIONES MÓVIL ===== */
           .mobile-promociones-btn {
-            background: linear-gradient(135deg, #FF6B6B, #EE5A24);
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
             color: #ffffff;
             border: none;
             padding: 4px 12px;
@@ -1687,9 +1749,9 @@ export default function Navbar({
             align-items: center;
             gap: 4px;
             animation: pulse 2s ease infinite;
-            box-shadow: 0 2px 10px rgba(238, 90, 36, 0.3);
+            box-shadow: 0 2px 10px rgba(37,99,235,0.4);
             white-space: nowrap;
-            height: 24px;
+            height: 26px;
           }
 
           .mobile-promociones-btn:hover {
@@ -1771,7 +1833,7 @@ export default function Navbar({
             ? "1px solid rgba(255,255,255,0.04)" 
             : "2px solid rgba(59,130,246,0.08)",
           boxSizing: "border-box",
-          minHeight: isMobileView ? "auto" : "120px",
+          minHeight: isMobileView ? "auto" : "130px",
           transform: isNavbarVisible ? 'translateY(0)' : 'translateY(-100%)',
           opacity: isNavbarVisible ? 1 : 0,
           transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -1785,11 +1847,11 @@ export default function Navbar({
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              justifyContent: 'center',
               width: '100%',
               maxWidth: '1400px',
-              gap: '12px',
-              padding: '2px 0'
+              gap: '16px',
+              padding: '4px 0'
             }}>
               {/* Logo */}
               <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, cursor: 'pointer' }}
@@ -1800,9 +1862,9 @@ export default function Navbar({
                   alt="FRAY FLOORING"
                   className="logo-electric"
                   style={{
-                    height: '80px',
+                    height: '85px',
                     width: 'auto',
-                    maxHeight: '90px',
+                    maxHeight: '95px',
                     objectFit: 'contain',
                     display: 'block'
                   }}
@@ -1814,37 +1876,39 @@ export default function Navbar({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                flex: 1,
-                justifyContent: 'center'
+                flexShrink: 0
               }}>
                 <span className="texto-blue" style={{
-                  fontSize: 'clamp(36px, 4.5vw, 60px)',
+                  fontSize: 'clamp(38px, 4.8vw, 64px)',
                   fontWeight: '900',
                   letterSpacing: '4px',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  lineHeight: '1.1'
                 }}>
                   Fray
                 </span>
                 <span style={{
-                  fontSize: 'clamp(20px, 2.5vw, 38px)',
+                  fontSize: 'clamp(22px, 2.8vw, 40px)',
                   fontWeight: '700',
                   letterSpacing: '6px',
                   whiteSpace: 'nowrap',
                   color: '#ffffff',
                   textShadow: '0 2px 30px rgba(255,255,255,0.05)',
+                  lineHeight: '1.1'
                 }}>
                   Flooring
                 </span>
               </div>
 
-              {/* Buscador, Pagos, Promociones e Iconos */}
+              {/* Buscador + Pagos + Botones */}
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '10px', 
-                flexShrink: 0
+                gap: '12px', 
+                flexShrink: 0,
+                marginLeft: '8px'
               }}>
-                {/* Buscador con resultados en tiempo real */}
+                {/* Buscador */}
                 <div className="search-container" style={{ position: 'relative' }}>
                   <input
                     ref={searchInputRef}
@@ -1867,10 +1931,9 @@ export default function Navbar({
                     }}
                   />
                   <button className="search-btn" onClick={handleSearchSubmit}>
-                    <FaSearch size={13} />
+                    <FaSearch size={14} />
                   </button>
 
-                  {/* Resultados de búsqueda en tiempo real */}
                   {mostrarResultados && resultadosBusqueda.length > 0 && (
                     <div className="search-results-dropdown">
                       {resultadosBusqueda.map((p) => (
@@ -1916,7 +1979,7 @@ export default function Navbar({
                   )}
                 </div>
 
-                {/* Contenedor de Pagos - MÁS GRANDE */}
+                {/* Contenedor de Pagos */}
                 <div className="pagos-container">
                   <div className="pago-item highlight">
                     <FaCreditCard className="pago-icon" />
@@ -1932,66 +1995,40 @@ export default function Navbar({
                   </div>
                   <div className="pago-item highlight">
                     <FaCalendarCheck className="pago-icon" />
-                    Meses sin intereses
+                    Meses
                   </div>
                 </div>
 
-              {/* Botón Promociones - IGUAL QUE NUEVOS PRODUCTOS */}
-<button 
-  className="promociones-btn" 
-  onClick={() => {
-    // Cerrar menús
-    cerrarMenuCategorias();
-    setMobileMenuOpen(false);
-    setMostrarTiposHover(false);
-    setProductoMostrarTipos(false);
-    if (tiposHoverTimeoutRef.current) {
-      clearTimeout(tiposHoverTimeoutRef.current);
-      tiposHoverTimeoutRef.current = null;
-    }
-    setMostrarResultados(false);
-    setResultadosBusqueda([]);
-    setBusqueda("");
-    
-    // Navegar a la página principal con el hash #ofertas
-    navigate("/#ofertas");
-    
-    // Hacer scroll a la sección de ofertas después de que la página cargue
-    setTimeout(() => {
-      const ofertasSection = document.getElementById('productos-oferta');
-      if (ofertasSection) {
-        ofertasSection.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start' 
-        });
-      }
-    }, 600);
-  }}
->
-  <FaGift className="btn-icon" />
-  Promociones
-</button>
-                {/* Iconos Sociales */}
-                <div className="social-desktop" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <SocialIcon color="#1877F2" href="https://www.facebook.com/people/FRAY-Flooring/61587688868988/">
-                    <FaFacebookF size={16} />
-                  </SocialIcon>
-                  <SocialIcon color="#E4405F" href="https://www.instagram.com/fray_flooring?igsh=b3pucDR1bjltMGQ2">
-                    <FaInstagram size={16} />
-                  </SocialIcon>
-                  <SocialIcon color="#010101" href="https://www.tiktok.com/@fray_flooring6">
-                    <FaTiktok size={16} />
-                  </SocialIcon>
-                  <SocialIcon color="#25D366" href="https://wa.me/525610026370">
-                    <FaWhatsapp size={16} />
-                  </SocialIcon>
-                  <SocialIcon color="#FF0000" href="https://www.youtube.com/@FrayFlooring" isYoutube={true}>
-                    <FaYoutube size={16} />
-                  </SocialIcon>
-                  <SocialIcon color="#38bdf8" href="tel:+525610026370">
-                    <FaPhone size={16} />
-                  </SocialIcon>
-                </div>
+                {/* Botón Promociones */}
+                <button 
+                  className="promociones-btn" 
+                  onClick={irAOfertas}
+                >
+                  <FaGift className="btn-icon" />
+                  Promociones
+                </button>
+              </div>
+
+              {/* Iconos Sociales */}
+              <div className="social-desktop" style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                <SocialIcon color="#1877F2" href="https://www.facebook.com/people/FRAY-Flooring/61587688868988/">
+                  <FaFacebookF size={16} />
+                </SocialIcon>
+                <SocialIcon color="#E4405F" href="https://www.instagram.com/fray_flooring?igsh=b3pucDR1bjltMGQ2">
+                  <FaInstagram size={16} />
+                </SocialIcon>
+                <SocialIcon color="#010101" href="https://www.tiktok.com/@fray_flooring6">
+                  <FaTiktok size={16} />
+                </SocialIcon>
+                <SocialIcon color="#25D366" href="https://wa.me/525610026370">
+                  <FaWhatsapp size={16} />
+                </SocialIcon>
+                <SocialIcon color="#FF0000" href="https://www.youtube.com/@FrayFlooring" isYoutube={true}>
+                  <FaYoutube size={16} />
+                </SocialIcon>
+                <SocialIcon color="#38bdf8" href="tel:+525610026370">
+                  <FaPhone size={16} />
+                </SocialIcon>
               </div>
             </div>
           </>
@@ -2053,7 +2090,6 @@ export default function Navbar({
               </button>
             </div>
 
-            {/* Pagos en móvil - MÁS GRANDE */}
             <div className="mobile-pagos-container">
               <div className="pago-item highlight">
                 <FaCreditCard className="pago-icon" />
@@ -2069,7 +2105,7 @@ export default function Navbar({
               </div>
               <div className="pago-item highlight">
                 <FaCalendarCheck className="pago-icon" />
-                Meses sin intereses
+                Meses
               </div>
               <button className="mobile-promociones-btn" onClick={irAOfertas}>
                 <FaGift size={9} />
@@ -2091,7 +2127,7 @@ export default function Navbar({
                 Pedido
               </button>
               <button className="mobile-nav-link" onClick={() => navigate("/#productos-nuevos")}>
-                <span className="nuevos-badge">✨NUEVOS</span>
+                <span className="nuevos-badge" style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>✨NUEVOS</span>
               </button>
             </div>
 
@@ -2121,18 +2157,25 @@ export default function Navbar({
                 </button>
                 {productosMobileOpen && (
                   <div style={{ marginLeft: '4px', maxHeight: '200px', overflowY: 'auto' }}>
-                    {categorias.map(cat => (
+                    {categoriasMostrar.map(cat => (
                       <button key={cat.id} className="mobile-menu-item"
-                        onClick={() => { handleVerTodasClick(cat.id); setMobileMenuOpen(false); }}
+                        onClick={() => { 
+                          if (cat.nombre) {
+                            handleCategoriaPredefinidaClick(cat.nombre);
+                          } else {
+                            handleVerTodasClick(cat.id);
+                          }
+                          setMobileMenuOpen(false);
+                        }}
                         style={{ paddingLeft: '24px', fontSize: '12px' }}>
-                        {cat.nombre}
+                        {cat.nombre || cat.name}
                       </button>
                     ))}
                   </div>
                 )}
                 
                 <button className="mobile-menu-item" onClick={() => { navigate("/#productos-nuevos"); setMobileMenuOpen(false); }}>
-                  <span className="nuevos-badge" style={{ fontSize: '10px', padding: '1px 10px' }}>✨ NUEVOS</span>
+                  <span className="nuevos-badge" style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)', fontSize: '10px', padding: '1px 10px' }}>✨ NUEVOS</span>
                 </button>
                 
                 <button className="mobile-menu-item" onClick={() => setCategoriasMobileOpen(!categoriasMobileOpen)}>
@@ -2141,7 +2184,7 @@ export default function Navbar({
                 </button>
                 {categoriasMobileOpen && (
                   <div style={{ marginLeft: '4px', maxHeight: '200px', overflowY: 'auto' }}>
-                    {categorias.map(cat => (
+                    {categoriasMostrar.map(cat => (
                       <div key={cat.id}>
                         <button className="mobile-menu-item" onClick={() => handleMobileCategoria(cat.id)}
                           style={{ 
@@ -2150,7 +2193,7 @@ export default function Navbar({
                             paddingLeft: '24px',
                             fontSize: '12px'
                           }}>
-                          {cat.nombre} {categoriaSeleccionada === cat.id ? '▼' : '►'}
+                          {cat.nombre || cat.name} {categoriaSeleccionada === cat.id ? '▼' : '►'}
                         </button>
                         {categoriaSeleccionada === cat.id && (
                           <div style={{ marginLeft: '8px' }}>
@@ -2207,7 +2250,7 @@ export default function Navbar({
           className="links-container"
           style={{
             position: 'fixed',
-            top: isNavbarVisible ? '120px' : '-100%',
+            top: isNavbarVisible ? '130px' : '-100%',
             left: 0,
             right: 0,
             zIndex: 4999,
@@ -2216,7 +2259,7 @@ export default function Navbar({
             transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
             pointerEvents: isNavbarVisible ? 'auto' : 'none',
             padding: '6px 0',
-            minHeight: '55px',
+            minHeight: '52px',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -2244,22 +2287,22 @@ export default function Navbar({
                     className="dropdown-item"
                     onClick={irATodosLosProductos}
                     style={{
-                      padding: '10px 20px',
+                      padding: '8px 18px',
                       cursor: 'pointer',
                       color: '#bfdbfe',
                       fontWeight: '700',
-                      fontSize: '16px',
+                      fontSize: '15px',
                       transition: 'all 0.2s ease',
                       borderRadius: '8px',
                       borderLeft: '3px solid #60a5fa',
                       background: 'rgba(59,130,246,0.04)',
-                      marginBottom: '6px'
+                      marginBottom: '4px'
                     }}
                   >
                     🛍 Todos nuestros productos
                   </div>
 
-                  <div style={{ height: '2px', background: 'rgba(255,255,255,0.05)', margin: '6px 10px' }} />
+                  <div style={{ height: '2px', background: 'rgba(255,255,255,0.05)', margin: '4px 10px' }} />
 
                   {subcategorias && subcategorias.length > 0 ? (
                     subcategorias.map(sub => {
@@ -2279,11 +2322,11 @@ export default function Navbar({
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
-                              padding: '8px 18px',
+                              padding: '6px 16px',
                               cursor: 'pointer',
                               color: '#bfdbfe',
                               fontWeight: '600',
-                              fontSize: '14px',
+                              fontSize: '13px',
                               transition: 'all 0.2s ease',
                               borderRadius: '8px',
                               borderLeft: '3px solid transparent'
@@ -2303,12 +2346,12 @@ export default function Navbar({
                               onMouseLeave={handleProductoTiposHoverLeave}
                             >
                               <div style={{ 
-                                padding: '8px 14px 10px', 
+                                padding: '6px 12px 8px', 
                                 color: '#ffffff', 
-                                fontSize: '13px', 
+                                fontSize: '12px', 
                                 fontWeight: '700',
                                 borderBottom: '2px solid rgba(255,255,255,0.05)',
-                                marginBottom: '6px'
+                                marginBottom: '4px'
                               }}>
                                 📦 {sub.nombre}
                               </div>
@@ -2318,11 +2361,11 @@ export default function Navbar({
                                   className="dropdown-item"
                                   onClick={() => handleTipoClick(tipo.id)}
                                   style={{
-                                    padding: '8px 18px',
+                                    padding: '6px 16px',
                                     cursor: 'pointer',
                                     color: '#c7d2fe',
                                     fontWeight: '500',
-                                    fontSize: '13px',
+                                    fontSize: '12px',
                                     transition: 'all 0.2s ease',
                                     borderRadius: '8px',
                                     borderLeft: '2.5px solid transparent'
@@ -2331,16 +2374,16 @@ export default function Navbar({
                                   • {tipo.nombre}
                                 </div>
                               ))}
-                              <div style={{ height: '2px', background: 'rgba(255,255,255,0.04)', margin: '6px 10px' }} />
+                              <div style={{ height: '2px', background: 'rgba(255,255,255,0.04)', margin: '4px 10px' }} />
                               <div 
                                 className="dropdown-item"
                                 onClick={() => handleSubcategoriaClick(sub.nombre)}
                                 style={{
-                                  padding: '8px 18px',
+                                  padding: '6px 16px',
                                   cursor: 'pointer',
                                   color: '#60a5fa',
                                   fontWeight: '700',
-                                  fontSize: '13px',
+                                  fontSize: '12px',
                                   transition: 'all 0.2s ease',
                                   borderRadius: '8px',
                                   borderLeft: '2.5px solid transparent',
@@ -2355,7 +2398,7 @@ export default function Navbar({
                       );
                     })
                   ) : (
-                    <div style={{ padding: '10px 18px', color: '#94a3b8', fontSize: '14px' }}>
+                    <div style={{ padding: '8px 16px', color: '#94a3b8', fontSize: '13px' }}>
                       No hay subcategorías disponibles
                     </div>
                   )}
@@ -2383,14 +2426,14 @@ export default function Navbar({
         </div>
       )}
 
-      {/* ===== CATEGORÍAS CON FLECHAS CENTRADAS - MÁS ALTO ===== */}
+      {/* ===== CATEGORÍAS - CON LAS CATEGORÍAS PREDEFINIDAS ===== */}
       {!isMobileView && categoriasMostrar && categoriasMostrar.length > 0 && (
         <div 
           ref={categoriasScrollRef}
           className="categorias-container"
           style={{
             position: 'fixed',
-            top: isNavbarVisible ? '175px' : '-100%',
+            top: isNavbarVisible ? '182px' : '-100%',
             left: 0,
             right: 0,
             zIndex: 4998,
@@ -2420,7 +2463,7 @@ export default function Navbar({
               onClick={() => scrollCategories('left')}
               aria-label="Desplazar categorías a la izquierda"
             >
-              <FaChevronLeft size={16} />
+              <FaChevronLeft size={14} />
             </button>
 
             <div 
@@ -2442,13 +2485,13 @@ export default function Navbar({
                     }}
                     onClick={() => {
                       if (cat.nombre) {
-                        handleSubcategoriaClick(cat.nombre);
+                        handleCategoriaPredefinidaClick(cat.nombre);
                       } else if (cat.id) {
                         handleVerTodasClick(cat.id);
                       }
                     }}
                     onMouseEnter={() => {
-                      if (cat.id && cat.nombre) {
+                      if (cat.id && cat.nombre && !cat.nombre.includes('DECK') && !cat.nombre.includes('LAMBININ')) {
                         handleSubcategoriaHoverScroll(cat.id, cat.nombre);
                       }
                     }}
@@ -2466,7 +2509,7 @@ export default function Navbar({
               onClick={() => scrollCategories('right')}
               aria-label="Desplazar categorías a la derecha"
             >
-              <FaChevronRight size={16} />
+              <FaChevronRight size={14} />
             </button>
           </div>
         </div>
@@ -2478,7 +2521,7 @@ export default function Navbar({
           ref={tiposMenuRef}
           className="tipos-hover-menu"
           style={{
-            top: isNavbarVisible ? '330px' : '-100%',
+            top: isNavbarVisible ? '312px' : '-100%',
             opacity: isNavbarVisible ? 1 : 0,
             transition: 'all 0.3s ease',
           }}
@@ -2512,10 +2555,44 @@ export default function Navbar({
 
       {/* ===== OVERLAY DE BÚSQUEDA (Móvil) ===== */}
       {mostrarBuscador && isMobileView && (
-        <div className="search-overlay" onClick={toggleBuscador}>
-          <div className="search-overlay-content" onClick={(e) => e.stopPropagation()}>
-            <button className="search-overlay-close" onClick={toggleBuscador}>
-              <FaTimes size={24} />
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(10px)',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'center',
+          paddingTop: '60px',
+          paddingLeft: '20px',
+          paddingRight: '20px'
+        }} onClick={toggleBuscador}>
+          <div style={{
+            background: 'rgba(15,23,42,0.95)',
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            border: '1px solid rgba(59,130,246,0.2)',
+            position: 'relative'
+          }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={toggleBuscador} style={{
+              position: 'absolute',
+              top: '12px',
+              right: '16px',
+              background: 'transparent',
+              border: 'none',
+              color: '#94a3b8',
+              fontSize: '20px',
+              cursor: 'pointer'
+            }}>
+              <FaTimes />
             </button>
             <input
               type="text"
@@ -2547,24 +2624,44 @@ export default function Navbar({
                   toggleBuscador();
                 }
               }}
-              className="search-overlay-input"
+              style={{
+                width: '100%',
+                padding: '14px 18px',
+                borderRadius: '12px',
+                border: '2px solid rgba(59,130,246,0.2)',
+                background: 'rgba(255,255,255,0.05)',
+                color: '#e2e8f0',
+                fontSize: '16px',
+                outline: 'none',
+                transition: 'all 0.3s ease'
+              }}
               autoFocus
             />
             {busqueda.trim() !== "" && resultadosBusqueda.length > 0 && (
               <div style={{ marginTop: '16px', maxHeight: '350px', overflowY: 'auto' }}>
                 {resultadosBusqueda.map((p) => (
-                  <div key={p.id} className="search-result-item"
-                    onClick={() => { navigate(`/producto/${p.id}`); toggleBuscador(); }}>
+                  <div key={p.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '10px 14px',
+                    cursor: 'pointer',
+                    borderRadius: '10px',
+                    transition: 'all 0.2s ease',
+                    borderBottom: '1px solid rgba(59,130,246,0.05)'
+                  }}
+                  onClick={() => { navigate(`/producto/${p.id}`); toggleBuscador(); }}>
                     <img 
                       src={obtenerImagen(p)} 
                       alt={p.nombre}
+                      style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '8px' }}
                       onError={(e) => {
                         e.target.src = "https://via.placeholder.com/200?text=Sin+imagen";
                       }}
                     />
-                    <div>
-                      <h4>{p.nombre}</h4>
-                      <p>${p.precio}</p>
+                    <div style={{ flex: 1 }}>
+                      <h4 style={{ margin: 0, color: '#e2e8f0', fontSize: '14px', fontWeight: '600' }}>{p.nombre}</h4>
+                      <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>${p.precio}</p>
                     </div>
                   </div>
                 ))}
