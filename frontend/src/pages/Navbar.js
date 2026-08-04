@@ -20,6 +20,12 @@ import {
   FaMoneyBillWave,
   FaCalendarCheck,
   FaGift,
+  FaHeart,
+  FaBalanceScale,
+  FaCalculator,
+  FaBox,
+  FaFolderOpen,
+  FaChevronDown,
 } from "react-icons/fa";
 import api from "../services/api";
 
@@ -37,7 +43,6 @@ const getImageUrl = (imagen) => {
   return `${API_BASE}/${imagen}`;
 };
 
-// ===== CATEGORÍAS PREDEFINIDAS =====
 const CATEGORIAS_PREDEFINIDAS = [
   { id: 1, nombre: "MÁRMOL", icon: "✦" },
   { id: 2, nombre: "ALFOMBRA", icon: "✦" },
@@ -52,7 +57,6 @@ const CATEGORIAS_PREDEFINIDAS = [
   { id: 11, nombre: "PASTO SINTETICO", icon: "✦" },
 ];
 
-// ===== COLORES PARA LAS CATEGORÍAS =====
 const categoryColors = [
   { bg: 'linear-gradient(135deg, #FF6B6B, #EE5A24)', border: '#EE5A24', text: '#ffffff' },
   { bg: 'linear-gradient(135deg, #FECA57, #FF9F43)', border: '#FF9F43', text: '#2d3436' },
@@ -79,7 +83,6 @@ export default function Navbar({
   esFavorito,
   isMobile
 }) {
-
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -107,6 +110,14 @@ export default function Navbar({
   const [tiposLocal, setTiposLocal] = useState([]);
   const [productosMobileOpen, setProductosMobileOpen] = useState(false);
   const [categoriasMobileOpen, setCategoriasMobileOpen] = useState(false);
+  const [productosSubmenuOpen, setProductosSubmenuOpen] = useState(false);
+  const [productosSubmenuData, setProductosSubmenuData] = useState([]);
+  const [productosSubmenuTitle, setProductosSubmenuTitle] = useState("");
+  const [mobileProductosOpen, setMobileProductosOpen] = useState(false);
+  const [mobileProductosSubOpen, setMobileProductosSubOpen] = useState(false);
+  const [mobileProductosData, setMobileProductosData] = useState([]);
+  const [mobileProductosSubData, setMobileProductosSubData] = useState([]);
+  const [mobileProductosTitle, setMobileProductosTitle] = useState("");
 
   const menuCategoriasRef = useRef(null);
   const navbarRef = useRef(null);
@@ -120,12 +131,10 @@ export default function Navbar({
   const searchInputRef = useRef(null);
   const searchTimeoutRef = useRef(null);
 
-  // ===== USAR CATEGORÍAS PREDEFINIDAS SI NO HAY DATOS =====
   const categoriasMostrar = subcategorias.length > 0 ? subcategorias : 
                             categorias.length > 0 ? categorias : 
                             CATEGORIAS_PREDEFINIDAS;
 
-  // ===== BÚSQUEDA EN TIEMPO REAL =====
   useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -158,7 +167,6 @@ export default function Navbar({
     };
   }, [busqueda, productos]);
 
-  // Limpiar menús al cambiar de ruta
   useEffect(() => {
     setMenuProductosAbierto(false);
     setMenuCategoriasAbierto(false);
@@ -175,6 +183,9 @@ export default function Navbar({
     setMostrarTipos(false);
     setMostrarResultados(false);
     setResultadosBusqueda([]);
+    setProductosSubmenuOpen(false);
+    setMobileProductosOpen(false);
+    setMobileProductosSubOpen(false);
     if (tiposHoverTimeoutRef.current) {
       clearTimeout(tiposHoverTimeoutRef.current);
       tiposHoverTimeoutRef.current = null;
@@ -321,8 +332,8 @@ export default function Navbar({
 
   const SocialIcon = ({ children, color, href, size = "normal", isYoutube = false }) => {
     const isMobileIcon = size === "small";
-    const sizePx = isMobileIcon ? "26px" : "46px";
-    const iconSize = isMobileIcon ? "10px" : "18px";
+    const sizePx = isMobileIcon ? "24px" : "46px";
+    const iconSize = isMobileIcon ? "9px" : "18px";
     
     return (
       <a
@@ -470,6 +481,9 @@ export default function Navbar({
     setMobileMenuOpen(false);
     setMostrarTiposHover(false);
     setProductoMostrarTipos(false);
+    setProductosSubmenuOpen(false);
+    setMobileProductosOpen(false);
+    setMobileProductosSubOpen(false);
     if (tiposHoverTimeoutRef.current) {
       clearTimeout(tiposHoverTimeoutRef.current);
       tiposHoverTimeoutRef.current = null;
@@ -488,6 +502,9 @@ export default function Navbar({
     setMostrarTiposHover(false);
     setProductoMostrarTipos(false);
     setMobileMenuOpen(false);
+    setProductosSubmenuOpen(false);
+    setMobileProductosOpen(false);
+    setMobileProductosSubOpen(false);
     if (tiposHoverTimeoutRef.current) {
       clearTimeout(tiposHoverTimeoutRef.current);
       tiposHoverTimeoutRef.current = null;
@@ -500,6 +517,9 @@ export default function Navbar({
     setMobileMenuOpen(false);
     setMostrarTiposHover(false);
     setProductoMostrarTipos(false);
+    setProductosSubmenuOpen(false);
+    setMobileProductosOpen(false);
+    setMobileProductosSubOpen(false);
   };
 
   const irATodosLosProductos = () => {
@@ -512,12 +532,18 @@ export default function Navbar({
     setMostrarResultados(false);
     setResultadosBusqueda([]);
     setBusqueda("");
+    setProductosSubmenuOpen(false);
+    setMobileProductosOpen(false);
+    setMobileProductosSubOpen(false);
   };
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
     if (!mobileMenuOpen) {
       cerrarMenuCategorias();
+      setProductosSubmenuOpen(false);
+      setMobileProductosOpen(false);
+      setMobileProductosSubOpen(false);
     }
   };
 
@@ -560,6 +586,9 @@ export default function Navbar({
     setMobileMenuOpen(false);
     setMostrarTiposHover(false);
     setProductoMostrarTipos(false);
+    setProductosSubmenuOpen(false);
+    setMobileProductosOpen(false);
+    setMobileProductosSubOpen(false);
     if (tiposHoverTimeoutRef.current) {
       clearTimeout(tiposHoverTimeoutRef.current);
       tiposHoverTimeoutRef.current = null;
@@ -571,6 +600,9 @@ export default function Navbar({
     setMobileMenuOpen(false);
     setMostrarTiposHover(false);
     setProductoMostrarTipos(false);
+    setProductosSubmenuOpen(false);
+    setMobileProductosOpen(false);
+    setMobileProductosSubOpen(false);
     if (tiposHoverTimeoutRef.current) {
       clearTimeout(tiposHoverTimeoutRef.current);
       tiposHoverTimeoutRef.current = null;
@@ -624,9 +656,7 @@ export default function Navbar({
     }
   };
 
-  // Función para manejar el clic en una categoría predefinida
   const handleCategoriaPredefinidaClick = (nombre) => {
-    // Buscar si existe una subcategoría con ese nombre
     const subcategoriaEncontrada = subcategorias.find(
       sub => sub.nombre && sub.nombre.toUpperCase() === nombre.toUpperCase()
     );
@@ -634,14 +664,12 @@ export default function Navbar({
     if (subcategoriaEncontrada) {
       navigate(`/subcategoria/${encodeURIComponent(subcategoriaEncontrada.nombre)}`);
     } else {
-      // Si no hay subcategoría, buscar por categoría
       const categoriaEncontrada = categorias.find(
         cat => cat.nombre && cat.nombre.toUpperCase() === nombre.toUpperCase()
       );
       if (categoriaEncontrada) {
         navigate(`/categoria-id/${categoriaEncontrada.id}`);
       } else {
-        // Si no hay coincidencia, ir a productos con filtro
         navigate(`/productos?buscar=${encodeURIComponent(nombre)}`);
       }
     }
@@ -649,15 +677,73 @@ export default function Navbar({
     setMobileMenuOpen(false);
     setMostrarTiposHover(false);
     setProductoMostrarTipos(false);
+    setProductosSubmenuOpen(false);
+    setMobileProductosOpen(false);
+    setMobileProductosSubOpen(false);
     if (tiposHoverTimeoutRef.current) {
       clearTimeout(tiposHoverTimeoutRef.current);
       tiposHoverTimeoutRef.current = null;
     }
   };
 
+  const toggleMobileProductos = () => {
+    if (!mobileProductosOpen) {
+      let items = [];
+      if (subcategorias && subcategorias.length > 0) {
+        items = subcategorias.map(sub => ({
+          id: sub.id,
+          nombre: sub.nombre,
+          categoria_id: sub.categoria_id,
+          tieneSubitems: tiposUsar.some(t => Number(t.subcategoria_id) === Number(sub.id))
+        }));
+        setMobileProductosTitle("Subcategorías");
+      } else if (categoriasMostrar && categoriasMostrar.length > 0) {
+        items = categoriasMostrar.map(cat => ({
+          id: cat.id,
+          nombre: cat.nombre || cat.name,
+          categoria_id: cat.categoria_id || null,
+          tieneSubitems: subcategorias.some(sub => Number(sub.categoria_id) === Number(cat.id))
+        }));
+        setMobileProductosTitle("Categorías");
+      }
+      setMobileProductosData(items);
+      setMobileProductosOpen(true);
+      setMobileProductosSubOpen(false);
+    } else {
+      setMobileProductosOpen(false);
+      setMobileProductosSubOpen(false);
+      setMobileProductosData([]);
+      setMobileProductosSubData([]);
+    }
+  };
+
+  const openMobileProductosSub = (itemId, itemNombre) => {
+    const tiposFiltrados = tiposUsar.filter(t => Number(t.subcategoria_id) === Number(itemId));
+    if (tiposFiltrados.length > 0) {
+      setMobileProductosSubData(tiposFiltrados);
+      setMobileProductosSubOpen(true);
+      setMobileProductosTitle(itemNombre);
+    } else {
+      handleSubcategoriaClick(itemNombre);
+      setMobileProductosOpen(false);
+      setMobileMenuOpen(false);
+    }
+  };
+
+  const closeMobileProductosSub = () => {
+    setMobileProductosSubOpen(false);
+    setMobileProductosSubData([]);
+    if (subcategorias && subcategorias.length > 0) {
+      setMobileProductosTitle("Subcategorías");
+    } else {
+      setMobileProductosTitle("Categorías");
+    }
+  };
+
   return (
     <>
       <style>{`
+        /* ===== ANIMACIONES ===== */
         @keyframes slideDown {
           from { transform: translateY(-10px); opacity: 0; }
           to { transform: translateY(0); opacity: 1; }
@@ -691,32 +777,45 @@ export default function Navbar({
           100% { box-shadow: 0 0 5px rgba(59,130,246,0.2), inset 0 0 5px rgba(59,130,246,0.1); }
         }
 
+        /* ===== RESET Y BASE ===== */
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        body {
+          overflow-x: hidden;
+          width: 100%;
+          max-width: 100vw;
+        }
+
         /* ===== CONTENEDOR DE PAGOS ===== */
         .pagos-container {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
           background: rgba(255,255,255,0.03);
-          padding: 6px 16px;
+          padding: 4px 12px;
           border-radius: 25px;
           border: 1px solid rgba(255,255,255,0.06);
           flex-shrink: 0;
           flex-wrap: nowrap;
-          height: 46px;
+          height: 40px;
         }
 
         .pagos-container .pago-item {
           display: flex;
           align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          border-radius: 16px;
-          font-size: 15px;
+          gap: 4px;
+          padding: 4px 10px;
+          border-radius: 14px;
+          font-size: 13px;
           font-weight: 600;
           color: #94a3b8;
           white-space: nowrap;
           transition: all 0.3s ease;
-          height: 32px;
+          height: 28px;
         }
 
         .pagos-container .pago-item:hover {
@@ -726,7 +825,7 @@ export default function Navbar({
         }
 
         .pagos-container .pago-item .pago-icon {
-          font-size: 16px;
+          font-size: 14px;
           color: #60a5fa;
         }
 
@@ -742,13 +841,13 @@ export default function Navbar({
         /* ===== CONTENEDOR DE CATEGORÍAS ===== */
         .categorias-container {
           width: 100%;
-          min-height: 110px;
-          max-height: 130px;
+          min-height: 90px;
+          max-height: 110px;
           background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 100%);
           backdrop-filter: blur(12px);
           border-top: 2px solid rgba(59,130,246,0.15);
           border-bottom: 2px solid rgba(59,130,246,0.15);
-          padding: 8px 20px;
+          padding: 6px 16px;
           position: relative;
           display: flex;
           flex-direction: column;
@@ -773,32 +872,33 @@ export default function Navbar({
         .categorias-header {
           display: flex;
           align-items: center;
-          padding: 0 10px 6px 10px;
+          justify-content: space-between;
+          padding: 0 8px 4px 8px;
           border-bottom: 2px solid rgba(59,130,246,0.1);
-          margin-bottom: 6px;
+          margin-bottom: 4px;
           flex-shrink: 0;
           position: relative;
           z-index: 1;
         }
 
         .categorias-title {
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 800;
           background: linear-gradient(90deg, #60a5fa, #a78bfa, #60a5fa);
           background-size: 200% auto;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
-          letter-spacing: 2px;
+          letter-spacing: 1.5px;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           text-transform: uppercase;
         }
 
         .categorias-title .title-icon {
           color: #60a5fa;
-          font-size: 14px;
+          font-size: 12px;
           -webkit-text-fill-color: initial;
           background: none;
         }
@@ -807,21 +907,20 @@ export default function Navbar({
           background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(99,102,241,0.2));
           border: 2px solid rgba(59,130,246,0.3);
           color: #93c5fd;
-          padding: 6px 18px;
+          padding: 4px 14px;
           border-radius: 20px;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 700;
           cursor: pointer;
-          margin-top: 15px;
           transition: all 0.3s ease;
           display: flex;
           align-items: center;
           gap: 6px;
-           margin-left: 1300px;
           white-space: nowrap;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          height: 32px;
+          height: 28px;
+          flex-shrink: 0;
         }
 
         .ver-todos-btn:hover {
@@ -844,14 +943,14 @@ export default function Navbar({
           display: flex;
           align-items: center;
           flex: 1;
-          min-height: 42px;
-          padding: 0 50px;
+          min-height: 36px;
+          padding: 0 40px;
           z-index: 1;
         }
 
         .categorias-scroll {
           display: flex;
-          gap: 10px;
+          gap: 8px;
           overflow-x: auto;
           scroll-behavior: smooth;
           padding: 2px 0;
@@ -869,12 +968,12 @@ export default function Navbar({
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
-          width: 32px;
-          height: 32px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
           background: rgba(15,23,42,0.95);
           backdrop-filter: blur(12px);
-          border: 2.5px solid rgba(59,130,246,0.3);
+          border: 2px solid rgba(59,130,246,0.3);
           color: #93c5fd;
           display: flex;
           align-items: center;
@@ -882,16 +981,14 @@ export default function Navbar({
           cursor: pointer;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           z-index: 20;
-          font-size: 12px;
-          box-shadow: 0 4px 30px rgba(0,0,0,0.4), 0 0 30px rgba(59,130,246,0.05);
-          opacity: 1 !important;
-          pointer-events: auto !important;
+          font-size: 11px;
+          box-shadow: 0 4px 30px rgba(0,0,0,0.4);
         }
 
         .scroll-arrow:hover {
           background: rgba(59,130,246,0.2);
           border-color: #60a5fa;
-          transform: translateY(-50%) scale(1.12);
+          transform: translateY(-50%) scale(1.1);
           box-shadow: 0 8px 40px rgba(59,130,246,0.3);
           color: #ffffff;
         }
@@ -901,53 +998,39 @@ export default function Navbar({
         }
 
         .scroll-arrow-left {
-          left: 6px;
+          left: 4px;
         }
 
         .scroll-arrow-right {
-          right: 6px;
+          right: 4px;
         }
 
-        /* ===== ESTILO MEJORADO PARA CATEGORÍAS ===== */
+        /* ===== CATEGORÍA ITEM ===== */
         .categoria-item {
           flex: 0 0 auto;
-          padding: 8px 22px;
-          min-width: 120px;
-          border-radius: 14px;
+          padding: 6px 18px;
+          min-width: 100px;
+          border-radius: 12px;
           color: #ffffff;
           font-weight: 700;
-          font-size: 13px;
+          font-size: 12px;
           cursor: pointer;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           white-space: nowrap;
-          letter-spacing: 0.8px;
+          letter-spacing: 0.6px;
           position: relative;
           text-transform: uppercase;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
+          gap: 6px;
           border: 2px solid rgba(255,255,255,0.12);
           background: var(--cat-bg, linear-gradient(135deg, #667eea, #764ba2));
           box-shadow: 0 4px 25px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
           text-shadow: 0 2px 15px rgba(0,0,0,0.3);
-          min-height: 36px;
-          height: 36px;
+          min-height: 32px;
+          height: 32px;
           animation: glowPulse 3s ease-in-out infinite;
-        }
-
-        .categoria-item::before {
-          content: '';
-          position: absolute;
-          top: -1px;
-          left: -1px;
-          right: -1px;
-          bottom: -1px;
-          border-radius: 15px;
-          background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
-          opacity: 0;
-          transition: opacity 0.3s ease;
-          z-index: -1;
         }
 
         .categoria-item:hover {
@@ -957,12 +1040,8 @@ export default function Navbar({
           animation-play-state: paused;
         }
 
-        .categoria-item:hover::before {
-          opacity: 1;
-        }
-
         .categoria-item .cat-icon {
-          font-size: 12px;
+          font-size: 10px;
           opacity: 0.7;
           transition: all 0.3s ease;
         }
@@ -972,19 +1051,7 @@ export default function Navbar({
           transform: scale(1.4) rotate(10deg);
         }
 
-        .categoria-item .cat-badge {
-          position: absolute;
-          top: -4px;
-          right: -4px;
-          background: rgba(59,130,246,0.9);
-          color: #fff;
-          font-size: 7px;
-          font-weight: 700;
-          padding: 1px 6px;
-          border-radius: 20px;
-          border: 1px solid rgba(255,255,255,0.2);
-        }
-
+        /* ===== MENÚS HOVER ===== */
         .tipos-hover-menu {
           position: fixed;
           background: rgba(8,12,30,0.98);
@@ -992,16 +1059,16 @@ export default function Navbar({
           border: 2px solid rgba(59,130,246,0.3);
           border-radius: 18px;
           box-shadow: 0 30px 100px rgba(0,0,0,0.9), 0 0 60px rgba(59,130,246,0.05);
-          padding: 20px 24px;
-          min-width: 200px;
-          max-width: 380px;
-          max-height: 400px;
+          padding: 16px 20px;
+          min-width: 180px;
+          max-width: 340px;
+          max-height: 360px;
           overflow-y: auto;
           z-index: 99999;
           animation: slideDown 0.25s cubic-bezier(0.4, 0, 0.2, 1);
           left: 50%;
           transform: translateX(-50%);
-          margin-top: 12px;
+          margin-top: 10px;
         }
 
         .tipos-hover-menu::-webkit-scrollbar {
@@ -1017,24 +1084,24 @@ export default function Navbar({
         }
 
         .tipos-hover-menu .tipo-item {
-          padding: 10px 18px;
+          padding: 8px 14px;
           cursor: pointer;
           color: #c7d2fe;
           font-weight: 600;
-          font-size: 14px;
+          font-size: 13px;
           transition: all 0.25s ease;
           border-radius: 10px;
-          margin: 3px 0;
+          margin: 2px 0;
           border-left: 3px solid transparent;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
         }
 
         .tipos-hover-menu .tipo-item::before {
           content: '▸';
           color: rgba(59,130,246,0.4);
-          font-size: 12px;
+          font-size: 11px;
           transition: all 0.3s ease;
         }
 
@@ -1045,27 +1112,22 @@ export default function Navbar({
           transform: translateX(4px);
         }
 
-        .tipos-hover-menu .tipo-item:hover::before {
-          color: #60a5fa;
-          transform: translateX(3px);
-        }
-
         .tipos-hover-menu .ver-todos {
           border-top: 2px solid rgba(59,130,246,0.08);
-          padding-top: 12px;
-          margin-top: 6px;
+          padding-top: 10px;
+          margin-top: 4px;
           color: #60a5fa;
           font-weight: 700;
           text-align: center;
           cursor: pointer;
-          padding: 10px 18px;
+          padding: 8px 14px;
           border-radius: 10px;
           transition: all 0.25s ease;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
-          font-size: 14px;
+          gap: 6px;
+          font-size: 13px;
         }
 
         .tipos-hover-menu .ver-todos:hover {
@@ -1073,36 +1135,28 @@ export default function Navbar({
           transform: scale(1.03);
         }
 
-        .tipos-hover-menu .ver-todos .arrow-icon {
-          transition: transform 0.3s ease;
-        }
-
-        .tipos-hover-menu .ver-todos:hover .arrow-icon {
-          transform: translateX(4px);
-        }
-
         .tipos-hover-menu .menu-header {
           border-bottom: 2px solid rgba(59,130,246,0.1);
-          padding-bottom: 10px;
-          margin-bottom: 12px;
+          padding-bottom: 8px;
+          margin-bottom: 10px;
           color: #ffffff;
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 800;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
 
         .tipos-hover-menu .menu-header .header-icon {
           color: #60a5fa;
-          font-size: 14px;
+          font-size: 12px;
         }
 
         .productos-dropdown-menu {
           position: absolute;
-          top: calc(100% + 10px);
+          top: calc(100% + 8px);
           left: 50%;
           transform: translateX(-50%);
           background: rgba(10,10,30,0.98);
@@ -1110,9 +1164,9 @@ export default function Navbar({
           border-radius: 16px;
           box-shadow: 0 30px 80px rgba(0,0,0,0.8);
           padding: 6px;
-          min-width: 260px;
-          max-width: 380px;
-          max-height: 500px;
+          min-width: 220px;
+          max-width: 340px;
+          max-height: 460px;
           overflow-y: visible !important;
           overflow-x: visible !important;
           animation: slideUp 0.25s ease;
@@ -1120,38 +1174,22 @@ export default function Navbar({
           backdrop-filter: blur(10px);
         }
 
-        .productos-dropdown-menu::-webkit-scrollbar {
-          display: none !important;
-        }
-
         .producto-submenu-tipos {
           position: absolute;
-          top: -6px;
-          left: calc(100% + 6px);
+          top: -4px;
+          left: calc(100% + 4px);
           background: rgba(10,10,30,0.98);
           border: 2px solid rgba(59,130,246,0.25);
           border-radius: 14px;
           box-shadow: 0 30px 80px rgba(0,0,0,0.8);
           padding: 6px;
-          min-width: 180px;
-          max-width: 260px;
-          max-height: 350px;
+          min-width: 160px;
+          max-width: 240px;
+          max-height: 320px;
           overflow-y: auto;
           animation: slideUp 0.25s ease;
           z-index: 99999;
           backdrop-filter: blur(10px);
-        }
-
-        .producto-submenu-tipos::-webkit-scrollbar {
-          width: 4px;
-        }
-        .producto-submenu-tipos::-webkit-scrollbar-track {
-          background: rgba(59,130,246,0.03);
-          border-radius: 10px;
-        }
-        .producto-submenu-tipos::-webkit-scrollbar-thumb {
-          background: linear-gradient(180deg, rgba(59,130,246,0.4), rgba(37,99,235,0.2));
-          border-radius: 10px;
         }
 
         .texto-blue {
@@ -1178,9 +1216,9 @@ export default function Navbar({
         .nav-link-hover {
           cursor: pointer;
           font-weight: 700;
-          font-size: clamp(15px, 1.2vw, 18px);
-          padding: 8px 20px;
-          border-radius: 10px;
+          font-size: clamp(13px, 1.1vw, 16px);
+          padding: 6px 16px;
+          border-radius: 8px;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           white-space: nowrap;
           position: relative;
@@ -1189,7 +1227,7 @@ export default function Navbar({
           letter-spacing: 0.5px;
           color: #94a3b8;
           text-transform: uppercase;
-          height: 40px;
+          height: 36px;
           display: flex;
           align-items: center;
         }
@@ -1207,17 +1245,17 @@ export default function Navbar({
           cursor: pointer;
           display: flex;
           align-items: center;
-          gap: 6px;
-          font-size: clamp(15px, 1.2vw, 18px);
+          gap: 4px;
+          font-size: clamp(13px, 1.1vw, 16px);
           font-weight: 700;
-          padding: 8px 20px;
-          border-radius: 10px;
+          padding: 6px 16px;
+          border-radius: 8px;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           letter-spacing: 0.5px;
           position: relative;
           color: #94a3b8;
           text-transform: uppercase;
-          height: 40px;
+          height: 36px;
         }
 
         .desktop-productos-btn:hover {
@@ -1227,32 +1265,30 @@ export default function Navbar({
           box-shadow: 0 4px 30px rgba(59,130,246,0.05);
         }
 
-       .nuevos-badge {
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
-  color: #ffffff;
-  font-size: clamp(13px, 1vw, 16px);
-  font-weight: 800;
-  padding: 8px 22px;
-  border-radius: 999px;
-  border: none;
-  cursor: pointer;
-  animation: pulse 2s ease infinite;
-  box-shadow: 0 4px 30px rgba(37,99,235,0.4);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  transition: all 0.3s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 38px;
-  
-  /* ===== NUEVAS PROPIEDADES PARA UNA SOLA LÍNEA ===== */
-  white-space: nowrap;        /* Evita que el texto se divida en varias líneas */
-  flex-shrink: 0;            /* Evita que el elemento se encoja */
-  min-width: fit-content;    /* Mantiene el ancho mínimo necesario */
-  overflow: hidden;          /* Oculta el desbordamiento */
-  text-overflow: ellipsis;   /* Muestra "..." si el texto es muy largo */
-}
+        .nuevos-badge {
+          background: linear-gradient(135deg, #2563eb, #3b82f6);
+          color: #ffffff;
+          font-size: clamp(11px, 1vw, 14px);
+          font-weight: 800;
+          padding: 6px 18px;
+          border-radius: 999px;
+          border: none;
+          cursor: pointer;
+          animation: pulse 2s ease infinite;
+          box-shadow: 0 4px 30px rgba(37,99,235,0.4);
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+          transition: all 0.3s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          height: 34px;
+          white-space: nowrap;
+          flex-shrink: 0;
+          min-width: fit-content;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
 
         .nuevos-badge:hover {
           transform: scale(1.08) !important;
@@ -1263,20 +1299,20 @@ export default function Navbar({
           background: linear-gradient(135deg, #2563eb, #3b82f6);
           color: #ffffff;
           border: none;
-          padding: 8px 20px;
+          padding: 6px 16px;
           border-radius: 20px;
           font-weight: 700;
-          font-size: 15px;
+          font-size: 13px;
           cursor: pointer;
           transition: all 0.3s ease;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
           animation: pulse 2s ease infinite;
           box-shadow: 0 4px 20px rgba(37,99,235,0.4);
           white-space: nowrap;
           flex-shrink: 0;
-          height: 38px;
+          height: 34px;
         }
 
         .promociones-btn:hover {
@@ -1284,17 +1320,13 @@ export default function Navbar({
           box-shadow: 0 8px 40px rgba(37,99,235,0.6);
         }
 
-        .promociones-btn .btn-icon {
-          font-size: 16px;
-        }
-
         .dropdown-item {
-          padding: 8px 18px;
+          padding: 6px 16px;
           cursor: pointer;
           color: #bfdbfe;
           font-weight: 600;
           margin: 0;
-          font-size: 14px;
+          font-size: 13px;
           transition: all 0.2s ease;
           border-radius: 8px;
           border-left: 3px solid transparent;
@@ -1309,39 +1341,27 @@ export default function Navbar({
 
         .search-results-dropdown {
           position: absolute;
-          top: calc(100% + 8px);
+          top: calc(100% + 6px);
           left: 0;
           right: 0;
           background: rgba(10,10,30,0.98);
           backdrop-filter: blur(20px);
           border: 2px solid rgba(59,130,246,0.2);
           border-radius: 16px;
-          padding: 8px;
-          max-height: 350px;
+          padding: 6px;
+          max-height: 320px;
           overflow-y: auto;
           box-shadow: 0 30px 80px rgba(0,0,0,0.6);
           z-index: 100000;
           animation: slideDown 0.2s ease;
-          min-width: 280px;
-        }
-
-        .search-results-dropdown::-webkit-scrollbar {
-          width: 4px;
-        }
-        .search-results-dropdown::-webkit-scrollbar-track {
-          background: rgba(59,130,246,0.03);
-          border-radius: 10px;
-        }
-        .search-results-dropdown::-webkit-scrollbar-thumb {
-          background: rgba(59,130,246,0.3);
-          border-radius: 10px;
+          min-width: 260px;
         }
 
         .search-result-item {
           display: flex;
           align-items: center;
-          gap: 12px;
-          padding: 8px 14px;
+          gap: 10px;
+          padding: 6px 12px;
           cursor: pointer;
           border-radius: 10px;
           transition: all 0.2s ease;
@@ -1353,46 +1373,31 @@ export default function Navbar({
           transform: scale(1.02);
         }
 
-        .search-result-item:last-child {
-          border-bottom: none;
-        }
-
         .search-result-item img {
-          width: 40px;
-          height: 40px;
+          width: 36px;
+          height: 36px;
           object-fit: cover;
           border-radius: 8px;
-        }
-
-        .search-result-item .result-info {
-          flex: 1;
         }
 
         .search-result-item .result-info h4 {
           margin: 0;
           color: #e2e8f0;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
         }
 
         .search-result-item .result-info p {
           margin: 0;
           color: #94a3b8;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 500;
         }
 
         .search-result-item .result-price {
           color: #60a5fa;
           font-weight: 700;
-          font-size: 14px;
-        }
-
-        .search-no-results {
-          padding: 20px;
-          text-align: center;
-          color: #94a3b8;
-          font-size: 14px;
+          font-size: 13px;
         }
 
         .search-container {
@@ -1401,12 +1406,12 @@ export default function Navbar({
           background: rgba(255,255,255,0.05);
           border: 2px solid rgba(255,255,255,0.08);
           border-radius: 30px;
-          padding: 2px 4px 2px 18px;
+          padding: 2px 4px 2px 16px;
           transition: all 0.3s ease;
-          flex: 0 0 240px;
-          max-width: 280px;
+          flex: 0 0 200px;
+          max-width: 240px;
           position: relative;
-          height: 40px;
+          height: 36px;
         }
 
         .search-container:focus-within {
@@ -1420,11 +1425,11 @@ export default function Navbar({
           border: none;
           outline: none;
           color: #e2e8f0;
-          font-size: 14px;
-          padding: 6px 0;
+          font-size: 13px;
+          padding: 4px 0;
           width: 100%;
           font-weight: 500;
-          height: 32px;
+          height: 28px;
         }
 
         .search-container input::placeholder {
@@ -1436,8 +1441,8 @@ export default function Navbar({
           background: linear-gradient(135deg, #3b82f6, #6366f1);
           border: none;
           color: #fff;
-          width: 34px;
-          height: 34px;
+          width: 30px;
+          height: 30px;
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -1460,11 +1465,11 @@ export default function Navbar({
           border-bottom: 2px solid rgba(59,130,246,0.1);
           display: flex;
           justify-content: center;
-          padding: 6px 0;
+          padding: 4px 0;
           box-shadow: 0 4px 40px rgba(0,0,0,0.2);
           position: relative;
           overflow: visible !important;
-          min-height: 52px;
+          min-height: 44px;
           z-index: 4999;
         }
 
@@ -1476,7 +1481,7 @@ export default function Navbar({
           gap: 2px;
           width: 100%;
           max-width: 1400px;
-          padding: 0 15px;
+          padding: 0 12px;
           overflow: visible !important;
           position: relative;
           z-index: 1;
@@ -1493,24 +1498,31 @@ export default function Navbar({
           .search-container { display: none !important; }
           .pagos-container { display: none !important; }
           .promociones-btn { display: none !important; }
+          .links-container { display: none !important; }
+          .categorias-container { display: none !important; }
           
           .navbar-content {
-            gap: 2px !important;
+            gap: 0 !important;
             padding: 4px 8px !important;
             flex-direction: column !important;
             min-height: auto !important;
             background: rgba(10,10,26,0.98) !important;
             backdrop-filter: blur(20px) !important;
             border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+            align-items: center !important;
+            width: 100% !important;
+            max-width: 100% !important;
           }
           
+          /* ===== LÍNEA 1: Logo + Redes Sociales + Buscador + Hamburguesa ===== */
           .mobile-top-row {
             display: flex !important;
             align-items: center;
-            gap: 3px;
+            gap: 4px;
             width: 100%;
             justify-content: space-between;
             padding: 2px 0;
+            flex-wrap: nowrap;
           }
           
           .mobile-logo {
@@ -1522,17 +1534,18 @@ export default function Navbar({
           }
           
           .mobile-logo img {
-            width: 28px !important;
-            height: 28px !important;
+            width: 26px !important;
+            height: 26px !important;
             object-fit: contain;
           }
           
           .mobile-logo-text {
             display: block !important;
-            font-size: 12px !important;
+            font-size: 13px !important;
             font-weight: 700 !important;
             color: #ffffff !important;
             letter-spacing: 0.3px;
+            white-space: nowrap;
           }
           
           .mobile-logo-text span {
@@ -1542,27 +1555,34 @@ export default function Navbar({
           .mobile-social {
             display: flex !important;
             align-items: center;
-            gap: 2px;
+            gap: 3px;
             flex-shrink: 0;
           }
           
           .mobile-social a {
-            width: 26px !important;
-            height: 26px !important;
-            min-width: 26px !important;
-            min-height: 26px !important;
+            width: 24px !important;
+            height: 24px !important;
+            min-width: 24px !important;
+            min-height: 24px !important;
             font-size: 9px !important;
             border-radius: 50% !important;
-            border: 1px solid rgba(255,255,255,0.04) !important;
+            border: 1px solid rgba(255,255,255,0.06) !important;
+          }
+          
+          .mobile-actions {
+            display: flex !important;
+            align-items: center;
+            gap: 3px;
+            flex-shrink: 0;
           }
           
           .mobile-search-btn {
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.06);
             color: #94a3b8;
-            width: 30px;
-            height: 30px;
-            min-width: 30px;
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
             border-radius: 6px;
             display: flex;
             align-items: center;
@@ -1580,9 +1600,9 @@ export default function Navbar({
           }
           
           .mobile-hamburger-btn {
-            width: 30px !important;
-            height: 30px !important;
-            min-width: 30px !important;
+            width: 28px !important;
+            height: 28px !important;
+            min-width: 28px !important;
             border-radius: 6px !important;
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.06);
@@ -1603,22 +1623,107 @@ export default function Navbar({
             border-color: #60a5fa;
             color: #60a5fa;
           }
-          
+
+          /* ===== CONTENIDO DESPLEGABLE (oculto por defecto) ===== */
+          .mobile-collapsible-content {
+            display: block !important;
+            width: 100%;
+            overflow: hidden;
+            max-height: ${mobileMenuOpen ? '800px' : '0px'};
+            opacity: ${mobileMenuOpen ? 1 : 0};
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+          }
+
+          /* ===== LÍNEA 2: Métodos de pago y promos ===== */
+          .mobile-pagos-container {
+            display: flex !important;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 6px 4px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            margin: 4px 0 2px 0;
+            border: 1px solid rgba(255,255,255,0.04);
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+          }
+
+          .mobile-pagos-container .pago-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 14px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #94a3b8;
+            background: rgba(255,255,255,0.03);
+            white-space: nowrap;
+            height: 24px;
+          }
+
+          .mobile-pagos-container .pago-item .pago-icon {
+            font-size: 10px;
+            color: #60a5fa;
+          }
+
+          .mobile-pagos-container .pago-item.highlight {
+            color: #60a5fa;
+            font-weight: 700;
+            background: rgba(59,130,246,0.06);
+          }
+
+          .mobile-pagos-container .pago-item.highlight .pago-icon {
+            color: #f093fb;
+          }
+
+          .mobile-promociones-btn {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: #ffffff;
+            border: none;
+            padding: 3px 12px;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 9px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            animation: pulse 2s ease infinite;
+            box-shadow: 0 2px 10px rgba(37,99,235,0.4);
+            white-space: nowrap;
+            height: 24px;
+          }
+
+          .mobile-promociones-btn:hover {
+            transform: scale(1.05);
+          }
+
+          /* ===== LÍNEA 3: Navegación principal ===== */
+          .mobile-nav-links-wrapper {
+            display: flex !important;
+            flex-direction: column;
+            width: 100%;
+            overflow: visible !important;
+          }
+
           .mobile-nav-links {
             display: flex !important;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 2px;
-            padding: 4px 0 2px 0;
-            border-top: 1px solid rgba(255,255,255,0.03);
+            gap: 4px;
+            padding: 6px 0 4px 0;
+            border-top: 1px solid rgba(255,255,255,0.04);
             width: 100%;
           }
           
           .mobile-nav-link {
-            font-size: 10px;
+            font-size: 11px !important;
             font-weight: 700;
-            padding: 3px 8px;
-            border-radius: 4px;
+            padding: 4px 10px;
+            border-radius: 6px;
             cursor: pointer;
             transition: all 0.3s ease;
             background: transparent;
@@ -1627,7 +1732,7 @@ export default function Navbar({
             white-space: nowrap;
             display: flex;
             align-items: center;
-            gap: 2px;
+            gap: 4px;
           }
           
           .mobile-nav-link:hover {
@@ -1636,10 +1741,11 @@ export default function Navbar({
           }
           
           .mobile-nav-link .nuevos-badge {
-            font-size: 6px !important;
-            padding: 1px 5px !important;
+            font-size: 7px !important;
+            padding: 2px 8px !important;
             animation: pulse 2s ease infinite;
             box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+            height: 18px !important;
           }
           
           .mobile-dropdown-menu {
@@ -1652,7 +1758,7 @@ export default function Navbar({
             backdrop-filter: blur(20px);
             border-radius: 0 0 16px 16px;
             box-shadow: 0 25px 80px rgba(0,0,0,0.6);
-            padding: 4px 0;
+            padding: 6px 0;
             max-height: calc(100vh - 80px);
             overflow-y: auto;
             animation: slideDown 0.3s ease;
@@ -1677,16 +1783,16 @@ export default function Navbar({
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 14px;
+            padding: 10px 14px;
             cursor: pointer;
             transition: all 0.2s ease;
             border: none;
             background: transparent;
             width: 100%;
             text-align: left;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
-            border-radius: 6px;
+            border-radius: 8px;
             color: #c7d2fe;
           }
           
@@ -1696,77 +1802,11 @@ export default function Navbar({
           }
           
           .mobile-menu-item .nuevos-badge {
-            font-size: 9px !important;
-            padding: 1px 8px !important;
+            font-size: 10px !important;
+            padding: 2px 8px !important;
             background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
+            height: 22px !important;
           }
-
-          .mobile-pagos-container {
-            display: flex !important;
-            flex-wrap: wrap;
-            gap: 4px;
-            padding: 6px 4px;
-            background: rgba(255,255,255,0.02);
-            border-radius: 8px;
-            margin: 2px 0;
-            border: 1px solid rgba(255,255,255,0.04);
-            align-items: center;
-          }
-
-          .mobile-pagos-container .pago-item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 10px;
-            border-radius: 14px;
-            font-size: 11px;
-            font-weight: 600;
-            color: #94a3b8;
-            background: rgba(255,255,255,0.03);
-            white-space: nowrap;
-            height: 26px;
-          }
-
-          .mobile-pagos-container .pago-item .pago-icon {
-            font-size: 11px;
-            color: #60a5fa;
-          }
-
-          .mobile-pagos-container .pago-item.highlight {
-            color: #60a5fa;
-            font-weight: 700;
-            background: rgba(59,130,246,0.06);
-          }
-
-          .mobile-pagos-container .pago-item.highlight .pago-icon {
-            color: #f093fb;
-          }
-
-          .mobile-promociones-btn {
-            background: linear-gradient(135deg, #2563eb, #3b82f6);
-            color: #ffffff;
-            border: none;
-            padding: 4px 12px;
-            border-radius: 14px;
-            font-weight: 700;
-            font-size: 10px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            animation: pulse 2s ease infinite;
-            box-shadow: 0 2px 10px rgba(37,99,235,0.4);
-            white-space: nowrap;
-            height: 26px;
-          }
-
-          .mobile-promociones-btn:hover {
-            transform: scale(1.05);
-          }
-          
-          .links-container { display: none !important; }
-          .categorias-container { display: none !important; }
           
           .tipos-hover-menu { 
             position: fixed !important;
@@ -1774,7 +1814,7 @@ export default function Navbar({
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
             width: 90% !important;
-            max-width: 350px !important;
+            max-width: 340px !important;
             z-index: 999999 !important;
             margin-top: 0 !important;
           }
@@ -1785,34 +1825,253 @@ export default function Navbar({
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
             width: 90% !important;
-            max-width: 400px !important;
+            max-width: 380px !important;
             z-index: 999999 !important;
-            max-height: 400px !important;
+            max-height: 380px !important;
+          }
+
+          .mobile-productos-overlay {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0,0,0,0.7) !important;
+            backdrop-filter: blur(5px) !important;
+            z-index: 100000 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 20px !important;
+          }
+
+          .mobile-productos-content {
+            background: rgba(10,10,30,0.98) !important;
+            border: 2px solid rgba(59,130,246,0.3) !important;
+            border-radius: 20px !important;
+            padding: 20px !important;
+            max-width: 400px !important;
+            width: 100% !important;
+            max-height: 80vh !important;
+            overflow-y: auto !important;
+            animation: slideDown 0.3s ease !important;
+            box-shadow: 0 30px 100px rgba(0,0,0,0.8) !important;
+          }
+
+          .mobile-productos-content::-webkit-scrollbar {
+            width: 4px !important;
+          }
+          .mobile-productos-content::-webkit-scrollbar-track {
+            background: rgba(59,130,246,0.03) !important;
+            border-radius: 10px !important;
+          }
+          .mobile-productos-content::-webkit-scrollbar-thumb {
+            background: rgba(59,130,246,0.4) !important;
+            border-radius: 10px !important;
+          }
+
+          .mobile-productos-title {
+            font-size: 17px !important;
+            font-weight: 800 !important;
+            color: #ffffff !important;
+            padding-bottom: 12px !important;
+            border-bottom: 2px solid rgba(59,130,246,0.15) !important;
+            margin-bottom: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+          }
+
+          .mobile-productos-close {
+            background: rgba(255,255,255,0.05) !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            color: #94a3b8 !important;
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            transition: all 0.3s ease !important;
+            font-size: 14px !important;
+          }
+
+          .mobile-productos-close:hover {
+            background: rgba(59,130,246,0.1) !important;
+            color: #ffffff !important;
+            border-color: #60a5fa !important;
+          }
+
+          .mobile-productos-item {
+            padding: 10px 14px !important;
+            cursor: pointer !important;
+            color: #c7d2fe !important;
+            font-weight: 600 !important;
+            font-size: 14px !important;
+            border-radius: 10px !important;
+            transition: all 0.2s ease !important;
+            border-left: 3px solid transparent !important;
+            margin: 3px 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+          }
+
+          .mobile-productos-item:hover {
+            background: rgba(59,130,246,0.06) !important;
+            color: #ffffff !important;
+            border-left: 3px solid #60a5fa !important;
+            transform: translateX(4px) !important;
+          }
+
+          .mobile-productos-item .item-icon {
+            color: #60a5fa !important;
+            font-size: 13px !important;
+          }
+
+          .mobile-productos-item .item-arrow {
+            color: #60a5fa !important;
+            font-size: 12px !important;
+          }
+
+          .mobile-productos-back {
+            padding: 10px 14px !important;
+            cursor: pointer !important;
+            color: #60a5fa !important;
+            font-weight: 700 !important;
+            font-size: 14px !important;
+            border-radius: 10px !important;
+            transition: all 0.2s ease !important;
+            border-top: 2px solid rgba(59,130,246,0.08) !important;
+            margin-top: 8px !important;
+            padding-top: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            justify-content: center !important;
+          }
+
+          .mobile-productos-back:hover {
+            background: rgba(59,130,246,0.04) !important;
+            transform: scale(1.02) !important;
+          }
+
+          .mobile-productos-all {
+            padding: 10px 14px !important;
+            cursor: pointer !important;
+            color: #60a5fa !important;
+            font-weight: 700 !important;
+            font-size: 14px !important;
+            border-radius: 10px !important;
+            transition: all 0.2s ease !important;
+            margin-top: 6px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            justify-content: center !important;
+            background: rgba(59,130,246,0.04) !important;
+            border: 1px solid rgba(59,130,246,0.15) !important;
+          }
+
+          .mobile-productos-all:hover {
+            background: rgba(59,130,246,0.1) !important;
+            transform: scale(1.02) !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .mobile-logo-text {
+            font-size: 11px !important;
+          }
+          
+          .mobile-logo img {
+            width: 22px !important;
+            height: 22px !important;
+          }
+          
+          .mobile-social a {
+            width: 20px !important;
+            height: 20px !important;
+            min-width: 20px !important;
+            min-height: 20px !important;
+            font-size: 8px !important;
+          }
+          
+          .mobile-search-btn {
+            width: 24px !important;
+            height: 24px !important;
+            min-width: 24px !important;
+            font-size: 9px !important;
+          }
+          
+          .mobile-hamburger-btn {
+            width: 24px !important;
+            height: 24px !important;
+            min-width: 24px !important;
+            font-size: 9px !important;
+          }
+          
+          .mobile-nav-link {
+            font-size: 9px !important;
+            padding: 3px 6px !important;
+          }
+          
+          .mobile-pagos-container .pago-item {
+            font-size: 8px !important;
+            padding: 2px 6px !important;
+            height: 18px !important;
+          }
+          
+          .mobile-pagos-container .pago-item .pago-icon {
+            font-size: 8px !important;
+          }
+          
+          .mobile-promociones-btn {
+            font-size: 7px !important;
+            padding: 2px 8px !important;
+            height: 18px !important;
+          }
+          
+          .mobile-menu-item {
+            font-size: 12px !important;
+            padding: 7px 10px !important;
+          }
+
+          .mobile-productos-item {
+            font-size: 12px !important;
+            padding: 7px 10px !important;
           }
         }
 
         @media (min-width: 769px) {
           .social-desktop { display: flex !important; }
-          .mobile-nav-links { display: none !important; }
-          .mobile-logo { display: none !important; }
-          .mobile-logo-text { display: none !important; }
-          .mobile-social { display: none !important; }
-          .mobile-dropdown-menu { display: none !important; }
           .mobile-top-row { display: none !important; }
           .mobile-search-btn { display: none !important; }
           .mobile-hamburger-btn { display: none !important; }
           .mobile-pagos-container { display: none !important; }
           .mobile-promociones-btn { display: none !important; }
+          .mobile-actions { display: none !important; }
+          .mobile-nav-links-wrapper { display: none !important; }
+          .mobile-collapsible-content { display: none !important; }
+          .mobile-dropdown-menu { display: none !important; }
           .search-container { display: flex !important; }
           .pagos-container { display: flex !important; }
           .promociones-btn { display: flex !important; }
           .links-container { display: flex !important; }
           .categorias-container { display: flex !important; }
+          .mobile-productos-overlay { display: none !important; }
+          .mobile-productos-content { display: none !important; }
         }
 
-        .navbar-spacer { display: none !important; }
+        /* ===== SPACER ===== */
+        .navbar-spacer { 
+          display: none !important; 
+        }
         @media (min-width: 769px) {
-          .navbar-spacer { display: block !important; }
+          .navbar-spacer { 
+            display: block !important; 
+          }
         }
       `}</style>
 
@@ -1825,7 +2084,7 @@ export default function Navbar({
           alignItems: "center",
           width: "100%",
           maxWidth: "100%",
-          padding: isMobileView ? "4px 10px" : "12px 30px",
+          padding: isMobileView ? "4px 8px" : "8px 20px",
           background: darkMode ? "#0a0a1a" : "linear-gradient(135deg, #0a0a2a 0%, #0f0f3a 100%)",
           color: "#fff",
           position: "fixed",
@@ -1840,7 +2099,7 @@ export default function Navbar({
             ? "1px solid rgba(255,255,255,0.04)" 
             : "2px solid rgba(59,130,246,0.08)",
           boxSizing: "border-box",
-          minHeight: isMobileView ? "auto" : "130px",
+          minHeight: isMobileView ? "auto" : "110px",
           transform: isNavbarVisible ? 'translateY(0)' : 'translateY(-100%)',
           opacity: isNavbarVisible ? 1 : 0,
           transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -1857,10 +2116,10 @@ export default function Navbar({
               justifyContent: 'center',
               width: '100%',
               maxWidth: '1400px',
-              gap: '16px',
-              padding: '4px 0'
+              gap: '12px',
+              padding: '2px 0',
+              flexWrap: 'nowrap'
             }}>
-              {/* Logo */}
               <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, cursor: 'pointer' }}
                 onClick={() => navigate("/")}
               >
@@ -1869,35 +2128,34 @@ export default function Navbar({
                   alt="FRAY FLOORING"
                   className="logo-electric"
                   style={{
-                    height: '85px',
+                    height: '75px',
                     width: 'auto',
-                    maxHeight: '95px',
+                    maxHeight: '85px',
                     objectFit: 'contain',
                     display: 'block'
                   }}
                 />
               </div>
 
-              {/* Título Fray Flooring */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '4px',
                 flexShrink: 0
               }}>
                 <span className="texto-blue" style={{
-                  fontSize: 'clamp(38px, 4.8vw, 64px)',
+                  fontSize: 'clamp(32px, 4vw, 54px)',
                   fontWeight: '900',
-                  letterSpacing: '4px',
+                  letterSpacing: '3px',
                   whiteSpace: 'nowrap',
                   lineHeight: '1.1'
                 }}>
                   Fray
                 </span>
                 <span style={{
-                  fontSize: 'clamp(22px, 2.8vw, 40px)',
+                  fontSize: 'clamp(18px, 2.4vw, 34px)',
                   fontWeight: '700',
-                  letterSpacing: '6px',
+                  letterSpacing: '4px',
                   whiteSpace: 'nowrap',
                   color: '#ffffff',
                   textShadow: '0 2px 30px rgba(255,255,255,0.05)',
@@ -1907,15 +2165,13 @@ export default function Navbar({
                 </span>
               </div>
 
-              {/* Buscador + Pagos + Botones */}
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '12px', 
+                gap: '10px', 
                 flexShrink: 0,
-                marginLeft: '8px'
+                marginLeft: '4px'
               }}>
-                {/* Buscador */}
                 <div className="search-container" style={{ position: 'relative' }}>
                   <input
                     ref={searchInputRef}
@@ -1938,7 +2194,7 @@ export default function Navbar({
                     }}
                   />
                   <button className="search-btn" onClick={handleSearchSubmit}>
-                    <FaSearch size={14} />
+                    <FaSearch size={13} />
                   </button>
 
                   {mostrarResultados && resultadosBusqueda.length > 0 && (
@@ -1969,14 +2225,14 @@ export default function Navbar({
                         </div>
                       ))}
                       <div style={{ 
-                        padding: '8px 14px', 
+                        padding: '6px 12px', 
                         textAlign: 'center', 
                         color: '#60a5fa', 
-                        fontSize: '13px', 
+                        fontSize: '12px', 
                         fontWeight: '600',
                         cursor: 'pointer',
                         borderTop: '1px solid rgba(59,130,246,0.1)',
-                        marginTop: '4px'
+                        marginTop: '2px'
                       }}
                       onClick={handleSearchSubmit}
                       >
@@ -1986,7 +2242,6 @@ export default function Navbar({
                   )}
                 </div>
 
-                {/* Contenedor de Pagos */}
                 <div className="pagos-container">
                   <div className="pago-item highlight">
                     <FaCreditCard className="pago-icon" />
@@ -2006,7 +2261,6 @@ export default function Navbar({
                   </div>
                 </div>
 
-                {/* Botón Promociones */}
                 <button 
                   className="promociones-btn" 
                   onClick={irAOfertas}
@@ -2016,25 +2270,24 @@ export default function Navbar({
                 </button>
               </div>
 
-              {/* Iconos Sociales */}
-              <div className="social-desktop" style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+              <div className="social-desktop" style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
                 <SocialIcon color="#1877F2" href="https://www.facebook.com/people/FRAY-Flooring/61587688868988/">
-                  <FaFacebookF size={16} />
+                  <FaFacebookF size={15} />
                 </SocialIcon>
                 <SocialIcon color="#E4405F" href="https://www.instagram.com/fray_flooring?igsh=b3pucDR1bjltMGQ2">
-                  <FaInstagram size={16} />
+                  <FaInstagram size={15} />
                 </SocialIcon>
                 <SocialIcon color="#010101" href="https://www.tiktok.com/@fray_flooring6">
-                  <FaTiktok size={16} />
+                  <FaTiktok size={15} />
                 </SocialIcon>
                 <SocialIcon color="#25D366" href="https://wa.me/525610026370">
-                  <FaWhatsapp size={16} />
+                  <FaWhatsapp size={15} />
                 </SocialIcon>
                 <SocialIcon color="#FF0000" href="https://www.youtube.com/@FrayFlooring" isYoutube={true}>
-                  <FaYoutube size={16} />
+                  <FaYoutube size={15} />
                 </SocialIcon>
                 <SocialIcon color="#38bdf8" href="tel:+525610026370">
-                  <FaPhone size={16} />
+                  <FaPhone size={15} />
                 </SocialIcon>
               </div>
             </div>
@@ -2047,10 +2300,11 @@ export default function Navbar({
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
-            gap: '2px',
+            gap: '0px',
             padding: '2px 0',
             position: 'relative'
           }}>
+            {/* LÍNEA 1: Logo + Redes Sociales + Buscador + Hamburguesa (SIEMPRE VISIBLE) */}
             <div className="mobile-top-row">
               <div className="mobile-logo" onClick={() => navigate("/")}>
                 <img src="/logo.png" alt="Logo" />
@@ -2080,175 +2334,237 @@ export default function Navbar({
                 </SocialIcon>
               </div>
 
-              <button className="mobile-search-btn" onClick={toggleBuscador}>
-                <FaSearch size={11} />
-              </button>
+              <div className="mobile-actions">
+                <button className="mobile-search-btn" onClick={toggleBuscador}>
+                  <FaSearch size={11} />
+                </button>
 
-              <button 
-                className="mobile-hamburger-btn"
-                onClick={toggleMobileMenu}
-                style={{
-                  background: mobileMenuOpen ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.04)',
-                  border: mobileMenuOpen ? '1px solid #60a5fa' : '1px solid rgba(255,255,255,0.06)',
-                  color: mobileMenuOpen ? '#60a5fa' : '#94a3b8'
-                }}
-              >
-                {mobileMenuOpen ? <FaTimes size={11} /> : <FaBars size={11} />}
-              </button>
+                <button 
+                  className="mobile-hamburger-btn"
+                  onClick={toggleMobileMenu}
+                  style={{
+                    background: mobileMenuOpen ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.04)',
+                    border: mobileMenuOpen ? '1px solid #60a5fa' : '1px solid rgba(255,255,255,0.06)',
+                    color: mobileMenuOpen ? '#60a5fa' : '#94a3b8'
+                  }}
+                >
+                  {mobileMenuOpen ? <FaTimes size={11} /> : <FaBars size={11} />}
+                </button>
+              </div>
             </div>
 
-            <div className="mobile-pagos-container">
-              <div className="pago-item highlight">
-                <FaCreditCard className="pago-icon" />
-                Tarjeta
+            {/* CONTENIDO DESPLEGABLE (oculto por defecto) */}
+            <div className="mobile-collapsible-content">
+              {/* LÍNEA 2: Métodos de pago y promociones */}
+              <div className="mobile-pagos-container">
+                <div className="pago-item highlight">
+                  <FaCreditCard className="pago-icon" />
+                  Tarjeta
+                </div>
+                <div className="pago-item">
+                  <FaMoneyBillWave className="pago-icon" />
+                  Transferencia
+                </div>
+                <div className="pago-item">
+                  <FaMoneyBillWave className="pago-icon" />
+                  Efectivo
+                </div>
+                <div className="pago-item highlight">
+                  <FaCalendarCheck className="pago-icon" />
+                  Meses
+                </div>
+                <button className="mobile-promociones-btn" onClick={irAOfertas}>
+                  <FaGift size={9} />
+                  Promos
+                </button>
               </div>
-              <div className="pago-item">
-                <FaMoneyBillWave className="pago-icon" />
-                Transferencia
-              </div>
-              <div className="pago-item">
-                <FaMoneyBillWave className="pago-icon" />
-                Efectivo
-              </div>
-              <div className="pago-item highlight">
-                <FaCalendarCheck className="pago-icon" />
-                Meses
-              </div>
-              <button className="mobile-promociones-btn" onClick={irAOfertas}>
-                <FaGift size={9} />
-                Promos
-              </button>
-            </div>
 
-            <div className="mobile-nav-links">
-              <button className="mobile-nav-link" onClick={() => navigate("/")}>
-                <FaHome size={8} /> Inicio
-              </button>
-              <button className="mobile-nav-link" onClick={() => navigate("/nosotros")}>
-                <FaInfoCircle size={8} /> Nosotros
-              </button>
-              <button className="mobile-nav-link" onClick={() => navigate("/contacto")}>
-                <FaEnvelope size={8} /> Contacto
-              </button>
-              <button className="mobile-nav-link" onClick={handlePedidoClick}>
-                Pedido
-              </button>
-              <button className="mobile-nav-link" onClick={() => navigate("/#productos-nuevos")}>
-                <span className="nuevos-badge" style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>✨NUEVOS</span>
-              </button>
-            </div>
-
-            {mobileMenuOpen && (
-              <div className="mobile-dropdown-menu">
-                <button className="mobile-menu-item" onClick={() => handleNavigate("/")}>
-                  <FaHome size={13} color="#60a5fa" /> Inicio
-                </button>
-                <button className="mobile-menu-item" onClick={() => handleNavigate("/nosotros")}>
-                  <FaInfoCircle size={13} color="#60a5fa" /> Nosotros
-                </button>
-                <button className="mobile-menu-item" onClick={() => handleNavigate("/contacto")}>
-                  <FaEnvelope size={13} color="#60a5fa" /> Contacto
-                </button>
-                <button className="mobile-menu-item" onClick={handlePedidoClick} style={{ fontWeight: '700', color: '#60a5fa' }}>
-                  Pedido
-                </button>
-                <div style={{ height: '1px', background: 'rgba(255,255,255,0.04)', margin: '2px 10px' }} />
-                
-                <button className="mobile-menu-item" onClick={irATodosLosProductos} style={{ fontWeight: '700', color: '#60a5fa' }}>
-                  🛍 Todos los productos
-                </button>
-                
-                <button className="mobile-menu-item" onClick={() => setProductosMobileOpen(!productosMobileOpen)}>
-                  <span>📦 Categorías</span>
-                  <span style={{ marginLeft: 'auto' }}>{productosMobileOpen ? '▲' : '▼'}</span>
-                </button>
-                {productosMobileOpen && (
-                  <div style={{ marginLeft: '4px', maxHeight: '200px', overflowY: 'auto' }}>
-                    {categoriasMostrar.map(cat => (
-                      <button key={cat.id} className="mobile-menu-item"
-                        onClick={() => { 
-                          if (cat.nombre) {
-                            handleCategoriaPredefinidaClick(cat.nombre);
-                          } else {
-                            handleVerTodasClick(cat.id);
-                          }
-                          setMobileMenuOpen(false);
-                        }}
-                        style={{ paddingLeft: '24px', fontSize: '12px' }}>
-                        {cat.nombre || cat.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                
-                <button className="mobile-menu-item" onClick={() => { navigate("/#productos-nuevos"); setMobileMenuOpen(false); }}>
-                  <span className="nuevos-badge" style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)', fontSize: '10px', padding: '1px 10px' }}>✨ NUEVOS</span>
-                </button>
-                
-                <button className="mobile-menu-item" onClick={() => setCategoriasMobileOpen(!categoriasMobileOpen)}>
-                  <span>📂 Subcategorías</span>
-                  <span style={{ marginLeft: 'auto' }}>{categoriasMobileOpen ? '▲' : '▼'}</span>
-                </button>
-                {categoriasMobileOpen && (
-                  <div style={{ marginLeft: '4px', maxHeight: '200px', overflowY: 'auto' }}>
-                    {categoriasMostrar.map(cat => (
-                      <div key={cat.id}>
-                        <button className="mobile-menu-item" onClick={() => handleMobileCategoria(cat.id)}
-                          style={{ 
-                            fontWeight: categoriaSeleccionada === cat.id ? '700' : '500',
-                            color: categoriaSeleccionada === cat.id ? '#60a5fa' : '#c7d2fe',
-                            paddingLeft: '24px',
-                            fontSize: '12px'
-                          }}>
-                          {cat.nombre || cat.name} {categoriaSeleccionada === cat.id ? '▼' : '►'}
-                        </button>
-                        {categoriaSeleccionada === cat.id && (
-                          <div style={{ marginLeft: '8px' }}>
-                            {subcategorias.filter(sub => Number(sub.categoria_id) === Number(cat.id)).map(sub => (
-                              <div key={sub.id}>
-                                <button className="mobile-menu-item" onClick={() => handleMobileSubcategoria(sub.id)}
-                                  style={{ 
-                                    fontWeight: subcategoriaSeleccionada === sub.id ? '700' : '500',
-                                    color: subcategoriaSeleccionada === sub.id ? '#60a5fa' : '#c7d2fe',
-                                    paddingLeft: '38px',
-                                    fontSize: '11px'
-                                  }}>
-                                  • {sub.nombre} {subcategoriaSeleccionada === sub.id ? '▼' : '►'}
-                                </button>
-                                {subcategoriaSeleccionada === sub.id && (
-                                  <div style={{ marginLeft: '8px' }}>
-                                    {tiposUsar.filter(t => Number(t.subcategoria_id) === Number(sub.id)).map(tipo => (
-                                      <button key={tipo.id} className="mobile-menu-item"
-                                        onClick={() => { handleTipoClick(tipo.id); setMobileMenuOpen(false); }}
-                                        style={{ fontSize: '10px', paddingLeft: '52px', color: '#94a3b8' }}>
-                                        • {tipo.nombre}
-                                      </button>
-                                    ))}
-                                    <button className="mobile-menu-item"
-                                      onClick={() => { handleSubcategoriaClick(sub.nombre); setMobileMenuOpen(false); }}
-                                      style={{ color: '#60a5fa', fontWeight: '600', paddingLeft: '52px', fontSize: '11px' }}>
-                                      📂 Ver toda la subcategoría
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                            <button className="mobile-menu-item"
-                              onClick={() => { handleVerTodasClick(cat.id); setMobileMenuOpen(false); }}
-                              style={{ color: '#60a5fa', fontWeight: '700', paddingLeft: '38px', fontSize: '12px' }}>
-                              📂 Ver toda la categoría
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+              {/* LÍNEA 3: Navegación principal */}
+              <div className="mobile-nav-links-wrapper">
+                <div className="mobile-nav-links">
+                  <button className="mobile-nav-link" onClick={() => navigate("/")}>
+                    <FaHome size={10} /> Inicio
+                  </button>
+                  <button className="mobile-nav-link" onClick={() => navigate("/nosotros")}>
+                    <FaInfoCircle size={10} /> Nosotros
+                  </button>
+                  <button className="mobile-nav-link" onClick={() => navigate("/contacto")}>
+                    <FaEnvelope size={10} /> Contacto
+                  </button>
+                  <button 
+                    className="mobile-nav-link" 
+                    onClick={toggleMobileProductos}
+                    style={{ color: mobileProductosOpen ? '#60a5fa' : '#94a3b8' }}
+                  >
+                    <FaBox size={10} /> Productos
+                  </button>
+                  <button className="mobile-nav-link" onClick={handlePedidoClick}>
+                    Pedido
+                  </button>
+                  <button className="mobile-nav-link" onClick={() => navigate("/favoritos")}>
+                    <FaHeart size={10} /> {favoritos.length}
+                  </button>
+                  <button className="mobile-nav-link" onClick={() => navigate("/comparar")}>
+                    <FaBalanceScale size={10} /> Comparar
+                  </button>
+                  <button className="mobile-nav-link" onClick={() => navigate("/cotizador")}>
+                    <FaCalculator size={10} /> Cotizar
+                  </button>
+                  <button className="mobile-nav-link" onClick={() => navigate("/#productos-nuevos")}>
+                    <span className="nuevos-badge" style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>✨NUEVOS</span>
+                  </button>
+                </div>
               </div>
-            )}
+
+              {/* Menú desplegable completo (hamburguesa) */}
+              {mobileMenuOpen && (
+                <div className="mobile-dropdown-menu">
+                  <button className="mobile-menu-item" onClick={() => handleNavigate("/")}>
+                    <FaHome size={14} color="#60a5fa" /> Inicio
+                  </button>
+                  <button className="mobile-menu-item" onClick={() => handleNavigate("/nosotros")}>
+                    <FaInfoCircle size={14} color="#60a5fa" /> Nosotros
+                  </button>
+                  <button className="mobile-menu-item" onClick={() => handleNavigate("/contacto")}>
+                    <FaEnvelope size={14} color="#60a5fa" /> Contacto
+                  </button>
+                  <button className="mobile-menu-item" onClick={handlePedidoClick} style={{ fontWeight: '700', color: '#60a5fa' }}>
+                    Pedido
+                  </button>
+                  <div style={{ height: '1px', background: 'rgba(255,255,255,0.04)', margin: '2px 10px' }} />
+                  
+                  <button className="mobile-menu-item" onClick={toggleMobileProductos} style={{ fontWeight: '700', color: '#60a5fa' }}>
+                    <FaBox size={14} color="#60a5fa" /> Productos
+                    <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#60a5fa' }}>▸</span>
+                  </button>
+                  
+                  <button className="mobile-menu-item" onClick={irATodosLosProductos} style={{ paddingLeft: '24px', fontSize: '13px', color: '#94a3b8' }}>
+                    🛍 Ver todos los productos
+                  </button>
+                  
+                  <div style={{ height: '1px', background: 'rgba(255,255,255,0.04)', margin: '2px 10px' }} />
+                  
+                  <button className="mobile-menu-item" onClick={() => handleNavigate("/favoritos")} style={{ color: '#94a3b8' }}>
+                    <FaHeart size={14} /> Favoritos {favoritos.length > 0 && `(${favoritos.length})`}
+                  </button>
+                  
+                  <button className="mobile-menu-item" onClick={() => handleNavigate("/comparar")}>
+                    <FaBalanceScale size={14} color="#60a5fa" /> Comparador
+                  </button>
+                  
+                  <button className="mobile-menu-item" onClick={() => handleNavigate("/cotizador")}>
+                    <FaCalculator size={14} color="#60a5fa" /> Cotizador
+                  </button>
+                  
+                  <div style={{ height: '1px', background: 'rgba(255,255,255,0.04)', margin: '2px 10px' }} />
+                  
+                  <button className="mobile-menu-item" onClick={() => { navigate("/#productos-nuevos"); setMobileMenuOpen(false); }}>
+                    <span className="nuevos-badge" style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)', fontSize: '10px', padding: '2px 10px' }}>✨ NUEVOS</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
+
+      {/* ===== MENÚ DE PRODUCTOS EN MÓVIL (OVERLAY) ===== */}
+      {isMobileView && mobileProductosOpen && (
+        <div className="mobile-productos-overlay" onClick={() => { setMobileProductosOpen(false); setMobileProductosSubOpen(false); }}>
+          <div className="mobile-productos-content" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-productos-title">
+              <span><FaBox size={16} color="#60a5fa" /> {mobileProductosSubOpen ? mobileProductosTitle : (mobileProductosTitle || "Productos")}</span>
+              <button className="mobile-productos-close" onClick={() => { setMobileProductosOpen(false); setMobileProductosSubOpen(false); }}>
+                <FaTimes />
+              </button>
+            </div>
+            
+            {!mobileProductosSubOpen ? (
+              <>
+                {mobileProductosData.map((item) => {
+                  const tieneTipos = tiposUsar.some(t => Number(t.subcategoria_id) === Number(item.id));
+                  const tieneSubitems = subcategorias.some(sub => Number(sub.categoria_id) === Number(item.id));
+                  
+                  return (
+                    <div 
+                      key={item.id} 
+                      className="mobile-productos-item"
+                      onClick={() => {
+                        if (tieneTipos) {
+                          openMobileProductosSub(item.id, item.nombre);
+                        } else if (tieneSubitems) {
+                          handleVerTodasClick(item.id);
+                          setMobileProductosOpen(false);
+                          setMobileMenuOpen(false);
+                        } else {
+                          if (item.nombre) {
+                            handleSubcategoriaClick(item.nombre);
+                          } else {
+                            handleVerTodasClick(item.id);
+                          }
+                          setMobileProductosOpen(false);
+                          setMobileMenuOpen(false);
+                        }
+                      }}
+                    >
+                      <span className="item-icon">✦</span>
+                      {item.nombre}
+                      {(tieneTipos || tieneSubitems) && (
+                        <span className="item-arrow"><FaChevronRight size={12} /></span>
+                      )}
+                    </div>
+                  );
+                })}
+                
+                <div className="mobile-productos-all" onClick={irATodosLosProductos}>
+                  <FaArrowRight size={14} /> Ver todos los productos
+                </div>
+              </>
+            ) : (
+              <>
+                {mobileProductosSubData.map((tipo) => (
+                  <div 
+                    key={tipo.id} 
+                    className="mobile-productos-item"
+                    onClick={() => {
+                      handleTipoClick(tipo.id);
+                      setMobileProductosOpen(false);
+                      setMobileProductosSubOpen(false);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <span className="item-icon">•</span>
+                    {tipo.nombre}
+                  </div>
+                ))}
+                
+                <div className="mobile-productos-all" onClick={() => {
+                  if (mobileProductosTitle) {
+                    handleSubcategoriaClick(mobileProductosTitle);
+                  }
+                  setMobileProductosOpen(false);
+                  setMobileProductosSubOpen(false);
+                  setMobileMenuOpen(false);
+                }}>
+                  <FaFolderOpen size={14} /> Ver toda la subcategoría
+                </div>
+              </>
+            )}
+            
+            <div className="mobile-productos-back" onClick={() => {
+              if (mobileProductosSubOpen) {
+                closeMobileProductosSub();
+              } else {
+                setMobileProductosOpen(false);
+                setMobileMenuOpen(false);
+              }
+            }}>
+              <FaChevronLeft size={14} />
+              {mobileProductosSubOpen ? "Volver a subcategorías" : "Cerrar"}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== CONTENEDOR DE LINKS (Desktop) ===== */}
       {!isMobileView && (
@@ -2257,7 +2573,7 @@ export default function Navbar({
           className="links-container"
           style={{
             position: 'fixed',
-            top: isNavbarVisible ? '130px' : '-100%',
+            top: isNavbarVisible ? '110px' : '-100%',
             left: 0,
             right: 0,
             zIndex: 4999,
@@ -2265,8 +2581,8 @@ export default function Navbar({
             opacity: isNavbarVisible ? 1 : 0,
             transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
             pointerEvents: isNavbarVisible ? 'auto' : 'none',
-            padding: '6px 0',
-            minHeight: '52px',
+            padding: '4px 0',
+            minHeight: '44px',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -2294,22 +2610,22 @@ export default function Navbar({
                     className="dropdown-item"
                     onClick={irATodosLosProductos}
                     style={{
-                      padding: '8px 18px',
+                      padding: '6px 16px',
                       cursor: 'pointer',
                       color: '#bfdbfe',
                       fontWeight: '700',
-                      fontSize: '15px',
+                      fontSize: '14px',
                       transition: 'all 0.2s ease',
                       borderRadius: '8px',
                       borderLeft: '3px solid #60a5fa',
                       background: 'rgba(59,130,246,0.04)',
-                      marginBottom: '4px'
+                      marginBottom: '2px'
                     }}
                   >
                     🛍 Todos nuestros productos
                   </div>
 
-                  <div style={{ height: '2px', background: 'rgba(255,255,255,0.05)', margin: '4px 10px' }} />
+                  <div style={{ height: '2px', background: 'rgba(255,255,255,0.05)', margin: '2px 10px' }} />
 
                   {subcategorias && subcategorias.length > 0 ? (
                     subcategorias.map(sub => {
@@ -2329,11 +2645,11 @@ export default function Navbar({
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
-                              padding: '6px 16px',
+                              padding: '5px 14px',
                               cursor: 'pointer',
                               color: '#bfdbfe',
                               fontWeight: '600',
-                              fontSize: '13px',
+                              fontSize: '12px',
                               transition: 'all 0.2s ease',
                               borderRadius: '8px',
                               borderLeft: '3px solid transparent'
@@ -2341,7 +2657,7 @@ export default function Navbar({
                           >
                             <span>{sub.nombre}</span>
                             {tiposDeSub.length > 0 && (
-                              <span style={{ fontSize: '12px', color: '#60a5fa' }}>▸</span>
+                              <span style={{ fontSize: '11px', color: '#60a5fa' }}>▸</span>
                             )}
                           </div>
 
@@ -2353,12 +2669,12 @@ export default function Navbar({
                               onMouseLeave={handleProductoTiposHoverLeave}
                             >
                               <div style={{ 
-                                padding: '6px 12px 8px', 
+                                padding: '4px 10px 6px', 
                                 color: '#ffffff', 
-                                fontSize: '12px', 
+                                fontSize: '11px', 
                                 fontWeight: '700',
                                 borderBottom: '2px solid rgba(255,255,255,0.05)',
-                                marginBottom: '4px'
+                                marginBottom: '2px'
                               }}>
                                 📦 {sub.nombre}
                               </div>
@@ -2368,11 +2684,11 @@ export default function Navbar({
                                   className="dropdown-item"
                                   onClick={() => handleTipoClick(tipo.id)}
                                   style={{
-                                    padding: '6px 16px',
+                                    padding: '5px 14px',
                                     cursor: 'pointer',
                                     color: '#c7d2fe',
                                     fontWeight: '500',
-                                    fontSize: '12px',
+                                    fontSize: '11px',
                                     transition: 'all 0.2s ease',
                                     borderRadius: '8px',
                                     borderLeft: '2.5px solid transparent'
@@ -2381,16 +2697,16 @@ export default function Navbar({
                                   • {tipo.nombre}
                                 </div>
                               ))}
-                              <div style={{ height: '2px', background: 'rgba(255,255,255,0.04)', margin: '4px 10px' }} />
+                              <div style={{ height: '2px', background: 'rgba(255,255,255,0.04)', margin: '2px 10px' }} />
                               <div 
                                 className="dropdown-item"
                                 onClick={() => handleSubcategoriaClick(sub.nombre)}
                                 style={{
-                                  padding: '6px 16px',
+                                  padding: '5px 14px',
                                   cursor: 'pointer',
                                   color: '#60a5fa',
                                   fontWeight: '700',
-                                  fontSize: '12px',
+                                  fontSize: '11px',
                                   transition: 'all 0.2s ease',
                                   borderRadius: '8px',
                                   borderLeft: '2.5px solid transparent',
@@ -2405,7 +2721,7 @@ export default function Navbar({
                       );
                     })
                   ) : (
-                    <div style={{ padding: '8px 16px', color: '#94a3b8', fontSize: '13px' }}>
+                    <div style={{ padding: '6px 14px', color: '#94a3b8', fontSize: '12px' }}>
                       No hay subcategorías disponibles
                     </div>
                   )}
@@ -2424,23 +2740,29 @@ export default function Navbar({
               Pedido
             </button>
             
-            <button onClick={() => navigate("/favoritos")} className="nav-link-hover">
-              Favoritos {favoritos.length}
+            <button onClick={() => navigate("/favoritos")} className="nav-link-hover" style={{ color: '#94a3b8' }}>
+              <FaHeart size={14} style={{ marginRight: '4px', color: '#94a3b8' }} /> 
+              Favoritos {favoritos.length > 0 && `(${favoritos.length})`}
             </button>
-            <button onClick={() => navigate("/comparar")} className="nav-link-hover">Comparador</button>
-            <button onClick={() => navigate("/cotizador")} className="nav-link-hover">Cotizador</button>
+            
+            <button onClick={() => navigate("/comparar")} className="nav-link-hover">
+              <FaBalanceScale size={14} style={{ marginRight: '4px' }} /> Comparador
+            </button>
+            <button onClick={() => navigate("/cotizador")} className="nav-link-hover">
+              <FaCalculator size={14} style={{ marginRight: '4px' }} /> Cotizador
+            </button>
           </div>
         </div>
       )}
 
-      {/* ===== CATEGORÍAS - CON LAS CATEGORÍAS PREDEFINIDAS ===== */}
+      {/* ===== CATEGORÍAS (Desktop) ===== */}
       {!isMobileView && categoriasMostrar && categoriasMostrar.length > 0 && (
         <div 
           ref={categoriasScrollRef}
           className="categorias-container"
           style={{
             position: 'fixed',
-            top: isNavbarVisible ? '182px' : '-100%',
+            top: isNavbarVisible ? '156px' : '-100%',
             left: 0,
             right: 0,
             zIndex: 4998,
@@ -2470,7 +2792,7 @@ export default function Navbar({
               onClick={() => scrollCategories('left')}
               aria-label="Desplazar categorías a la izquierda"
             >
-              <FaChevronLeft size={14} />
+              <FaChevronLeft size={12} />
             </button>
 
             <div 
@@ -2516,7 +2838,7 @@ export default function Navbar({
               onClick={() => scrollCategories('right')}
               aria-label="Desplazar categorías a la derecha"
             >
-              <FaChevronRight size={14} />
+              <FaChevronRight size={12} />
             </button>
           </div>
         </div>
@@ -2528,7 +2850,7 @@ export default function Navbar({
           ref={tiposMenuRef}
           className="tipos-hover-menu"
           style={{
-            top: isNavbarVisible ? '312px' : '-100%',
+            top: isNavbarVisible ? '268px' : '-100%',
             opacity: isNavbarVisible ? 1 : 0,
             transition: 'all 0.3s ease',
           }}
@@ -2536,7 +2858,7 @@ export default function Navbar({
           onMouseLeave={handleTiposHoverLeave}
         >
           <div className="menu-header">
-            <span className="header-icon"><FaChevronRight size={14} /></span>
+            <span className="header-icon"><FaChevronRight size={12} /></span>
             {subcategoriaHover.nombre}
           </div>
           
@@ -2555,7 +2877,7 @@ export default function Navbar({
             onClick={() => handleSubcategoriaClick(subcategoriaHover.nombre)}
           >
             Ver toda la linea
-            <span className="arrow-icon"><FaArrowRight size={12} /></span>
+            <span className="arrow-icon"><FaArrowRight size={11} /></span>
           </div>
         </div>
       )}
@@ -2574,14 +2896,14 @@ export default function Navbar({
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'center',
-          paddingTop: '60px',
-          paddingLeft: '20px',
-          paddingRight: '20px'
+          paddingTop: '50px',
+          paddingLeft: '16px',
+          paddingRight: '16px'
         }} onClick={toggleBuscador}>
           <div style={{
             background: 'rgba(15,23,42,0.95)',
             borderRadius: '16px',
-            padding: '24px',
+            padding: '20px',
             maxWidth: '500px',
             width: '100%',
             maxHeight: '80vh',
@@ -2591,12 +2913,12 @@ export default function Navbar({
           }} onClick={(e) => e.stopPropagation()}>
             <button onClick={toggleBuscador} style={{
               position: 'absolute',
-              top: '12px',
-              right: '16px',
+              top: '10px',
+              right: '14px',
               background: 'transparent',
               border: 'none',
               color: '#94a3b8',
-              fontSize: '20px',
+              fontSize: '18px',
               cursor: 'pointer'
             }}>
               <FaTimes />
@@ -2633,25 +2955,25 @@ export default function Navbar({
               }}
               style={{
                 width: '100%',
-                padding: '14px 18px',
+                padding: '12px 16px',
                 borderRadius: '12px',
                 border: '2px solid rgba(59,130,246,0.2)',
                 background: 'rgba(255,255,255,0.05)',
                 color: '#e2e8f0',
-                fontSize: '16px',
+                fontSize: '15px',
                 outline: 'none',
                 transition: 'all 0.3s ease'
               }}
               autoFocus
             />
             {busqueda.trim() !== "" && resultadosBusqueda.length > 0 && (
-              <div style={{ marginTop: '16px', maxHeight: '350px', overflowY: 'auto' }}>
+              <div style={{ marginTop: '12px', maxHeight: '320px', overflowY: 'auto' }}>
                 {resultadosBusqueda.map((p) => (
                   <div key={p.id} style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    padding: '10px 14px',
+                    gap: '10px',
+                    padding: '8px 12px',
                     cursor: 'pointer',
                     borderRadius: '10px',
                     transition: 'all 0.2s ease',
@@ -2661,27 +2983,27 @@ export default function Navbar({
                     <img 
                       src={obtenerImagen(p)} 
                       alt={p.nombre}
-                      style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '8px' }}
+                      style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '8px' }}
                       onError={(e) => {
                         e.target.src = "https://via.placeholder.com/200?text=Sin+imagen";
                       }}
                     />
                     <div style={{ flex: 1 }}>
-                      <h4 style={{ margin: 0, color: '#e2e8f0', fontSize: '14px', fontWeight: '600' }}>{p.nombre}</h4>
-                      <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>${p.precio}</p>
+                      <h4 style={{ margin: 0, color: '#e2e8f0', fontSize: '13px', fontWeight: '600' }}>{p.nombre}</h4>
+                      <p style={{ margin: 0, color: '#94a3b8', fontSize: '12px' }}>${p.precio}</p>
                     </div>
                   </div>
                 ))}
-                <div style={{ padding: '10px', textAlign: 'center' }}>
+                <div style={{ padding: '8px', textAlign: 'center' }}>
                   <button 
                     onClick={() => { handleSearchSubmit(); toggleBuscador(); }}
                     style={{
                       background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
                       border: 'none',
                       color: '#fff',
-                      padding: '8px 20px',
+                      padding: '6px 16px',
                       borderRadius: '20px',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       fontWeight: '600',
                       cursor: 'pointer',
                       transition: 'all 0.3s ease'
@@ -2693,7 +3015,7 @@ export default function Navbar({
               </div>
             )}
             {busqueda.trim() !== "" && resultadosBusqueda.length === 0 && (
-              <div style={{ marginTop: '16px', textAlign: 'center', color: '#94a3b8', padding: '20px' }}>
+              <div style={{ marginTop: '12px', textAlign: 'center', color: '#94a3b8', padding: '16px' }}>
                 No se encontraron productos
               </div>
             )}
