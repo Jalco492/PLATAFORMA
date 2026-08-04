@@ -114,6 +114,7 @@ export default function Catalogo() {
   }, []);
 
   const isMobile = windowWidth < 768;
+  const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
   const productosNuevos = productos.filter(
     (p) => p.nuevo === 1 || p.nuevo === true
@@ -277,7 +278,7 @@ export default function Catalogo() {
     if (!slider) return;
 
     const isMobileView = window.innerWidth < 768;
-    const cardWidth = isMobileView ? 165 : 240;
+    const cardWidth = isMobileView ? 180 : 280;
     const gap = 16;
     const scrollAmount = (cardWidth + gap) * 2;
 
@@ -302,6 +303,12 @@ export default function Catalogo() {
   };
 
   const { visibleSections, scrollY } = useScrollAnimation({});
+
+  const getProductosOfertaMostrar = () => {
+    if (isMobile) return 1;
+    if (isTablet) return 3;
+    return 5;
+  };
 
   if (cargando) {
     return (
@@ -388,10 +395,10 @@ export default function Catalogo() {
         <div style={styles.ofertasBannerWrapper(isMobile)}>
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
-              🏷️ Ofertas especiales
+              Ofertas Especiales
             </h2>
             <p style={styles.sectionSubtitle(isMobile)}>
-              Aprovecha descuentos increíbles en productos seleccionados
+              Descuentos exclusivos que no puedes perder
             </p>
           </div>
 
@@ -432,7 +439,7 @@ export default function Catalogo() {
                   />
                   <div style={styles.ofertaBannerOverlay}>
                     {banner.porcentaje && (
-                      <span style={styles.ofertaBannerBadge}>🔥 {banner.porcentaje} OFF</span>
+                      <span style={styles.ofertaBannerBadge}>{banner.porcentaje} OFF</span>
                     )}
                     <h3 style={styles.ofertaBannerTitle}>{banner.titulo}</h3>
                     {banner.descripcion && (
@@ -451,10 +458,10 @@ export default function Catalogo() {
         <div style={styles.categoriesSection(isMobile)}>
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
-              Explora nuestras categorías
+              Categorías
             </h2>
             <p style={styles.sectionSubtitle(isMobile)}>
-              Encuentra el producto perfecto para ti
+              Explora nuestra selección de productos
             </p>
           </div>
 
@@ -509,7 +516,7 @@ export default function Catalogo() {
               onClick={() => navigate("/categorias")}
               className="btn-glow"
             >
-              Ver todas las categorías →
+              Ver todas las categorías
             </button>
           </div>
         </div>
@@ -529,10 +536,10 @@ export default function Catalogo() {
         >
           <div style={styles.sectionHeader}>
             <h2 style={{ ...styles.sectionTitle(darkMode, isMobile), textAlign: "center" }}>
-              ✨ Productos Nuevos
+              Nuevos Productos
             </h2>
             <p style={{ ...styles.sectionSubtitle(isMobile), textAlign: "center" }}>
-              Lo último en tendencia
+              Lo último en tendencia para ti
             </p>
           </div>
 
@@ -543,7 +550,7 @@ export default function Catalogo() {
               className="slider-arrow"
               aria-label="Desplazar izquierda"
             >
-              ❮
+              ‹
             </button>
             <button
               onClick={() => scrollSlider("nuevoSlider", "right")}
@@ -551,7 +558,7 @@ export default function Catalogo() {
               className="slider-arrow"
               aria-label="Desplazar derecha"
             >
-              ❯
+              ›
             </button>
 
             <div 
@@ -561,7 +568,7 @@ export default function Catalogo() {
                 gap: "16px",
                 overflowX: "auto",
                 overflowY: "visible",
-                padding: "12px 40px 20px 40px",
+                padding: "12px 48px 16px 48px",
                 WebkitOverflowScrolling: "touch",
                 scrollBehavior: "smooth",
                 scrollbarWidth: "none",
@@ -579,14 +586,14 @@ export default function Catalogo() {
                     flexShrink: 0,
                     position: "relative",
                     zIndex: 5,
-                    minWidth: isMobile ? "165px" : "240px",
-                    maxWidth: isMobile ? "165px" : "240px",
+                    minWidth: isMobile ? "180px" : "280px",
+                    maxWidth: isMobile ? "180px" : "280px",
                     opacity: 1,
                     transform: "none",
                   }}
                   onClick={() => navigate(`/producto/${p.id}`)}
                 >
-                  <div style={styles.nuevoBadge}>🆕 Nuevo</div>
+                  <div style={styles.nuevoBadge}>Nuevo</div>
                   <div style={styles.cardImageWrapper}>
                     <img
                       src={
@@ -606,7 +613,7 @@ export default function Catalogo() {
                       <span style={styles.cardPrice(isMobile)}>${p.precio}</span>
                     </div>
                     <button style={styles.cardButton} className="btn-shine">
-                      Ver producto →
+                      Ver producto
                     </button>
                   </div>
                 </div>
@@ -615,148 +622,148 @@ export default function Catalogo() {
           </div>
         </div>
       )}
-{/* ===== PRODUCTOS EN OFERTA - CENTRADOS ===== */}
-{mostrarOfertas && productosOferta.length > 0 && (
-  <div id="productos-oferta" style={styles.ofertaProductosWrapper(isMobile)}>
-    <div style={styles.sectionHeader}>
-      <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
-        🔥 Productos en Oferta
-      </h2>
-      <p style={styles.sectionSubtitle(isMobile)}>
-        Aprovecha antes de que termine el tiempo
-      </p>
-    </div>
 
-    <div style={styles.timerContainer}>
-      <div style={styles.timerBox} className="timer-glow">
-        <div style={styles.timerItem}>
-          <span style={styles.timerNumber}>{String(tiempoRestante.dias).padStart(2, '0')}</span>
-          <span style={styles.timerLabel}>Días</span>
-        </div>
-        <span style={styles.timerSeparator}>:</span>
-        <div style={styles.timerItem}>
-          <span style={styles.timerNumber}>{String(tiempoRestante.horas).padStart(2, '0')}</span>
-          <span style={styles.timerLabel}>Horas</span>
-        </div>
-        <span style={styles.timerSeparator}>:</span>
-        <div style={styles.timerItem}>
-          <span style={styles.timerNumber}>{String(tiempoRestante.minutos).padStart(2, '0')}</span>
-          <span style={styles.timerLabel}>Min</span>
-        </div>
-        <span style={styles.timerSeparator}>:</span>
-        <div style={styles.timerItem}>
-          <span style={styles.timerNumber}>{String(tiempoRestante.segundos).padStart(2, '0')}</span>
-          <span style={styles.timerLabel}>Seg</span>
-        </div>
-      </div>
-    </div>
-
-    {/* Grid centrado para productos en oferta */}
-    <div style={{
-      display: "flex",
-      justifyContent: "center",
-      width: "100%",
-      maxWidth: "100%",
-    }}>
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
-        gap: isMobile ? "14px" : "22px",
-        width: "100%",
-        maxWidth: isMobile ? "100%" : "900px",
-        justifyContent: "center",
-      }}>
-        {productosOferta.slice(0, 6).map((p, index) => (
-          <div
-            key={p.id}
-            style={{
-              ...styles.productCard(darkMode, isMobile),
-              opacity: 1,
-              transform: "none",
-              width: "100%",
-              maxWidth: "100%",
-            }}
-            onClick={() => navigate(`/producto/${p.id}`)}
-          >
-            <div style={styles.ofertaProductoBadge}>🔥 OFERTA</div>
-            <img
-              src={
-                p.imagenes
-                  ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
-                  : "https://via.placeholder.com/300"
-              }
-              alt={p.nombre}
-              style={styles.productImage(isMobile)}
-              loading="lazy"
-            />
-            <h3 style={styles.productName(darkMode, isMobile)}>
-              {p.nombre}
-            </h3>
-            <div style={styles.productPrices}>
-              <span style={styles.productOldPrice}>${p.precio}</span>
-              <span style={styles.productNewPrice}>
-                ${p.precioOferta || (p.precio * 0.8).toFixed(2)}
-              </span>
-            </div>
-            <button style={styles.productButton} className="btn-shine">
-              Ver producto →
-            </button>
+      {/* ===== PRODUCTOS EN OFERTA ===== */}
+      {mostrarOfertas && productosOferta.length > 0 && (
+        <div id="productos-oferta" style={styles.ofertaProductosWrapper(isMobile)}>
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
+              Productos en Oferta
+            </h2>
+            <p style={styles.sectionSubtitle(isMobile)}>
+              Aprovecha estas promociones antes de que terminen
+            </p>
           </div>
-        ))}
-      </div>
-    </div>
 
-    {productosOferta.length > 6 && (
-      <div style={styles.verTodosContainer}>
-        <button
-          style={styles.buttonDanger(darkMode, isMobile)}
-          onClick={irAMasVendidos}
-          className="btn-glow"
-        >
-          Ver todos los productos en oferta →
-        </button>
-      </div>
-    )}
-  </div>
-)}
+          <div style={styles.timerContainer}>
+            <div style={styles.timerBox} className="timer-glow">
+              <div style={styles.timerItem}>
+                <span style={styles.timerNumber}>{String(tiempoRestante.dias).padStart(2, '0')}</span>
+                <span style={styles.timerLabel}>Días</span>
+              </div>
+              <span style={styles.timerSeparator}>:</span>
+              <div style={styles.timerItem}>
+                <span style={styles.timerNumber}>{String(tiempoRestante.horas).padStart(2, '0')}</span>
+                <span style={styles.timerLabel}>Horas</span>
+              </div>
+              <span style={styles.timerSeparator}>:</span>
+              <div style={styles.timerItem}>
+                <span style={styles.timerNumber}>{String(tiempoRestante.minutos).padStart(2, '0')}</span>
+                <span style={styles.timerLabel}>Min</span>
+              </div>
+              <span style={styles.timerSeparator}>:</span>
+              <div style={styles.timerItem}>
+                <span style={styles.timerNumber}>{String(tiempoRestante.segundos).padStart(2, '0')}</span>
+                <span style={styles.timerLabel}>Seg</span>
+              </div>
+            </div>
+          </div>
 
-{/* MENSAJE CUANDO LAS OFERTAS HAN TERMINADO */}
-{!mostrarOfertas && productosOferta.length > 0 && (
-  <div id="productos-oferta" style={styles.ofertaProductosWrapper(isMobile)}>
-    <div style={styles.sectionHeader}>
-      <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
-        ⏰ ¡Ofertas Finalizadas!
-      </h2>
-      <p style={styles.sectionSubtitle(isMobile)}>
-        Las ofertas especiales han terminado. ¡Vuelve pronto para más promociones!
-      </p>
-    </div>
-    
-    <div style={styles.timerContainer}>
-      <div style={styles.timerBox}>
-        <div style={styles.timerItem}>
-          <span style={styles.timerNumber}>00</span>
-          <span style={styles.timerLabel}>Días</span>
+          <div style={{
+            display: "flex",
+            justifyContent: "center",
+            width: "100%",
+            maxWidth: "100%",
+          }}>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(3, 1fr)" : "repeat(5, 1fr)",
+              gap: isMobile ? "12px" : "16px",
+              width: "100%",
+              maxWidth: isMobile ? "100%" : "1300px",
+              justifyContent: "center",
+            }}>
+              {productosOferta.slice(0, getProductosOfertaMostrar()).map((p, index) => (
+                <div
+                  key={p.id}
+                  style={{
+                    ...styles.productCard(darkMode, isMobile),
+                    opacity: 1,
+                    transform: "none",
+                    width: "100%",
+                    maxWidth: "100%",
+                  }}
+                  onClick={() => navigate(`/producto/${p.id}`)}
+                >
+                  <div style={styles.ofertaProductoBadge}>Oferta</div>
+                  <img
+                    src={
+                      p.imagenes
+                        ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
+                        : "https://via.placeholder.com/300"
+                    }
+                    alt={p.nombre}
+                    style={styles.productImage(isMobile)}
+                    loading="lazy"
+                  />
+                  <h3 style={styles.productName(darkMode, isMobile)}>
+                    {p.nombre}
+                  </h3>
+                  <div style={styles.productPrices}>
+                    <span style={styles.productOldPrice}>${p.precio}</span>
+                    <span style={styles.productNewPrice}>
+                      ${p.precioOferta || (p.precio * 0.8).toFixed(2)}
+                    </span>
+                  </div>
+                  <button style={styles.productButton} className="btn-shine">
+                    Ver producto
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {productosOferta.length > getProductosOfertaMostrar() && (
+            <div style={styles.verTodosContainer}>
+              <button
+                style={styles.buttonDanger(darkMode, isMobile)}
+                onClick={irAMasVendidos}
+                className="btn-glow"
+              >
+                Ver todos los productos en oferta
+              </button>
+            </div>
+          )}
         </div>
-        <span style={styles.timerSeparator}>:</span>
-        <div style={styles.timerItem}>
-          <span style={styles.timerNumber}>00</span>
-          <span style={styles.timerLabel}>Horas</span>
+      )}
+
+      {/* MENSAJE CUANDO LAS OFERTAS HAN TERMINADO */}
+      {!mostrarOfertas && productosOferta.length > 0 && (
+        <div id="productos-oferta" style={styles.ofertaProductosWrapper(isMobile)}>
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
+              Ofertas Finalizadas
+            </h2>
+            <p style={styles.sectionSubtitle(isMobile)}>
+              Las ofertas especiales han terminado. Vuelve pronto para más promociones.
+            </p>
+          </div>
+          
+          <div style={styles.timerContainer}>
+            <div style={styles.timerBox}>
+              <div style={styles.timerItem}>
+                <span style={styles.timerNumber}>00</span>
+                <span style={styles.timerLabel}>Días</span>
+              </div>
+              <span style={styles.timerSeparator}>:</span>
+              <div style={styles.timerItem}>
+                <span style={styles.timerNumber}>00</span>
+                <span style={styles.timerLabel}>Horas</span>
+              </div>
+              <span style={styles.timerSeparator}>:</span>
+              <div style={styles.timerItem}>
+                <span style={styles.timerNumber}>00</span>
+                <span style={styles.timerLabel}>Min</span>
+              </div>
+              <span style={styles.timerSeparator}>:</span>
+              <div style={styles.timerItem}>
+                <span style={styles.timerNumber}>00</span>
+                <span style={styles.timerLabel}>Seg</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <span style={styles.timerSeparator}>:</span>
-        <div style={styles.timerItem}>
-          <span style={styles.timerNumber}>00</span>
-          <span style={styles.timerLabel}>Min</span>
-        </div>
-        <span style={styles.timerSeparator}>:</span>
-        <div style={styles.timerItem}>
-          <span style={styles.timerNumber}>00</span>
-          <span style={styles.timerLabel}>Seg</span>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       {/* ===== CATEGORÍAS MÁS VENDIDAS ===== */}
       {categoriasDestacadas.length > 0 && (
@@ -771,10 +778,10 @@ export default function Catalogo() {
         >
           <div style={styles.sectionHeader}>
             <h2 style={{ ...styles.sectionTitle(darkMode, isMobile), textAlign: "center" }}>
-              🔥 Categorías más vendidas
+              Más Vendidas
             </h2>
             <p style={{ ...styles.sectionSubtitle(isMobile), textAlign: "center" }}>
-              Las favoritas de nuestra comunidad
+              Las categorías favoritas de nuestra comunidad
             </p>
           </div>
 
@@ -785,7 +792,7 @@ export default function Catalogo() {
               className="slider-arrow"
               aria-label="Desplazar izquierda"
             >
-              ❮
+              ‹
             </button>
             <button
               onClick={() => scrollSlider("vendidasSlider", "right")}
@@ -793,7 +800,7 @@ export default function Catalogo() {
               className="slider-arrow"
               aria-label="Desplazar derecha"
             >
-              ❯
+              ›
             </button>
 
             <div 
@@ -803,7 +810,7 @@ export default function Catalogo() {
                 gap: "16px",
                 overflowX: "auto",
                 overflowY: "visible",
-                padding: "12px 40px 20px 40px",
+                padding: "12px 48px 16px 48px",
                 WebkitOverflowScrolling: "touch",
                 scrollBehavior: "smooth",
                 scrollbarWidth: "none",
@@ -821,8 +828,8 @@ export default function Catalogo() {
                     flexShrink: 0,
                     position: "relative",
                     zIndex: 5,
-                    minWidth: isMobile ? "165px" : "240px",
-                    maxWidth: isMobile ? "165px" : "240px",
+                    minWidth: isMobile ? "180px" : "280px",
+                    maxWidth: isMobile ? "180px" : "280px",
                     opacity: 1,
                     transform: "none",
                   }}
@@ -839,7 +846,7 @@ export default function Catalogo() {
                   </div>
                   <div style={styles.cardContent}>
                     <h3 style={styles.cardTitle(isMobile)}>{p.categoria}</h3>
-                    <div style={styles.cardBadge}>⭐ Popular</div>
+                    <div style={styles.cardBadge}>Popular</div>
                   </div>
                 </div>
               ))}
@@ -861,10 +868,10 @@ export default function Catalogo() {
         >
           <div style={styles.sectionHeader}>
             <h2 style={{ ...styles.sectionTitle(darkMode, isMobile), textAlign: "center" }}>
-              ⭐ Productos destacados
+              Productos Destacados
             </h2>
             <p style={{ ...styles.sectionSubtitle(isMobile), textAlign: "center" }}>
-              Los productos más valorados por nuestros clientes
+              Los productos mejor valorados por nuestros clientes
             </p>
           </div>
 
@@ -875,7 +882,7 @@ export default function Catalogo() {
               className="slider-arrow"
               aria-label="Desplazar izquierda"
             >
-              ❮
+              ‹
             </button>
             <button
               onClick={() => scrollSlider("destacadosSlider", "right")}
@@ -883,7 +890,7 @@ export default function Catalogo() {
               className="slider-arrow"
               aria-label="Desplazar derecha"
             >
-              ❯
+              ›
             </button>
 
             <div 
@@ -893,7 +900,7 @@ export default function Catalogo() {
                 gap: "16px",
                 overflowX: "auto",
                 overflowY: "visible",
-                padding: "12px 40px 20px 40px",
+                padding: "12px 48px 16px 48px",
                 WebkitOverflowScrolling: "touch",
                 scrollBehavior: "smooth",
                 scrollbarWidth: "none",
@@ -911,8 +918,8 @@ export default function Catalogo() {
                     flexShrink: 0,
                     position: "relative",
                     zIndex: 5,
-                    minWidth: isMobile ? "165px" : "240px",
-                    maxWidth: isMobile ? "165px" : "240px",
+                    minWidth: isMobile ? "180px" : "280px",
+                    maxWidth: isMobile ? "180px" : "280px",
                     opacity: 1,
                     transform: "none",
                   }}
@@ -930,7 +937,7 @@ export default function Catalogo() {
                       zIndex: 15,
                     }}
                   >
-                    {esFavorito(p.id) ? "❤️" : "🤍"}
+                    {esFavorito(p.id) ? "♥" : "♡"}
                   </button>
                   <div style={styles.cardImageWrapper}>
                     <img
@@ -951,7 +958,7 @@ export default function Catalogo() {
                       )}
                     </div>
                     <button style={styles.cardButton} className="btn-shine">
-                      Ver producto →
+                      Ver producto
                     </button>
                   </div>
                 </div>
@@ -988,30 +995,32 @@ export default function Catalogo() {
           transform: none !important;
         }
 
+        /* ===== ESTILO MERCADO LIBRE ===== */
         .slider-card {
           opacity: 1 !important;
           transform: none !important;
           visibility: visible !important;
+          background: #ffffff !important;
+          border: 1px solid #e8e8e8 !important;
+          border-radius: 8px !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+          transition: all 0.25s ease !important;
         }
 
         .slider-card:hover {
-          transform: translateY(-8px) scale(1.02) !important;
-          box-shadow: 0 12px 40px rgba(0,0,0,0.15) !important;
+          transform: translateY(-6px) !important;
+          box-shadow: 0 8px 30px rgba(0,0,0,0.12) !important;
+          border-color: #3483fa !important;
           z-index: 20 !important;
         }
 
         .slider-card:hover .slider-image {
-          transform: scale(1.08) !important;
+          transform: scale(1.05) !important;
         }
 
         .slider-card:hover .card-button {
-          background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+          background: #3483fa !important;
           transform: scale(1.02) !important;
-        }
-
-        .category-card-hover:hover {
-          transform: translateY(-10px) scale(1.02) !important;
-          box-shadow: 0 20px 50px rgba(59, 130, 246, 0.25) !important;
         }
 
         /* ===== MEJORAS PARA SLIDERS ===== */
@@ -1035,8 +1044,29 @@ export default function Catalogo() {
         .slider-section #destacadosSlider {
           overflow-x: auto !important;
           overflow-y: visible !important;
-          padding: 12px 40px 20px 40px !important;
+          padding: 12px 48px 16px 48px !important;
           margin: 0 !important;
+          scrollbar-width: thin !important;
+        }
+
+        .slider-section #nuevoSlider::-webkit-scrollbar,
+        .slider-section #vendidasSlider::-webkit-scrollbar,
+        .slider-section #destacadosSlider::-webkit-scrollbar {
+          height: 6px !important;
+        }
+
+        .slider-section #nuevoSlider::-webkit-scrollbar-track,
+        .slider-section #vendidasSlider::-webkit-scrollbar-track,
+        .slider-section #destacadosSlider::-webkit-scrollbar-track {
+          background: #f0f0f0 !important;
+          border-radius: 3px !important;
+        }
+
+        .slider-section #nuevoSlider::-webkit-scrollbar-thumb,
+        .slider-section #vendidasSlider::-webkit-scrollbar-thumb,
+        .slider-section #destacadosSlider::-webkit-scrollbar-thumb {
+          background: #3483fa !important;
+          border-radius: 3px !important;
         }
 
         .slider-section .slider-arrow {
@@ -1046,10 +1076,10 @@ export default function Catalogo() {
         /* ===== KEYFRAMES ===== */
         @keyframes timerPulse {
           0%, 100% {
-            box-shadow: 0 0 30px rgba(59,130,246,0.2), inset 0 0 30px rgba(59,130,246,0.05);
+            box-shadow: 0 0 20px rgba(52,131,250,0.15);
           }
           50% {
-            box-shadow: 0 0 50px rgba(59,130,246,0.4), inset 0 0 50px rgba(59,130,246,0.1);
+            box-shadow: 0 0 40px rgba(52,131,250,0.25);
           }
         }
 
@@ -1070,27 +1100,12 @@ export default function Catalogo() {
         .btn-glow {
           position: relative;
           overflow: hidden;
-          transition: all 0.3s ease !important;
+          transition: all 0.25s ease !important;
         }
 
-        .btn-glow::before {
-          content: '';
-          position: absolute;
-          top: -2px;
-          left: -2px;
-          right: -2px;
-          bottom: -2px;
-          background: linear-gradient(45deg, #3b82f6, #8b5cf6, #3b82f6);
-          background-size: 200% 200%;
-          border-radius: 14px;
-          opacity: 0;
-          transition: opacity 0.3s ease !important;
-          z-index: -1;
-          animation: shimmer 3s ease-in-out infinite !important;
-        }
-
-        .btn-glow:hover::before {
-          opacity: 1;
+        .btn-glow:hover {
+          transform: translateY(-2px) !important;
+          box-shadow: 0 6px 24px rgba(52,131,250,0.35) !important;
         }
 
         .btn-shine {
@@ -1099,14 +1114,18 @@ export default function Catalogo() {
         }
 
         .slider-arrow {
-          transition: all 0.3s ease !important;
+          transition: all 0.25s ease !important;
           z-index: 50 !important;
+          background: #ffffff !important;
+          border: 1px solid #d9d9d9 !important;
+          color: #333 !important;
         }
 
         .slider-arrow:hover {
-          transform: translateY(-50%) scale(1.1) !important;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
-          background: rgba(255,255,255,1) !important;
+          transform: translateY(-50%) scale(1.08) !important;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+          border-color: #3483fa !important;
+          color: #3483fa !important;
         }
 
         /* ===== HERO BANNER ===== */
@@ -1116,7 +1135,7 @@ export default function Catalogo() {
           padding: 0;
           margin: 0;
           overflow: hidden;
-          background: #0f172a;
+          background: #f5f5f5;
         }
 
         .hero-container {
@@ -1124,7 +1143,7 @@ export default function Catalogo() {
           width: 100%;
           max-width: 100%;
           overflow: hidden;
-          background: #0f172a;
+          background: #f5f5f5;
         }
 
         .hero-slide {
@@ -1142,7 +1161,7 @@ export default function Catalogo() {
           position: relative;
           width: 100%;
           overflow: hidden;
-          background: #0f172a;
+          background: #f5f5f5;
         }
 
         .hero-image {
@@ -1159,7 +1178,7 @@ export default function Catalogo() {
           left: 0;
           right: 0;
           padding: 20px 24px;
-          background: linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.4) 60%, transparent 100%);
+          background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
           color: #ffffff;
           display: flex;
           flex-direction: column;
@@ -1169,19 +1188,16 @@ export default function Catalogo() {
 
         .hero-title {
           font-size: 20px;
-          font-weight: 800;
+          font-weight: 700;
           margin: 0 0 4px 0;
           line-height: 1.2;
-          letter-spacing: -0.02em;
-          text-shadow: 0 2px 12px rgba(0,0,0,0.5);
           max-width: 85%;
         }
 
         .hero-description {
           font-size: 12px;
           margin: 0;
-          opacity: 0.9;
-          text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+          opacity: 0.85;
           max-width: 85%;
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -1196,7 +1212,7 @@ export default function Catalogo() {
           left: 50%;
           transform: translateX(-50%);
           display: flex;
-          gap: 8px;
+          gap: 6px;
           z-index: 10;
         }
 
@@ -1208,12 +1224,12 @@ export default function Catalogo() {
           border: none;
           cursor: pointer;
           padding: 0;
-          background: rgba(255,255,255,0.4);
+          background: rgba(255,255,255,0.5);
           transition: all 0.3s ease !important;
         }
 
         .hero-dot.active {
-          background: #3b82f6;
+          background: #3483fa;
           width: 24px;
           border-radius: 4px;
         }
@@ -1221,67 +1237,57 @@ export default function Catalogo() {
         /* ===== MÓVIL ===== */
         @media (max-width: 767px) {
           .hero-image-wrapper {
-            min-height: 280px;
-            max-height: 70vh;
+            min-height: 200px;
+            max-height: 50vh;
             width: 100%;
             overflow: hidden;
             position: relative;
-            background: #0f172a;
+            background: #f5f5f5;
           }
           
           .hero-image {
             width: 100%;
             height: 100%;
-            min-height: 280px;
-            max-height: 70vh;
+            min-height: 200px;
+            max-height: 50vh;
             object-fit: contain;
             object-position: center;
             display: block;
-            background: #0f172a;
+            background: #f5f5f5;
           }
 
           .hero-overlay {
-            padding: 20px 20px 24px;
+            padding: 16px 16px 20px;
           }
 
           .hero-title {
-            font-size: 22px;
+            font-size: 18px;
             max-width: 90%;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
           }
 
           .hero-description {
-            font-size: 13px;
+            font-size: 12px;
             max-width: 90%;
             -webkit-line-clamp: 2;
           }
 
           .hero-indicators {
-            bottom: 12px;
-            gap: 8px;
-          }
-
-          .hero-dot {
-            height: 8px;
-            width: 8px;
-            min-width: 8px;
-          }
-
-          .hero-dot.active {
-            width: 22px;
+            bottom: 8px;
+            gap: 6px;
           }
 
           .slider-section .slider-arrow {
-            width: 30px !important;
-            height: 30px !important;
-            font-size: 12px !important;
+            width: 32px !important;
+            height: 32px !important;
+            font-size: 14px !important;
           }
         }
 
         /* ===== TABLET ===== */
         @media (min-width: 768px) and (max-width: 1024px) {
           .hero-image-wrapper {
-            min-height: 350px;
+            min-height: 300px;
             max-height: 55vh;
             width: 100%;
             overflow: hidden;
@@ -1291,7 +1297,7 @@ export default function Catalogo() {
           .hero-image {
             width: 100%;
             height: 100%;
-            min-height: 350px;
+            min-height: 300px;
             max-height: 55vh;
             object-fit: cover;
             object-position: center;
@@ -1299,11 +1305,11 @@ export default function Catalogo() {
           }
 
           .hero-overlay {
-            padding: 28px 36px 32px;
+            padding: 24px 32px 28px;
           }
 
           .hero-title {
-            font-size: 30px;
+            font-size: 28px;
             max-width: 70%;
           }
 
@@ -1315,7 +1321,7 @@ export default function Catalogo() {
 
           .hero-indicators {
             bottom: 16px;
-            gap: 10px;
+            gap: 8px;
           }
 
           .hero-dot {
@@ -1332,8 +1338,8 @@ export default function Catalogo() {
         /* ===== DESKTOP ===== */
         @media (min-width: 1025px) {
           .hero-image-wrapper {
-            min-height: 450px;
-            max-height: 70vh;
+            min-height: 400px;
+            max-height: 65vh;
             width: 100%;
             overflow: hidden;
             position: relative;
@@ -1342,31 +1348,31 @@ export default function Catalogo() {
           .hero-image {
             width: 100%;
             height: 100%;
-            min-height: 450px;
-            max-height: 70vh;
+            min-height: 400px;
+            max-height: 65vh;
             object-fit: cover;
             object-position: center;
             display: block;
           }
 
           .hero-overlay {
-            padding: 50px 60px;
+            padding: 50px 80px 60px;
           }
 
           .hero-title {
-            font-size: 46px;
-            max-width: 60%;
+            font-size: 48px;
+            max-width: 55%;
             margin-bottom: 8px;
           }
 
           .hero-description {
             font-size: 20px;
-            max-width: 50%;
+            max-width: 45%;
             -webkit-line-clamp: unset;
           }
 
           .hero-indicators {
-            bottom: 24px;
+            bottom: 30px;
             gap: 12px;
           }
 
@@ -1377,7 +1383,7 @@ export default function Catalogo() {
           }
 
           .hero-dot.active {
-            width: 40px;
+            width: 36px;
           }
         }
 
@@ -1385,7 +1391,7 @@ export default function Catalogo() {
           .slider-section #nuevoSlider,
           .slider-section #vendidasSlider,
           .slider-section #destacadosSlider {
-            padding: 12px 30px 20px 30px !important;
+            padding: 8px 30px 12px 30px !important;
           }
         }
       `}</style>
@@ -1394,7 +1400,7 @@ export default function Catalogo() {
 }
 
 // =================================================
-// ESTILOS - COMPLETOS
+// ESTILOS - ESTILO MERCADO LIBRE PROFESIONAL
 // =================================================
 const styles = {
   loaderContainer: {
@@ -1403,175 +1409,178 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     minHeight: "60vh",
-    gap: "20px",
+    gap: "16px",
   },
   loader: {
-    width: "50px",
-    height: "50px",
-    border: "4px solid rgba(59,130,246,0.1)",
-    borderTop: "4px solid #3b82f6",
+    width: "48px",
+    height: "48px",
+    border: "3px solid rgba(52,131,250,0.15)",
+    borderTop: "3px solid #3483fa",
     borderRadius: "50%",
-    animation: "spin 1s linear infinite",
+    animation: "spin 0.8s linear infinite",
   },
   loaderText: {
-    color: "#64748b",
+    color: "#666",
     fontSize: "16px",
-    fontWeight: "500",
+    fontWeight: "400",
   },
   page: (darkMode) => ({
     background: darkMode 
-      ? "linear-gradient(180deg, #0f172a 0%, #1a2332 30%, #0f172a 60%, #1a2332 100%)"
-      : "linear-gradient(180deg, #f8fafc 0%, #e2e8f0 30%, #f1f5f9 60%, #e2e8f0 100%)",
+      ? "#1a1a2e"
+      : "#f5f5f5",
     minHeight: "100vh",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     overflowX: "hidden",
-    color: darkMode ? "#f1f5f9" : "#0f172a",
+    color: darkMode ? "#f1f5f9" : "#333",
   }),
   sectionHeader: {
     textAlign: "center",
-    marginBottom: "28px",
+    marginBottom: "12px",
+    padding: "0 12px",
   },
   sectionTitle: (darkMode, isMobile, type) => ({
-    fontSize: isMobile ? "24px" : "38px",
-    fontWeight: "800",
-    marginBottom: "6px",
-    letterSpacing: "-0.02em",
-    color: darkMode ? "#f1f5f9" : "#0f172a",
+    fontSize: isMobile ? "20px" : "32px",
+    fontWeight: "700",
+    marginBottom: "2px",
+    letterSpacing: "-0.01em",
+    color: darkMode ? "#f1f5f9" : "#333",
     ...(type === "gradient" && {
-      background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+      background: "linear-gradient(135deg, #3483fa, #1a5cb5)",
       WebkitBackgroundClip: "text",
       WebkitTextFillColor: "transparent",
     }),
   }),
   sectionSubtitle: (isMobile) => ({
-    fontSize: isMobile ? "14px" : "18px",
-    color: "#94a3b8",
+    fontSize: isMobile ? "13px" : "16px",
+    color: "#999",
     fontWeight: "400",
-    marginTop: "2px",
+    marginTop: "0",
   }),
   buttonPrimary: (darkMode, isMobile) => ({
-    padding: isMobile ? "12px 28px" : "14px 44px",
+    padding: isMobile ? "10px 24px" : "14px 40px",
     fontSize: isMobile ? "14px" : "16px",
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#ffffff",
-    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+    background: "linear-gradient(135deg, #3483fa, #1a5cb5)",
     border: "none",
-    borderRadius: "14px",
+    borderRadius: "8px",
     cursor: "pointer",
-    boxShadow: "0 4px 24px rgba(59,130,246,0.35)",
+    boxShadow: "0 2px 12px rgba(52,131,250,0.3)",
     letterSpacing: "0.3px",
+    transition: "all 0.25s ease",
   }),
   buttonDanger: (darkMode, isMobile) => ({
-    padding: isMobile ? "12px 28px" : "14px 44px",
+    padding: isMobile ? "10px 24px" : "14px 40px",
     fontSize: isMobile ? "14px" : "16px",
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#ffffff",
-    background: "linear-gradient(135deg, #dc2626, #b91c1c)",
+    background: "linear-gradient(135deg, #ee0a0a, #c40a0a)",
     border: "none",
-    borderRadius: "14px",
+    borderRadius: "8px",
     cursor: "pointer",
-    boxShadow: "0 4px 24px rgba(220,38,38,0.35)",
+    boxShadow: "0 2px 12px rgba(238,10,10,0.3)",
     letterSpacing: "0.3px",
+    transition: "all 0.25s ease",
   }),
   categoriesSection: (isMobile) => ({
-    margin: isMobile ? "16px 12px" : "32px 32px",
-    padding: isMobile ? "20px 12px" : "40px 24px",
+    margin: isMobile ? "6px 4px" : "8px 8px",
+    padding: isMobile ? "8px 4px" : "12px 8px",
     background: "transparent",
-    borderRadius: isMobile ? "16px" : "24px",
+    borderRadius: isMobile ? "12px" : "16px",
   }),
   categoriesGrid: (isMobile) => ({
     display: "grid",
     gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
-    gap: isMobile ? "16px" : "24px",
+    gap: isMobile ? "8px" : "12px",
   }),
   categoryCardWrapper: {
     width: "100%",
   },
   categoryCard: (darkMode) => ({
-    background: darkMode ? "rgba(30,41,59,0.8)" : "rgba(255,255,255,0.9)",
-    backdropFilter: "blur(10px)",
-    borderRadius: "20px",
+    background: darkMode ? "rgba(30,41,59,0.85)" : "#ffffff",
+    borderRadius: "12px",
     overflow: "hidden",
     cursor: "pointer",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-    border: darkMode ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.04)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    border: "1px solid #e8e8e8",
     position: "relative",
     height: "100%",
     display: "flex",
     flexDirection: "column",
+    transition: "all 0.25s ease",
   }),
   categoryBubble: (darkMode) => ({
     position: "absolute",
-    top: "12px",
-    left: "12px",
+    top: "8px",
+    left: "8px",
     zIndex: 10,
-    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-    padding: "6px 14px",
-    borderRadius: "20px",
-    boxShadow: "0 4px 20px rgba(59,130,246,0.4)",
-    border: "2px solid rgba(255,255,255,0.2)",
+    background: "linear-gradient(135deg, #3483fa, #1a5cb5)",
+    padding: "3px 12px",
+    borderRadius: "14px",
+    boxShadow: "0 2px 12px rgba(52,131,250,0.25)",
+    border: "1px solid rgba(255,255,255,0.15)",
   }),
   categoryBubbleText: (isMobile) => ({
     color: "#fff",
-    fontSize: isMobile ? "10px" : "13px",
-    fontWeight: "700",
-    letterSpacing: "0.5px",
+    fontSize: isMobile ? "9px" : "11px",
+    fontWeight: "600",
+    letterSpacing: "0.3px",
     textTransform: "uppercase",
-    textShadow: "0 2px 8px rgba(0,0,0,0.2)",
   }),
   categoryCardImage: {
     width: "100%",
-    height: "180px",
+    height: "160px",
     objectFit: "cover",
-    background: "#f8fafc",
+    background: "#f5f5f5",
   },
   categoryCardFooter: {
-    padding: "12px 16px 16px",
+    padding: "10px 12px 12px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
   },
   categoryCardCount: (isMobile) => ({
-    fontSize: isMobile ? "12px" : "14px",
-    color: "#64748b",
-    fontWeight: "500",
+    fontSize: isMobile ? "11px" : "13px",
+    color: "#666",
+    fontWeight: "400",
     margin: 0,
   }),
   categoryCardArrow: {
-    fontSize: "20px",
+    fontSize: "18px",
     fontWeight: "300",
-    color: "#3b82f6",
+    color: "#3483fa",
   },
   categoriesFooter: {
     display: "flex",
     justifyContent: "center",
-    marginTop: "28px",
+    marginTop: "12px",
   },
   ofertasBannerWrapper: (isMobile) => ({
-    margin: isMobile ? "16px 12px" : "32px 32px",
-    padding: isMobile ? "16px 12px" : "32px 24px",
+    margin: isMobile ? "6px 4px" : "8px 8px",
+    padding: isMobile ? "6px 4px" : "8px 8px",
     background: "transparent",
-    borderRadius: isMobile ? "16px" : "24px",
+    borderRadius: isMobile ? "12px" : "16px",
     width: "auto",
     maxWidth: "100%",
   }),
   ofertasBannerGrid: (isMobile, totalBanners) => ({
     display: "grid",
     gridTemplateColumns: isMobile ? "1fr" : totalBanners === 1 ? "1fr" : totalBanners === 2 ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
-    gap: isMobile ? "16px" : "20px",
+    gap: isMobile ? "8px" : "12px",
     width: "100%",
     maxWidth: "100%",
   }),
   ofertaBannerCard: (darkMode, isMobile) => ({
-    borderRadius: isMobile ? "14px" : "18px",
+    borderRadius: isMobile ? "10px" : "14px",
     overflow: "hidden",
     cursor: "pointer",
-    boxShadow: darkMode ? "0 4px 20px rgba(0,0,0,0.3)" : "0 4px 20px rgba(0,0,0,0.06)",
-    background: darkMode ? "rgba(30,41,59,0.8)" : "rgba(255,255,255,0.9)",
-    border: darkMode ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.04)",
+    boxShadow: darkMode ? "0 2px 12px rgba(0,0,0,0.3)" : "0 2px 12px rgba(0,0,0,0.06)",
+    background: darkMode ? "rgba(30,41,59,0.85)" : "#ffffff",
+    border: "1px solid #e8e8e8",
     width: "100%",
     maxWidth: "100%",
     height: "100%",
+    transition: "all 0.25s ease",
   }),
   ofertaBannerImageWrapper: {
     position: "relative",
@@ -1592,8 +1601,8 @@ const styles = {
     bottom: 0,
     left: 0,
     right: 0,
-    padding: "16px 20px",
-    background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)",
+    padding: "12px 16px",
+    background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)",
     color: "#fff",
     display: "flex",
     flexDirection: "column",
@@ -1602,34 +1611,35 @@ const styles = {
     minHeight: "40%",
   },
   ofertaBannerBadge: {
-    background: "linear-gradient(135deg, #dc2626, #b91c1c)",
+    background: "linear-gradient(135deg, #ee0a0a, #c40a0a)",
     color: "#fff",
-    fontSize: "14px",
-    fontWeight: "800",
-    padding: "4px 16px",
-    borderRadius: "20px",
-    marginBottom: "6px",
+    fontSize: "12px",
+    fontWeight: "700",
+    padding: "2px 12px",
+    borderRadius: "14px",
+    marginBottom: "4px",
     textTransform: "uppercase",
-    boxShadow: "0 2px 12px rgba(220,38,38,0.4)",
+    boxShadow: "0 2px 12px rgba(238,10,10,0.25)",
+    letterSpacing: "0.5px",
   },
   ofertaBannerTitle: {
-    fontSize: "18px",
-    fontWeight: "700",
+    fontSize: "16px",
+    fontWeight: "600",
     margin: "0",
     textAlign: "center",
     textShadow: "0 2px 8px rgba(0,0,0,0.5)",
   },
   ofertaBannerDesc: {
-    fontSize: "13px",
-    opacity: 0.8,
-    margin: "4px 0 0 0",
+    fontSize: "12px",
+    opacity: 0.85,
+    margin: "2px 0 0 0",
     textShadow: "0 2px 8px rgba(0,0,0,0.5)",
   },
   ofertaProductosWrapper: (isMobile) => ({
-    margin: isMobile ? "16px 12px" : "32px 32px",
-    padding: isMobile ? "20px 12px" : "40px 24px",
+    margin: isMobile ? "6px 4px" : "8px 8px",
+    padding: isMobile ? "8px 4px" : "12px 8px",
     background: "transparent",
-    borderRadius: isMobile ? "16px" : "24px",
+    borderRadius: isMobile ? "12px" : "16px",
     position: "relative",
     overflow: "hidden",
     width: "auto",
@@ -1638,7 +1648,7 @@ const styles = {
   timerContainer: {
     display: "flex",
     justifyContent: "center",
-    marginBottom: "28px",
+    marginBottom: "12px",
     width: "100%",
     maxWidth: "100%",
     overflow: "hidden",
@@ -1646,13 +1656,12 @@ const styles = {
   timerBox: {
     display: "flex",
     alignItems: "center",
-    gap: "16px",
-    background: "rgba(15,23,42,0.8)",
-    backdropFilter: "blur(10px)",
-    padding: "16px 32px",
-    borderRadius: "20px",
-    border: "2px solid rgba(96,165,250,0.2)",
-    boxShadow: "0 0 40px rgba(59,130,246,0.15), inset 0 0 40px rgba(59,130,246,0.05)",
+    gap: "10px",
+    background: "#ffffff",
+    padding: "10px 24px",
+    borderRadius: "12px",
+    border: "1px solid #e8e8e8",
+    boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
     flexWrap: "wrap",
     justifyContent: "center",
   },
@@ -1660,38 +1669,33 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    minWidth: "55px",
+    minWidth: "42px",
   },
   timerNumber: {
-    fontSize: "32px",
-    fontWeight: "800",
-    background: "linear-gradient(135deg, #60a5fa, #93c5fd)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    letterSpacing: "2px",
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#3483fa",
+    letterSpacing: "1px",
   },
   timerLabel: {
-    fontSize: "11px",
+    fontSize: "10px",
     textTransform: "uppercase",
-    color: "#93c5fd",
-    opacity: 0.7,
+    color: "#999",
     letterSpacing: "1px",
-    fontWeight: "600",
+    fontWeight: "500",
   },
   timerSeparator: {
-    color: "#60a5fa",
-    fontSize: "32px",
-    fontWeight: "700",
-    opacity: 0.4,
+    color: "#ccc",
+    fontSize: "28px",
+    fontWeight: "300",
   },
   productCard: (darkMode, isMobile) => ({
-    background: darkMode ? "rgba(30,41,59,0.8)" : "rgba(255,255,255,0.9)",
-    backdropFilter: "blur(10px)",
-    borderRadius: isMobile ? "14px" : "20px",
-    padding: isMobile ? "14px" : "20px",
-    boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
+    background: darkMode ? "rgba(30,41,59,0.85)" : "#ffffff",
+    borderRadius: isMobile ? "10px" : "14px",
+    padding: isMobile ? "10px" : "14px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
     cursor: "pointer",
-    border: darkMode ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.04)",
+    border: "1px solid #e8e8e8",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -1699,72 +1703,75 @@ const styles = {
     width: "100%",
     maxWidth: "100%",
     height: "100%",
-    minHeight: "280px",
+    minHeight: isMobile ? "280px" : "340px",
     overflow: "hidden",
+    transition: "all 0.25s ease",
   }),
   ofertaProductoBadge: {
     position: "absolute",
-    top: "10px",
-    left: "10px",
-    background: "linear-gradient(135deg, #dc2626, #b91c1c)",
+    top: "8px",
+    left: "8px",
+    background: "linear-gradient(135deg, #ee0a0a, #c40a0a)",
     color: "#fff",
-    padding: "4px 14px",
-    borderRadius: "20px",
-    fontSize: "11px",
+    padding: "2px 12px",
+    borderRadius: "14px",
+    fontSize: "10px",
     fontWeight: "700",
     zIndex: 10,
-    letterSpacing: "0.3px",
-    boxShadow: "0 2px 10px rgba(220,38,38,0.4)",
+    letterSpacing: "0.5px",
+    boxShadow: "0 2px 12px rgba(238,10,10,0.2)",
+    textTransform: "uppercase",
   },
   productImage: (isMobile) => ({
     width: "100%",
-    height: isMobile ? "120px" : "180px",
+    height: isMobile ? "140px" : "180px",
     objectFit: "contain",
-    borderRadius: "12px",
-    marginBottom: "10px",
-    background: "rgba(255,255,255,0.3)",
-    padding: "10px",
+    borderRadius: "8px",
+    marginBottom: "6px",
+    background: "#f5f5f5",
+    padding: "8px",
     maxWidth: "100%",
+    transition: "transform 0.25s ease",
   }),
   productName: (darkMode, isMobile) => ({
-    fontSize: isMobile ? "13px" : "16px",
-    fontWeight: "600",
+    fontSize: isMobile ? "13px" : "15px",
+    fontWeight: "500",
     margin: "4px 0",
     textAlign: "center",
-    color: darkMode ? "#f1f5f9" : "#0f172a",
+    color: darkMode ? "#f1f5f9" : "#333",
     lineHeight: "1.3",
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
-    minHeight: isMobile ? "34px" : "42px",
+    minHeight: isMobile ? "34px" : "40px",
     width: "100%",
   }),
   productPrices: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "12px",
+    gap: "10px",
     marginTop: "4px",
     width: "100%",
     flexWrap: "wrap",
   },
   productOldPrice: {
-    color: "#94a3b8",
+    color: "#999",
     textDecoration: "line-through",
-    fontSize: "14px",
+    fontSize: "13px",
   },
   productNewPrice: {
-    color: "#dc2626",
+    color: "#ee0a0a",
     fontWeight: "700",
     fontSize: "22px",
   },
   productButton: {
-    marginTop: "12px",
+    marginTop: "10px",
     padding: "8px 20px",
-    background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+    background: "linear-gradient(135deg, #3483fa, #1a5cb5)",
     color: "#fff",
-    borderRadius: "10px",
+    borderRadius: "8px",
     fontSize: "13px",
     fontWeight: "600",
     cursor: "pointer",
@@ -1772,18 +1779,19 @@ const styles = {
     textAlign: "center",
     border: "none",
     maxWidth: "100%",
+    transition: "all 0.25s ease",
   },
   verTodosContainer: {
     display: "flex",
     justifyContent: "center",
-    marginTop: "32px",
+    marginTop: "16px",
     width: "100%",
   },
   section: (isMobile) => ({
-    margin: isMobile ? "16px 8px" : "40px 24px",
+    margin: isMobile ? "6px 4px" : "8px 8px",
     background: "transparent",
-    borderRadius: isMobile ? "16px" : "24px",
-    padding: isMobile ? "16px 4px 30px 4px" : "24px 12px 40px 12px",
+    borderRadius: isMobile ? "12px" : "16px",
+    padding: isMobile ? "6px 0 10px 0" : "8px 0 12px 0",
     boxSizing: "border-box",
     overflow: "visible !important",
     position: "relative",
@@ -1792,198 +1800,202 @@ const styles = {
     maxWidth: "100%",
   }),
   sliderCard: (darkMode, isMobile) => ({
-    minWidth: isMobile ? "165px" : "240px",
-    maxWidth: isMobile ? "165px" : "240px",
-    background: darkMode ? "rgba(30,41,59,0.8)" : "rgba(255,255,255,0.9)",
-    backdropFilter: "blur(10px)",
-    borderRadius: isMobile ? "16px" : "22px",
-    padding: isMobile ? "12px" : "18px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+    minWidth: isMobile ? "180px" : "280px",
+    maxWidth: isMobile ? "180px" : "280px",
+    background: darkMode ? "rgba(30,41,59,0.85)" : "#ffffff",
+    borderRadius: isMobile ? "10px" : "14px",
+    padding: isMobile ? "10px" : "14px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
     cursor: "pointer",
     position: "relative",
     flexShrink: 0,
-    border: darkMode ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.04)",
+    border: "1px solid #e8e8e8",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     zIndex: 5,
     overflow: "hidden",
+    transition: "all 0.25s ease",
   }),
   nuevoCard: (darkMode, isMobile) => ({
-    minWidth: isMobile ? "165px" : "240px",
-    maxWidth: isMobile ? "165px" : "240px",
-    background: darkMode ? "rgba(30,41,59,0.8)" : "rgba(255,255,255,0.9)",
-    backdropFilter: "blur(10px)",
-    borderRadius: isMobile ? "16px" : "22px",
-    padding: isMobile ? "12px" : "18px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+    minWidth: isMobile ? "180px" : "280px",
+    maxWidth: isMobile ? "180px" : "280px",
+    background: darkMode ? "rgba(30,41,59,0.85)" : "#ffffff",
+    borderRadius: isMobile ? "10px" : "14px",
+    padding: isMobile ? "10px" : "14px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
     cursor: "pointer",
     position: "relative",
     flexShrink: 0,
-    border: "2px solid #10b981",
+    border: "2px solid #00a650",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     zIndex: 5,
     overflow: "hidden",
+    transition: "all 0.25s ease",
   }),
   cardImageWrapper: {
     width: "100%",
     position: "relative",
     overflow: "hidden",
-    borderRadius: "14px",
-    background: "rgba(248,250,252,0.5)",
+    borderRadius: "8px",
+    background: "#f5f5f5",
   },
   sliderImage: {
     width: "100%",
-    height: "170px",
+    height: "160px",
     objectFit: "contain",
-    padding: "10px",
-    background: "linear-gradient(135deg, #f8fafc, #f1f5f9)",
+    padding: "8px",
+    background: "#f5f5f5",
+    transition: "transform 0.25s ease",
   },
   cardContent: {
     width: "100%",
-    padding: "12px 4px 4px",
+    padding: "10px 2px 2px",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "6px",
+    gap: "4px",
   },
   cardTitle: (isMobile) => ({
-    fontSize: isMobile ? "14px" : "16px",
-    fontWeight: "600",
+    fontSize: isMobile ? "13px" : "15px",
+    fontWeight: "500",
     margin: "0",
     textAlign: "center",
-    color: "#0f172a",
+    color: "#333",
     lineHeight: "1.3",
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
-    minHeight: isMobile ? "36px" : "42px",
+    minHeight: isMobile ? "34px" : "40px",
   }),
   cardPriceContainer: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "10px",
+    gap: "8px",
     marginTop: "2px",
   },
   cardPrice: (isMobile) => ({
-    color: "#2563eb",
+    color: "#3483fa",
     fontWeight: "700",
     fontSize: isMobile ? "18px" : "22px",
     letterSpacing: "-0.01em",
   }),
   cardOldPrice: {
-    color: "#94a3b8",
+    color: "#999",
     textDecoration: "line-through",
-    fontSize: "14px",
+    fontSize: "13px",
   },
   cardButton: {
-    marginTop: "8px",
+    marginTop: "6px",
     padding: "6px 16px",
-    background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+    background: "linear-gradient(135deg, #3483fa, #1a5cb5)",
     color: "#fff",
-    borderRadius: "10px",
-    fontSize: "13px",
+    borderRadius: "8px",
+    fontSize: "12px",
     fontWeight: "600",
     cursor: "pointer",
     width: "100%",
     textAlign: "center",
     border: "none",
+    transition: "all 0.25s ease",
   },
   cardBadge: {
-    background: "linear-gradient(135deg, #f59e0b, #d97706)",
+    background: "linear-gradient(135deg, #f5a623, #e09500)",
     color: "#fff",
-    padding: "2px 14px",
-    borderRadius: "14px",
-    fontSize: "11px",
+    padding: "2px 12px",
+    borderRadius: "12px",
+    fontSize: "10px",
     fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: "0.3px",
+    letterSpacing: "0.5px",
     marginTop: "2px",
   },
   cardDesc: {
-    color: "#64748b",
-    fontSize: "13px",
+    color: "#666",
+    fontSize: "12px",
     lineHeight: "1.4",
-    margin: "2px 0",
+    margin: "0",
     textAlign: "center",
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
-    minHeight: "36px",
+    minHeight: "32px",
   },
   nuevoBadge: {
     position: "absolute",
-    top: "10px",
-    left: "10px",
-    background: "#10b981",
+    top: "8px",
+    left: "8px",
+    background: "#00a650",
     color: "#fff",
-    padding: "4px 14px",
-    borderRadius: "20px",
-    fontSize: "11px",
+    padding: "2px 12px",
+    borderRadius: "14px",
+    fontSize: "10px",
     fontWeight: "700",
     zIndex: 10,
-    letterSpacing: "0.3px",
-    boxShadow: "0 2px 10px rgba(16,185,129,0.3)",
+    letterSpacing: "0.5px",
+    boxShadow: "0 2px 12px rgba(0,166,80,0.2)",
+    textTransform: "uppercase",
   },
   favBtn: {
     position: "absolute",
-    top: "10px",
-    right: "10px",
-    width: "36px",
-    height: "36px",
+    top: "8px",
+    right: "8px",
+    width: "32px",
+    height: "32px",
     borderRadius: "50%",
-    border: "none",
+    border: "1px solid #e8e8e8",
     cursor: "pointer",
-    fontSize: "16px",
+    fontSize: "15px",
     zIndex: 15,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    transition: "all 0.25s ease",
   },
   arrowLeft: (isMobile) => ({
     position: "absolute",
-    left: isMobile ? "2px" : "8px",
+    left: isMobile ? "2px" : "6px",
     top: "50%",
     transform: "translateY(-50%)",
-    background: "rgba(255,255,255,0.95)",
-    border: "1px solid #e2e8f0",
-    width: isMobile ? "30px" : "44px",
-    height: isMobile ? "30px" : "44px",
+    background: "#ffffff",
+    border: "1px solid #d9d9d9",
+    width: isMobile ? "32px" : "40px",
+    height: isMobile ? "32px" : "40px",
     borderRadius: "50%",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: isMobile ? "12px" : "18px",
-    boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+    fontSize: isMobile ? "14px" : "20px",
+    boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
     zIndex: 50,
-    backdropFilter: "blur(10px)",
     userSelect: "none",
+    transition: "all 0.25s ease",
   }),
   arrowRight: (isMobile) => ({
     position: "absolute",
-    right: isMobile ? "2px" : "8px",
+    right: isMobile ? "2px" : "6px",
     top: "50%",
     transform: "translateY(-50%)",
-    background: "rgba(255,255,255,0.95)",
-    border: "1px solid #e2e8f0",
-    width: isMobile ? "30px" : "44px",
-    height: isMobile ? "30px" : "44px",
+    background: "#ffffff",
+    border: "1px solid #d9d9d9",
+    width: isMobile ? "32px" : "40px",
+    height: isMobile ? "32px" : "40px",
     borderRadius: "50%",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: isMobile ? "12px" : "18px",
-    boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+    fontSize: isMobile ? "14px" : "20px",
+    boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
     zIndex: 50,
-    backdropFilter: "blur(10px)",
     userSelect: "none",
+    transition: "all 0.25s ease",
   }),
 };
