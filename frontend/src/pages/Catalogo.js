@@ -345,7 +345,7 @@ export default function Catalogo() {
         subcategorias={subcategorias}
       />
 
-      {/* ===== HERO CARRUSEL ===== */}
+      {/* ===== HERO CARRUSEL (RESPONSIVE ORIGINAL) ===== */}
       {bannersHero.length > 0 && (
         <div className="hero-wrapper">
           <div className="hero-container">
@@ -390,40 +390,36 @@ export default function Catalogo() {
         </div>
       )}
 
-      {/* OFERTAS ESPECIALES - BANNERS */}
+      {/* ===== OFERTAS FLASH MODERNAS ===== */}
       {bannersOfertas.length > 0 && (
-        <div style={styles.ofertasBannerWrapper(isMobile)}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
-              Ofertas Especiales
-            </h2>
-            <p style={styles.sectionSubtitle(isMobile)}>
-              Descuentos exclusivos que no puedes perder
-            </p>
+        <div className="flash-offers-wrapper">
+          <div className="flash-offers-header">
+            <div className="flash-offers-title-group">
+              <span className="flash-icon">🔥</span>
+              <h2 className="flash-title">Ofertas Flash</h2>
+              <span className="flash-badge">¡Hoy!</span>
+            </div>
+            <p className="flash-subtitle">Descuentos que desaparecen rápido</p>
           </div>
 
-          <div style={styles.ofertasBannerGrid(isMobile, bannersOfertas.length)}>
-            {bannersOfertas.map((banner, index) => (
+          <div className="flash-offers-grid">
+            {bannersOfertas.slice(0, 3).map((banner) => (
               <div
                 key={banner.id}
-                style={styles.ofertaBannerCard(darkMode, isMobile)}
+                className="flash-offer-card"
                 onClick={() => {
                   if (banner.enlace_tipo === 'categoria' && banner.categoria_id) {
                     navigate(`/categoria-id/${banner.categoria_id}`);
                   } else if (banner.enlace_tipo === 'subcategoria' && banner.subcategoria_id) {
                     navigate(`/subcategorias/${banner.subcategoria_id}`);
-                  } else if (banner.enlace_tipo === 'tipo' && banner.tipo_id) {
-                    navigate(`/tipo/${banner.tipo_id}`);
                   } else if (banner.enlace_tipo === 'producto' && banner.producto_id) {
                     navigate(`/producto/${banner.producto_id}`);
-                  } else if (banner.enlace_tipo === 'url' && banner.url_externa) {
-                    window.open(banner.url_externa, '_blank');
                   } else {
                     navigate('/ofertas');
                   }
                 }}
               >
-                <div style={styles.ofertaBannerImageWrapper}>
+                <div className="flash-offer-image-wrapper">
                   <img
                     src={
                       banner.imagen
@@ -431,20 +427,19 @@ export default function Catalogo() {
                         : "https://via.placeholder.com/600x400/1e293b/60a5fa?text=Oferta"
                     }
                     alt={banner.titulo}
-                    style={styles.ofertaBannerImage}
+                    className="flash-offer-image"
                     loading="lazy"
-                    onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/600x400/1e293b/60a5fa?text=Oferta";
-                    }}
                   />
-                  <div style={styles.ofertaBannerOverlay}>
-                    {banner.porcentaje && (
-                      <span style={styles.ofertaBannerBadge}>{banner.porcentaje} OFF</span>
-                    )}
-                    <h3 style={styles.ofertaBannerTitle}>{banner.titulo}</h3>
-                    {banner.descripcion && (
-                      <p style={styles.ofertaBannerDesc}>{banner.descripcion}</p>
-                    )}
+                  {banner.porcentaje && (
+                    <div className="flash-offer-discount">
+                      <span className="discount-number">{banner.porcentaje}</span>
+                      <span className="discount-symbol">%</span>
+                      <span className="discount-label">OFF</span>
+                    </div>
+                  )}
+                  <div className="flash-offer-overlay">
+                    <h3 className="flash-offer-title">{banner.titulo}</h3>
+                    <span className="flash-offer-arrow">→</span>
                   </div>
                 </div>
               </div>
@@ -453,20 +448,20 @@ export default function Catalogo() {
         </div>
       )}
 
-      {/* CATEGORÍAS */}
+      {/* ===== CATEGORÍAS MODERNAS CON IMÁGENES ===== */}
       {categorias.length > 0 && (
-        <div style={styles.categoriesSection(isMobile)}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
-              Categorías
+        <div className="categories-modern-wrapper">
+          <div className="categories-modern-header">
+            <h2 className="categories-modern-title">
+              <span className="title-highlight">Explora</span> Categorías
             </h2>
-            <p style={styles.sectionSubtitle(isMobile)}>
-              Explora nuestra selección de productos
+            <p className="categories-modern-subtitle">
+              Encuentra lo que buscas en nuestra selección
             </p>
           </div>
 
-          <div style={styles.categoriesGrid(isMobile)}>
-            {categorias.slice(0, 8).map((cat, index) => {
+          <div className="categories-modern-grid">
+            {categorias.slice(0, 8).map((cat) => {
               const productoCategoria = productos.find(
                 (p) =>
                   p.categoria_id === cat.id || p.categoria === cat.nombre
@@ -477,16 +472,10 @@ export default function Catalogo() {
               return (
                 <div
                   key={cat.id}
-                  style={styles.categoryCardWrapper}
+                  className="category-modern-card"
                   onClick={() => navigate(`/categoria-id/${cat.id}`)}
                 >
-                  <div style={styles.categoryCard(darkMode)}>
-                    <div style={styles.categoryBubble(darkMode)}>
-                      <span style={styles.categoryBubbleText(isMobile)}>
-                        {cat.nombre}
-                      </span>
-                    </div>
-                    
+                  <div className="category-modern-image-wrapper">
                     <img
                       src={
                         productoCategoria
@@ -494,29 +483,28 @@ export default function Catalogo() {
                           : "https://via.placeholder.com/300/1e293b/60a5fa?text=?"
                       }
                       alt={cat.nombre}
-                      style={styles.categoryCardImage}
+                      className="category-modern-image"
                       loading="lazy"
                     />
-                    
-                    <div style={styles.categoryCardFooter}>
-                      <p style={styles.categoryCardCount(isMobile)}>
-                        {count} productos
-                      </p>
-                      <span style={styles.categoryCardArrow}>→</span>
+                    <div className="category-modern-overlay">
+                      <span className="category-emoji">📦</span>
+                      <h3 className="category-modern-name">{cat.nombre}</h3>
+                      <span className="category-modern-count">{count} productos</span>
                     </div>
                   </div>
+                  <div className="category-modern-hover-effect"></div>
                 </div>
               );
             })}
           </div>
 
-          <div style={styles.categoriesFooter}>
+          <div className="categories-modern-footer">
             <button
-              style={styles.buttonPrimary(darkMode, isMobile)}
+              className="categories-modern-btn btn-glow"
               onClick={() => navigate("/categorias")}
-              className="btn-glow"
             >
               Ver todas las categorías
+              <span className="btn-arrow">→</span>
             </button>
           </div>
         </div>
@@ -524,77 +512,40 @@ export default function Catalogo() {
 
       {/* ===== PRODUCTOS NUEVOS ===== */}
       {productosNuevos.length > 0 && (
-        <div
-          id="productos-nuevos"
-          className="slider-section"
-          style={{
-            ...styles.section(isMobile),
-            position: "relative",
-            overflow: "visible",
-            zIndex: 10,
-          }}
-        >
-          <div style={styles.sectionHeader}>
-            <h2 style={{ ...styles.sectionTitle(darkMode, isMobile), textAlign: "center" }}>
-              Nuevos Productos
-            </h2>
-            <p style={{ ...styles.sectionSubtitle(isMobile), textAlign: "center" }}>
-              Lo último en tendencia para ti
-            </p>
+        <div id="productos-nuevos" className="new-products-wrapper">
+          <div className="new-products-header">
+            <div className="new-products-title-group">
+              <span className="new-products-icon">✨</span>
+              <h2 className="new-products-title">Nuevos Productos</h2>
+            </div>
+            <p className="new-products-subtitle">Descubre las últimas novedades</p>
           </div>
 
-          <div style={{ position: "relative", width: "100%" }}>
+          <div className="new-products-slider-container">
             <button
-              onClick={() => scrollSlider("nuevoSlider", "left")}
-              style={styles.arrowLeft(isMobile)}
-              className="slider-arrow"
+              onClick={() => scrollSlider("nuevoSliderModern", "left")}
+              className="slider-arrow-modern left"
               aria-label="Desplazar izquierda"
             >
               ‹
             </button>
             <button
-              onClick={() => scrollSlider("nuevoSlider", "right")}
-              style={styles.arrowRight(isMobile)}
-              className="slider-arrow"
+              onClick={() => scrollSlider("nuevoSliderModern", "right")}
+              className="slider-arrow-modern right"
               aria-label="Desplazar derecha"
             >
               ›
             </button>
 
-            <div 
-              id="nuevoSlider" 
-              style={{
-                display: "flex",
-                gap: "16px",
-                overflowX: "auto",
-                overflowY: "visible",
-                padding: "12px 48px 16px 48px",
-                WebkitOverflowScrolling: "touch",
-                scrollBehavior: "smooth",
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-                position: "relative",
-                zIndex: 5,
-              }}
-            >
-              {productosNuevos.map((p, index) => (
+            <div id="nuevoSliderModern" className="new-products-slider">
+              {productosNuevos.map((p) => (
                 <div
                   key={p.id}
-                  className="slider-card"
-                  style={{
-                    ...styles.nuevoCard(darkMode, isMobile),
-                    flexShrink: 0,
-                    position: "relative",
-                    zIndex: 5,
-                    minWidth: isMobile ? "180px" : "280px",
-                    maxWidth: isMobile ? "180px" : "280px",
-                    opacity: 1,
-                    transform: "none",
-                  }}
+                  className="new-product-card"
                   onClick={() => navigate(`/producto/${p.id}`)}
                 >
-                  <div style={styles.nuevoBadge}>Nuevo</div>
-                  <div style={styles.cardImageWrapper}>
+                  <div className="new-product-badge">NUEVO</div>
+                  <div className="new-product-image-wrapper">
                     <img
                       src={
                         p.imagenes
@@ -602,17 +553,14 @@ export default function Catalogo() {
                           : "https://via.placeholder.com/200"
                       }
                       alt={p.nombre}
-                      className="slider-image"
-                      style={styles.sliderImage}
+                      className="new-product-image"
                       loading="lazy"
                     />
                   </div>
-                  <div style={styles.cardContent}>
-                    <h3 style={styles.cardTitle(isMobile)}>{p.nombre}</h3>
-                    <div style={styles.cardPriceContainer}>
-                      <span style={styles.cardPrice(isMobile)}>${p.precio}</span>
-                    </div>
-                    <button style={styles.cardButton} className="btn-shine">
+                  <div className="new-product-info">
+                    <h3 className="new-product-name">{p.nombre}</h3>
+                    <div className="new-product-price">${p.precio}</div>
+                    <button className="new-product-btn btn-shine">
                       Ver producto
                     </button>
                   </div>
@@ -625,228 +573,129 @@ export default function Catalogo() {
 
       {/* ===== PRODUCTOS EN OFERTA ===== */}
       {mostrarOfertas && productosOferta.length > 0 && (
-        <div id="productos-oferta" style={styles.ofertaProductosWrapper(isMobile)}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
-              Productos en Oferta
-            </h2>
-            <p style={styles.sectionSubtitle(isMobile)}>
-              Aprovecha estas promociones antes de que terminen
-            </p>
+        <div className="sale-products-wrapper">
+          <div className="sale-products-header">
+            <div className="sale-products-title-group">
+              <span className="sale-icon">🛒</span>
+              <h2 className="sale-products-title">Gran Liquidación</h2>
+            </div>
+            <p className="sale-products-subtitle">Aprovecha antes de que se acaben</p>
           </div>
 
-          <div style={styles.timerContainer}>
-            <div style={styles.timerBox} className="timer-glow">
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>{String(tiempoRestante.dias).padStart(2, '0')}</span>
-                <span style={styles.timerLabel}>Días</span>
+          <div className="sale-timer-container">
+            <div className="sale-timer">
+              <div className="timer-unit">
+                <span className="timer-value">{String(tiempoRestante.dias).padStart(2, '0')}</span>
+                <span className="timer-label">Días</span>
               </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>{String(tiempoRestante.horas).padStart(2, '0')}</span>
-                <span style={styles.timerLabel}>Horas</span>
+              <span className="timer-separator">:</span>
+              <div className="timer-unit">
+                <span className="timer-value">{String(tiempoRestante.horas).padStart(2, '0')}</span>
+                <span className="timer-label">Horas</span>
               </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>{String(tiempoRestante.minutos).padStart(2, '0')}</span>
-                <span style={styles.timerLabel}>Min</span>
+              <span className="timer-separator">:</span>
+              <div className="timer-unit">
+                <span className="timer-value">{String(tiempoRestante.minutos).padStart(2, '0')}</span>
+                <span className="timer-label">Min</span>
               </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>{String(tiempoRestante.segundos).padStart(2, '0')}</span>
-                <span style={styles.timerLabel}>Seg</span>
+              <span className="timer-separator">:</span>
+              <div className="timer-unit">
+                <span className="timer-value">{String(tiempoRestante.segundos).padStart(2, '0')}</span>
+                <span className="timer-label">Seg</span>
               </div>
             </div>
           </div>
 
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            width: "100%",
-            maxWidth: "100%",
-          }}>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(3, 1fr)" : "repeat(5, 1fr)",
-              gap: isMobile ? "12px" : "16px",
-              width: "100%",
-              maxWidth: isMobile ? "100%" : "1300px",
-              justifyContent: "center",
-            }}>
-              {productosOferta.slice(0, getProductosOfertaMostrar()).map((p, index) => (
-                <div
-                  key={p.id}
-                  style={{
-                    ...styles.productCard(darkMode, isMobile),
-                    opacity: 1,
-                    transform: "none",
-                    width: "100%",
-                    maxWidth: "100%",
-                  }}
-                  onClick={() => navigate(`/producto/${p.id}`)}
-                >
-                  <div style={styles.ofertaProductoBadge}>Oferta</div>
-                  <img
-                    src={
-                      p.imagenes
-                        ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
-                        : "https://via.placeholder.com/300"
-                    }
-                    alt={p.nombre}
-                    style={styles.productImage(isMobile)}
-                    loading="lazy"
-                  />
-                  <h3 style={styles.productName(darkMode, isMobile)}>
-                    {p.nombre}
-                  </h3>
-                  <div style={styles.productPrices}>
-                    <span style={styles.productOldPrice}>${p.precio}</span>
-                    <span style={styles.productNewPrice}>
-                      ${p.precioOferta || (p.precio * 0.8).toFixed(2)}
-                    </span>
-                  </div>
-                  <button style={styles.productButton} className="btn-shine">
-                    Ver producto
-                  </button>
+          <div className="sale-products-grid">
+            {productosOferta.slice(0, getProductosOfertaMostrar()).map((p) => (
+              <div
+                key={p.id}
+                className="sale-product-card"
+                onClick={() => navigate(`/producto/${p.id}`)}
+              >
+                <div className="sale-product-discount-badge">-20%</div>
+                <img
+                  src={
+                    p.imagenes
+                      ? `https://backend-zuib.onrender.com${p.imagenes.split(",")[0]}`
+                      : "https://via.placeholder.com/300"
+                  }
+                  alt={p.nombre}
+                  className="sale-product-image"
+                  loading="lazy"
+                />
+                <h3 className="sale-product-name">{p.nombre}</h3>
+                <div className="sale-product-prices">
+                  <span className="sale-old-price">${p.precio}</span>
+                  <span className="sale-new-price">${p.precioOferta || (p.precio * 0.8).toFixed(2)}</span>
                 </div>
-              ))}
-            </div>
+                <button className="sale-product-btn btn-shine">
+                  Aprovechar oferta
+                </button>
+              </div>
+            ))}
           </div>
 
           {productosOferta.length > getProductosOfertaMostrar() && (
-            <div style={styles.verTodosContainer}>
+            <div className="sale-products-footer">
               <button
-                style={styles.buttonDanger(darkMode, isMobile)}
+                className="sale-products-btn-all btn-glow"
                 onClick={irAMasVendidos}
-                className="btn-glow"
               >
-                Ver todos los productos en oferta
+                Ver todas las ofertas
+                <span className="btn-arrow">→</span>
               </button>
             </div>
           )}
         </div>
       )}
 
-      {/* MENSAJE CUANDO LAS OFERTAS HAN TERMINADO */}
-      {!mostrarOfertas && productosOferta.length > 0 && (
-        <div id="productos-oferta" style={styles.ofertaProductosWrapper(isMobile)}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle(darkMode, isMobile, "gradient")}>
-              Ofertas Finalizadas
-            </h2>
-            <p style={styles.sectionSubtitle(isMobile)}>
-              Las ofertas especiales han terminado. Vuelve pronto para más promociones.
-            </p>
-          </div>
-          
-          <div style={styles.timerContainer}>
-            <div style={styles.timerBox}>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>00</span>
-                <span style={styles.timerLabel}>Días</span>
-              </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>00</span>
-                <span style={styles.timerLabel}>Horas</span>
-              </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>00</span>
-                <span style={styles.timerLabel}>Min</span>
-              </div>
-              <span style={styles.timerSeparator}>:</span>
-              <div style={styles.timerItem}>
-                <span style={styles.timerNumber}>00</span>
-                <span style={styles.timerLabel}>Seg</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ===== CATEGORÍAS MÁS VENDIDAS ===== */}
       {categoriasDestacadas.length > 0 && (
-        <div
-          className="slider-section"
-          style={{
-            ...styles.section(isMobile),
-            position: "relative",
-            overflow: "visible",
-            zIndex: 10,
-          }}
-        >
-          <div style={styles.sectionHeader}>
-            <h2 style={{ ...styles.sectionTitle(darkMode, isMobile), textAlign: "center" }}>
-              Más Vendidas
-            </h2>
-            <p style={{ ...styles.sectionSubtitle(isMobile), textAlign: "center" }}>
-              Las categorías favoritas de nuestra comunidad
-            </p>
+        <div className="popular-categories-wrapper">
+          <div className="popular-categories-header">
+            <div className="popular-categories-title-group">
+              <span className="popular-icon">🏆</span>
+              <h2 className="popular-categories-title">Más Vendidas</h2>
+            </div>
+            <p className="popular-categories-subtitle">Lo que más gusta a nuestra comunidad</p>
           </div>
 
-          <div style={{ position: "relative", width: "100%" }}>
+          <div className="popular-categories-slider-container">
             <button
-              onClick={() => scrollSlider("vendidasSlider", "left")}
-              style={styles.arrowLeft(isMobile)}
-              className="slider-arrow"
+              onClick={() => scrollSlider("vendidasSliderModern", "left")}
+              className="slider-arrow-modern left"
               aria-label="Desplazar izquierda"
             >
               ‹
             </button>
             <button
-              onClick={() => scrollSlider("vendidasSlider", "right")}
-              style={styles.arrowRight(isMobile)}
-              className="slider-arrow"
+              onClick={() => scrollSlider("vendidasSliderModern", "right")}
+              className="slider-arrow-modern right"
               aria-label="Desplazar derecha"
             >
               ›
             </button>
 
-            <div 
-              id="vendidasSlider" 
-              style={{
-                display: "flex",
-                gap: "16px",
-                overflowX: "auto",
-                overflowY: "visible",
-                padding: "12px 48px 16px 48px",
-                WebkitOverflowScrolling: "touch",
-                scrollBehavior: "smooth",
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-                position: "relative",
-                zIndex: 5,
-              }}
-            >
+            <div id="vendidasSliderModern" className="popular-categories-slider">
               {categoriasDestacadas.map((p, index) => (
                 <div
                   key={index}
-                  className="slider-card"
-                  style={{
-                    ...styles.sliderCard(darkMode, isMobile),
-                    flexShrink: 0,
-                    position: "relative",
-                    zIndex: 5,
-                    minWidth: isMobile ? "180px" : "280px",
-                    maxWidth: isMobile ? "180px" : "280px",
-                    opacity: 1,
-                    transform: "none",
-                  }}
+                  className="popular-category-card"
                   onClick={() => navigate(`/categoria-id/${p.categoria_id}`)}
                 >
-                  <div style={styles.cardImageWrapper}>
+                  <div className="popular-category-image-wrapper">
                     <img
                       src={obtenerImagen(p)}
                       alt={p.nombre}
-                      className="slider-image"
-                      style={styles.sliderImage}
+                      className="popular-category-image"
                       loading="lazy"
                     />
+                    <div className="popular-category-rank">#{index + 1}</div>
                   </div>
-                  <div style={styles.cardContent}>
-                    <h3 style={styles.cardTitle(isMobile)}>{p.categoria}</h3>
-                    <div style={styles.cardBadge}>Popular</div>
+                  <div className="popular-category-info">
+                    <h3 className="popular-category-name">{p.categoria}</h3>
+                    <span className="popular-category-badge">🔥 Popular</span>
                   </div>
                 </div>
               ))}
@@ -857,72 +706,36 @@ export default function Catalogo() {
 
       {/* ===== PRODUCTOS DESTACADOS ===== */}
       {destacados.length > 0 && (
-        <div
-          className="slider-section"
-          style={{
-            ...styles.section(isMobile),
-            position: "relative",
-            overflow: "visible",
-            zIndex: 10,
-          }}
-        >
-          <div style={styles.sectionHeader}>
-            <h2 style={{ ...styles.sectionTitle(darkMode, isMobile), textAlign: "center" }}>
-              Productos Destacados
-            </h2>
-            <p style={{ ...styles.sectionSubtitle(isMobile), textAlign: "center" }}>
-              Los productos mejor valorados por nuestros clientes
-            </p>
+        <div className="featured-products-wrapper">
+          <div className="featured-products-header">
+            <div className="featured-products-title-group">
+              <span className="featured-icon">⭐</span>
+              <h2 className="featured-products-title">Productos Destacados</h2>
+            </div>
+            <p className="featured-products-subtitle">Los favoritos de nuestros clientes</p>
           </div>
 
-          <div style={{ position: "relative", width: "100%" }}>
+          <div className="featured-products-slider-container">
             <button
-              onClick={() => scrollSlider("destacadosSlider", "left")}
-              style={styles.arrowLeft(isMobile)}
-              className="slider-arrow"
+              onClick={() => scrollSlider("destacadosSliderModern", "left")}
+              className="slider-arrow-modern left"
               aria-label="Desplazar izquierda"
             >
               ‹
             </button>
             <button
-              onClick={() => scrollSlider("destacadosSlider", "right")}
-              style={styles.arrowRight(isMobile)}
-              className="slider-arrow"
+              onClick={() => scrollSlider("destacadosSliderModern", "right")}
+              className="slider-arrow-modern right"
               aria-label="Desplazar derecha"
             >
               ›
             </button>
 
-            <div 
-              id="destacadosSlider" 
-              style={{
-                display: "flex",
-                gap: "16px",
-                overflowX: "auto",
-                overflowY: "visible",
-                padding: "12px 48px 16px 48px",
-                WebkitOverflowScrolling: "touch",
-                scrollBehavior: "smooth",
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-                position: "relative",
-                zIndex: 5,
-              }}
-            >
-              {destacados.map((p, index) => (
+            <div id="destacadosSliderModern" className="featured-products-slider">
+              {destacados.map((p) => (
                 <div
-                  key={index}
-                  className="slider-card"
-                  style={{
-                    ...styles.sliderCard(darkMode, isMobile),
-                    flexShrink: 0,
-                    position: "relative",
-                    zIndex: 5,
-                    minWidth: isMobile ? "180px" : "280px",
-                    maxWidth: isMobile ? "180px" : "280px",
-                    opacity: 1,
-                    transform: "none",
-                  }}
+                  key={p.id}
+                  className="featured-product-card"
                   onClick={() => navigate(`/producto/${p.id}`)}
                 >
                   <button
@@ -930,34 +743,27 @@ export default function Catalogo() {
                       e.stopPropagation();
                       toggleFavorito(p);
                     }}
+                    className="featured-fav-btn"
                     style={{
-                      ...styles.favBtn,
-                      background: esFavorito(p.id) ? "#dc2626" : "rgba(255,255,255,0.9)",
+                      background: esFavorito(p.id) ? "linear-gradient(135deg, #ff6b6b, #ee0a0a)" : "rgba(255,255,255,0.9)",
                       color: esFavorito(p.id) ? "#fff" : "#333",
-                      zIndex: 15,
                     }}
                   >
                     {esFavorito(p.id) ? "♥" : "♡"}
                   </button>
-                  <div style={styles.cardImageWrapper}>
+                  <div className="featured-product-image-wrapper">
                     <img
                       src={obtenerImagen(p)}
                       alt={p.nombre}
-                      className="slider-image"
-                      style={styles.sliderImage}
+                      className="featured-product-image"
                       loading="lazy"
                     />
                   </div>
-                  <div style={styles.cardContent}>
-                    <h3 style={styles.cardTitle(isMobile)}>{p.nombre}</h3>
-                    {!isMobile && <p style={styles.cardDesc}>{p.descripcion}</p>}
-                    <div style={styles.cardPriceContainer}>
-                      <span style={styles.cardPrice(isMobile)}>${p.precio}</span>
-                      {p.precioOferta && (
-                        <span style={styles.cardOldPrice}>${p.precio}</span>
-                      )}
-                    </div>
-                    <button style={styles.cardButton} className="btn-shine">
+                  <div className="featured-product-info">
+                    <h3 className="featured-product-name">{p.nombre}</h3>
+                    {!isMobile && <p className="featured-product-desc">{p.descripcion}</p>}
+                    <div className="featured-product-price">${p.precio}</div>
+                    <button className="featured-product-btn btn-shine">
                       Ver producto
                     </button>
                   </div>
@@ -977,7 +783,12 @@ export default function Catalogo() {
           100% { transform: rotate(360deg); }
         }
 
-        /* ===== FORZAR QUE TODOS LOS ELEMENTOS SEAN VISIBLES Y FIJOS ===== */
+        @keyframes pulse-badge {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+
+        /* ===== RESET ===== */
         * {
           animation: none !important;
           transition: none !important;
@@ -990,145 +801,7 @@ export default function Catalogo() {
           pointer-events: auto !important;
         }
 
-        [data-animate].is-visible {
-          opacity: 1 !important;
-          transform: none !important;
-        }
-
-        /* ===== ESTILO MERCADO LIBRE ===== */
-        .slider-card {
-          opacity: 1 !important;
-          transform: none !important;
-          visibility: visible !important;
-          background: #ffffff !important;
-          border: 1px solid #e8e8e8 !important;
-          border-radius: 8px !important;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
-          transition: all 0.25s ease !important;
-        }
-
-        .slider-card:hover {
-          transform: translateY(-6px) !important;
-          box-shadow: 0 8px 30px rgba(0,0,0,0.12) !important;
-          border-color: #3483fa !important;
-          z-index: 20 !important;
-        }
-
-        .slider-card:hover .slider-image {
-          transform: scale(1.05) !important;
-        }
-
-        .slider-card:hover .card-button {
-          background: #3483fa !important;
-          transform: scale(1.02) !important;
-        }
-
-        /* ===== MEJORAS PARA SLIDERS ===== */
-        .slider-section {
-          overflow: visible !important;
-          position: relative;
-          z-index: 10;
-        }
-
-        .slider-section .slider-card {
-          overflow: visible !important;
-          z-index: 5;
-        }
-
-        .slider-section .slider-card:hover {
-          z-index: 20 !important;
-        }
-
-        .slider-section #nuevoSlider,
-        .slider-section #vendidasSlider,
-        .slider-section #destacadosSlider {
-          overflow-x: auto !important;
-          overflow-y: visible !important;
-          padding: 12px 48px 16px 48px !important;
-          margin: 0 !important;
-          scrollbar-width: thin !important;
-        }
-
-        .slider-section #nuevoSlider::-webkit-scrollbar,
-        .slider-section #vendidasSlider::-webkit-scrollbar,
-        .slider-section #destacadosSlider::-webkit-scrollbar {
-          height: 6px !important;
-        }
-
-        .slider-section #nuevoSlider::-webkit-scrollbar-track,
-        .slider-section #vendidasSlider::-webkit-scrollbar-track,
-        .slider-section #destacadosSlider::-webkit-scrollbar-track {
-          background: #f0f0f0 !important;
-          border-radius: 3px !important;
-        }
-
-        .slider-section #nuevoSlider::-webkit-scrollbar-thumb,
-        .slider-section #vendidasSlider::-webkit-scrollbar-thumb,
-        .slider-section #destacadosSlider::-webkit-scrollbar-thumb {
-          background: #3483fa !important;
-          border-radius: 3px !important;
-        }
-
-        .slider-section .slider-arrow {
-          z-index: 50 !important;
-        }
-
-        /* ===== KEYFRAMES ===== */
-        @keyframes timerPulse {
-          0%, 100% {
-            box-shadow: 0 0 20px rgba(52,131,250,0.15);
-          }
-          50% {
-            box-shadow: 0 0 40px rgba(52,131,250,0.25);
-          }
-        }
-
-        @keyframes shimmer {
-          0% {
-            background-position: -200% center;
-          }
-          100% {
-            background-position: 200% center;
-          }
-        }
-
-        /* ===== EFECTOS ESPECIALES ===== */
-        .timer-glow {
-          animation: timerPulse 2s ease-in-out infinite !important;
-        }
-
-        .btn-glow {
-          position: relative;
-          overflow: hidden;
-          transition: all 0.25s ease !important;
-        }
-
-        .btn-glow:hover {
-          transform: translateY(-2px) !important;
-          box-shadow: 0 6px 24px rgba(52,131,250,0.35) !important;
-        }
-
-        .btn-shine {
-          position: relative;
-          overflow: hidden;
-        }
-
-        .slider-arrow {
-          transition: all 0.25s ease !important;
-          z-index: 50 !important;
-          background: #ffffff !important;
-          border: 1px solid #d9d9d9 !important;
-          color: #333 !important;
-        }
-
-        .slider-arrow:hover {
-          transform: translateY(-50%) scale(1.08) !important;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
-          border-color: #3483fa !important;
-          color: #3483fa !important;
-        }
-
-        /* ===== HERO BANNER ===== */
+        /* ===== HERO BANNER ORIGINAL (RESPONSIVE) ===== */
         .hero-wrapper {
           width: 100%;
           max-width: 100%;
@@ -1234,7 +907,6 @@ export default function Catalogo() {
           border-radius: 4px;
         }
 
-        /* ===== MÓVIL ===== */
         @media (max-width: 767px) {
           .hero-image-wrapper {
             min-height: 200px;
@@ -1276,15 +948,8 @@ export default function Catalogo() {
             bottom: 8px;
             gap: 6px;
           }
-
-          .slider-section .slider-arrow {
-            width: 32px !important;
-            height: 32px !important;
-            font-size: 14px !important;
-          }
         }
 
-        /* ===== TABLET ===== */
         @media (min-width: 768px) and (max-width: 1024px) {
           .hero-image-wrapper {
             min-height: 300px;
@@ -1335,7 +1000,6 @@ export default function Catalogo() {
           }
         }
 
-        /* ===== DESKTOP ===== */
         @media (min-width: 1025px) {
           .hero-image-wrapper {
             min-height: 400px;
@@ -1387,11 +1051,1136 @@ export default function Catalogo() {
           }
         }
 
+        /* ===== OFERTAS FLASH MODERNAS ===== */
+        .flash-offers-wrapper {
+          padding: 20px 30px;
+          background: linear-gradient(135deg, #fff5f5, #ffffff);
+          margin: 10px 20px;
+          border-radius: 20px;
+          box-shadow: 0 2px 20px rgba(0,0,0,0.05);
+        }
+
+        .flash-offers-header {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+
+        .flash-offers-title-group {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+        }
+
+        .flash-icon {
+          font-size: 32px;
+        }
+
+        .flash-title {
+          font-size: 28px;
+          font-weight: 700;
+          background: linear-gradient(135deg, #ff6b6b, #ee0a0a);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          margin: 0;
+        }
+
+        .flash-badge {
+          background: #ff6b6b;
+          color: #fff;
+          padding: 2px 12px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 600;
+          animation: pulse-badge 2s infinite;
+        }
+
+        .flash-subtitle {
+          color: #666;
+          margin: 4px 0 0 0;
+          font-size: 14px;
+        }
+
+        .flash-offers-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+        }
+
+        .flash-offer-card {
+          border-radius: 16px;
+          overflow: hidden;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        }
+
+        .flash-offer-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        }
+
+        .flash-offer-image-wrapper {
+          position: relative;
+          width: 100%;
+          padding-top: 66.67%;
+          overflow: hidden;
+        }
+
+        .flash-offer-image {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .flash-offer-discount {
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          background: linear-gradient(135deg, #ff6b6b, #ee0a0a);
+          color: #fff;
+          padding: 8px 12px;
+          border-radius: 12px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          line-height: 1;
+          box-shadow: 0 4px 15px rgba(238,10,10,0.3);
+        }
+
+        .discount-number {
+          font-size: 24px;
+          font-weight: 800;
+        }
+
+        .discount-symbol {
+          font-size: 14px;
+          font-weight: 700;
+        }
+
+        .discount-label {
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+
+        .flash-offer-overlay {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          padding: 16px 20px;
+          background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .flash-offer-title {
+          color: #fff;
+          font-size: 16px;
+          font-weight: 600;
+          margin: 0;
+        }
+
+        .flash-offer-arrow {
+          color: #fff;
+          font-size: 24px;
+          font-weight: 300;
+        }
+
+        /* ===== CATEGORÍAS MODERNAS CON IMÁGENES ===== */
+        .categories-modern-wrapper {
+          padding: 30px 30px;
+          margin: 10px 20px;
+        }
+
+        .categories-modern-header {
+          text-align: center;
+          margin-bottom: 24px;
+        }
+
+        .categories-modern-title {
+          font-size: 32px;
+          font-weight: 700;
+          margin: 0 0 4px 0;
+        }
+
+        .title-highlight {
+          background: linear-gradient(135deg, #3483fa, #1a5cb5);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .categories-modern-subtitle {
+          color: #666;
+          font-size: 16px;
+          margin: 0;
+        }
+
+        .categories-modern-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+
+        .category-modern-card {
+          border-radius: 16px;
+          overflow: hidden;
+          cursor: pointer;
+          position: relative;
+          border: 1px solid #e8e8e8;
+          transition: all 0.3s ease;
+          background: #fff;
+        }
+
+        .category-modern-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+          border-color: #3483fa;
+        }
+
+        .category-modern-image-wrapper {
+          position: relative;
+          width: 100%;
+          padding-top: 75%;
+          overflow: hidden;
+        }
+
+        .category-modern-image {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .category-modern-overlay {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          padding: 16px 12px;
+          background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-end;
+          min-height: 60%;
+        }
+
+        .category-emoji {
+          font-size: 28px;
+          margin-bottom: 4px;
+        }
+
+        .category-modern-name {
+          font-size: 16px;
+          font-weight: 600;
+          color: #fff;
+          margin: 0;
+          text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .category-modern-count {
+          font-size: 12px;
+          color: rgba(255,255,255,0.8);
+          margin-top: 2px;
+        }
+
+        .category-modern-hover-effect {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(135deg, rgba(52,131,250,0.1), rgba(26,92,181,0.2));
+          opacity: 0;
+          transition: opacity 0.3s ease;
+          pointer-events: none;
+        }
+
+        .category-modern-card:hover .category-modern-hover-effect {
+          opacity: 1;
+        }
+
+        .categories-modern-footer {
+          text-align: center;
+          margin-top: 24px;
+        }
+
+        .categories-modern-btn {
+          background: linear-gradient(135deg, #3483fa, #1a5cb5);
+          color: #fff;
+          border: none;
+          padding: 12px 32px;
+          border-radius: 50px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .categories-modern-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 30px rgba(52,131,250,0.3);
+        }
+
+        .btn-arrow {
+          font-size: 18px;
+          transition: transform 0.3s ease;
+        }
+
+        .categories-modern-btn:hover .btn-arrow {
+          transform: translateX(4px);
+        }
+
+        /* ===== PRODUCTOS NUEVOS ===== */
+        .new-products-wrapper {
+          padding: 30px 30px;
+          margin: 10px 20px;
+          background: linear-gradient(135deg, #f8faff, #ffffff);
+          border-radius: 20px;
+        }
+
+        .new-products-header {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+
+        .new-products-title-group {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+        }
+
+        .new-products-icon {
+          font-size: 28px;
+        }
+
+        .new-products-title {
+          font-size: 28px;
+          font-weight: 700;
+          margin: 0;
+          background: linear-gradient(135deg, #00a650, #00c853);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .new-products-subtitle {
+          color: #666;
+          font-size: 14px;
+          margin: 4px 0 0 0;
+        }
+
+        .new-products-slider-container {
+          position: relative;
+        }
+
+        .new-products-slider {
+          display: flex;
+          gap: 16px;
+          overflow-x: auto;
+          padding: 12px 0;
+          scroll-behavior: smooth;
+          scrollbar-width: none;
+        }
+
+        .new-products-slider::-webkit-scrollbar {
+          display: none;
+        }
+
+        .new-product-card {
+          min-width: 220px;
+          max-width: 220px;
+          background: #fff;
+          border-radius: 16px;
+          overflow: hidden;
+          cursor: pointer;
+          border: 2px solid #00a650;
+          transition: all 0.3s ease;
+          flex-shrink: 0;
+          position: relative;
+        }
+
+        .new-product-card:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 12px 40px rgba(0,166,80,0.15);
+        }
+
+        .new-product-badge {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          background: #00a650;
+          color: #fff;
+          padding: 2px 12px;
+          border-radius: 12px;
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          z-index: 2;
+        }
+
+        .new-product-image-wrapper {
+          position: relative;
+          width: 100%;
+          padding-top: 100%;
+          overflow: hidden;
+          background: #f5f5f5;
+        }
+
+        .new-product-image {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          padding: 12px;
+        }
+
+        .new-product-info {
+          padding: 12px 16px 16px;
+          text-align: center;
+        }
+
+        .new-product-name {
+          font-size: 14px;
+          font-weight: 500;
+          margin: 0 0 4px 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 36px;
+        }
+
+        .new-product-price {
+          font-size: 20px;
+          font-weight: 700;
+          color: #00a650;
+          margin-bottom: 8px;
+        }
+
+        .new-product-btn {
+          background: #00a650;
+          color: #fff;
+          border: none;
+          padding: 8px 0;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          width: 100%;
+          transition: all 0.3s ease;
+        }
+
+        .new-product-btn:hover {
+          background: #008f44;
+          transform: scale(1.02);
+        }
+
+        /* ===== PRODUCTOS EN OFERTA ===== */
+        .sale-products-wrapper {
+          padding: 30px 30px;
+          margin: 10px 20px;
+          background: linear-gradient(135deg, #fff5f5, #fff0f0);
+          border-radius: 20px;
+        }
+
+        .sale-products-header {
+          text-align: center;
+          margin-bottom: 16px;
+        }
+
+        .sale-products-title-group {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+        }
+
+        .sale-icon {
+          font-size: 28px;
+        }
+
+        .sale-products-title {
+          font-size: 28px;
+          font-weight: 700;
+          margin: 0;
+          background: linear-gradient(135deg, #ff6b6b, #ee0a0a);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .sale-products-subtitle {
+          color: #666;
+          font-size: 14px;
+          margin: 4px 0 0 0;
+        }
+
+        .sale-timer-container {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 20px;
+        }
+
+        .sale-timer {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: #fff;
+          padding: 10px 24px;
+          border-radius: 16px;
+          box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+        }
+
+        .timer-unit {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          min-width: 40px;
+        }
+
+        .timer-value {
+          font-size: 28px;
+          font-weight: 800;
+          color: #ee0a0a;
+        }
+
+        .timer-label {
+          font-size: 10px;
+          text-transform: uppercase;
+          color: #999;
+          font-weight: 600;
+          letter-spacing: 0.5px;
+        }
+
+        .timer-separator {
+          color: #ccc;
+          font-size: 24px;
+          font-weight: 300;
+        }
+
+        .sale-products-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 16px;
+        }
+
+        .sale-product-card {
+          background: #fff;
+          border-radius: 16px;
+          padding: 12px;
+          cursor: pointer;
+          position: relative;
+          border: 1px solid #e8e8e8;
+          transition: all 0.3s ease;
+          text-align: center;
+        }
+
+        .sale-product-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+        }
+
+        .sale-product-discount-badge {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          background: linear-gradient(135deg, #ff6b6b, #ee0a0a);
+          color: #fff;
+          padding: 2px 12px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 700;
+          z-index: 2;
+        }
+
+        .sale-product-image {
+          width: 100%;
+          height: 140px;
+          object-fit: contain;
+          margin-bottom: 8px;
+        }
+
+        .sale-product-name {
+          font-size: 14px;
+          font-weight: 500;
+          margin: 0 0 4px 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 36px;
+        }
+
+        .sale-product-prices {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+
+        .sale-old-price {
+          color: #999;
+          text-decoration: line-through;
+          font-size: 14px;
+        }
+
+        .sale-new-price {
+          color: #ee0a0a;
+          font-size: 20px;
+          font-weight: 700;
+        }
+
+        .sale-product-btn {
+          background: linear-gradient(135deg, #ff6b6b, #ee0a0a);
+          color: #fff;
+          border: none;
+          padding: 8px 0;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          width: 100%;
+          transition: all 0.3s ease;
+        }
+
+        .sale-product-btn:hover {
+          transform: scale(1.02);
+          box-shadow: 0 4px 20px rgba(238,10,10,0.3);
+        }
+
+        .sale-products-footer {
+          text-align: center;
+          margin-top: 20px;
+        }
+
+        .sale-products-btn-all {
+          background: linear-gradient(135deg, #ff6b6b, #ee0a0a);
+          color: #fff;
+          border: none;
+          padding: 12px 32px;
+          border-radius: 50px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .sale-products-btn-all:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 30px rgba(238,10,10,0.3);
+        }
+
+        /* ===== POPULAR CATEGORIES ===== */
+        .popular-categories-wrapper {
+          padding: 30px 30px;
+          margin: 10px 20px;
+        }
+
+        .popular-categories-header {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+
+        .popular-categories-title-group {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+        }
+
+        .popular-icon {
+          font-size: 28px;
+        }
+
+        .popular-categories-title {
+          font-size: 28px;
+          font-weight: 700;
+          margin: 0;
+          background: linear-gradient(135deg, #f5a623, #e09500);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .popular-categories-subtitle {
+          color: #666;
+          font-size: 14px;
+          margin: 4px 0 0 0;
+        }
+
+        .popular-categories-slider-container {
+          position: relative;
+        }
+
+        .popular-categories-slider {
+          display: flex;
+          gap: 16px;
+          overflow-x: auto;
+          padding: 12px 0;
+          scroll-behavior: smooth;
+          scrollbar-width: none;
+        }
+
+        .popular-categories-slider::-webkit-scrollbar {
+          display: none;
+        }
+
+        .popular-category-card {
+          min-width: 220px;
+          max-width: 220px;
+          background: #fff;
+          border-radius: 16px;
+          overflow: hidden;
+          cursor: pointer;
+          border: 1px solid #e8e8e8;
+          transition: all 0.3s ease;
+          flex-shrink: 0;
+        }
+
+        .popular-category-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+        }
+
+        .popular-category-image-wrapper {
+          position: relative;
+          width: 100%;
+          padding-top: 100%;
+          overflow: hidden;
+        }
+
+        .popular-category-image {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .popular-category-rank {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          background: rgba(0,0,0,0.7);
+          color: #fff;
+          padding: 2px 10px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .popular-category-info {
+          padding: 12px 16px;
+          text-align: center;
+        }
+
+        .popular-category-name {
+          font-size: 16px;
+          font-weight: 600;
+          margin: 0 0 4px 0;
+        }
+
+        .popular-category-badge {
+          display: inline-block;
+          background: linear-gradient(135deg, #f5a623, #e09500);
+          color: #fff;
+          padding: 2px 12px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 600;
+        }
+
+        /* ===== FEATURED PRODUCTS ===== */
+        .featured-products-wrapper {
+          padding: 30px 30px;
+          margin: 10px 20px;
+          background: linear-gradient(135deg, #f8faff, #ffffff);
+          border-radius: 20px;
+        }
+
+        .featured-products-header {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+
+        .featured-products-title-group {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+        }
+
+        .featured-icon {
+          font-size: 28px;
+        }
+
+        .featured-products-title {
+          font-size: 28px;
+          font-weight: 700;
+          margin: 0;
+          background: linear-gradient(135deg, #ff6b6b, #ee0a0a);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .featured-products-subtitle {
+          color: #666;
+          font-size: 14px;
+          margin: 4px 0 0 0;
+        }
+
+        .featured-products-slider-container {
+          position: relative;
+        }
+
+        .featured-products-slider {
+          display: flex;
+          gap: 16px;
+          overflow-x: auto;
+          padding: 12px 0;
+          scroll-behavior: smooth;
+          scrollbar-width: none;
+        }
+
+        .featured-products-slider::-webkit-scrollbar {
+          display: none;
+        }
+
+        .featured-product-card {
+          min-width: 220px;
+          max-width: 220px;
+          background: #fff;
+          border-radius: 16px;
+          overflow: hidden;
+          cursor: pointer;
+          border: 1px solid #e8e8e8;
+          transition: all 0.3s ease;
+          flex-shrink: 0;
+          position: relative;
+        }
+
+        .featured-product-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+        }
+
+        .featured-fav-btn {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          border: none;
+          cursor: pointer;
+          font-size: 16px;
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .featured-fav-btn:hover {
+          transform: scale(1.1);
+        }
+
+        .featured-product-image-wrapper {
+          position: relative;
+          width: 100%;
+          padding-top: 100%;
+          overflow: hidden;
+          background: #f5f5f5;
+        }
+
+        .featured-product-image {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          padding: 12px;
+        }
+
+        .featured-product-info {
+          padding: 12px 16px 16px;
+          text-align: center;
+        }
+
+        .featured-product-name {
+          font-size: 14px;
+          font-weight: 500;
+          margin: 0 0 4px 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 36px;
+        }
+
+        .featured-product-desc {
+          font-size: 12px;
+          color: #666;
+          margin: 0 0 8px 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 32px;
+        }
+
+        .featured-product-price {
+          font-size: 20px;
+          font-weight: 700;
+          color: #3483fa;
+          margin-bottom: 8px;
+        }
+
+        .featured-product-btn {
+          background: linear-gradient(135deg, #3483fa, #1a5cb5);
+          color: #fff;
+          border: none;
+          padding: 8px 0;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          width: 100%;
+          transition: all 0.3s ease;
+        }
+
+        .featured-product-btn:hover {
+          transform: scale(1.02);
+          box-shadow: 0 4px 20px rgba(52,131,250,0.3);
+        }
+
+        /* ===== SLIDER ARROWS MODERNOS ===== */
+        .slider-arrow-modern {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          background: #fff;
+          border: 1px solid #e8e8e8;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          cursor: pointer;
+          font-size: 20px;
+          color: #333;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+          z-index: 10;
+          transition: all 0.3s ease;
+        }
+
+        .slider-arrow-modern:hover {
+          background: #3483fa;
+          color: #fff;
+          border-color: #3483fa;
+          box-shadow: 0 4px 20px rgba(52,131,250,0.3);
+        }
+
+        .slider-arrow-modern.left {
+          left: -4px;
+        }
+
+        .slider-arrow-modern.right {
+          right: -4px;
+        }
+
+        /* ===== EFECTOS GLOBALES ===== */
+        .btn-shine {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .btn-glow {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .btn-glow:hover {
+          transform: translateY(-2px);
+        }
+
+        /* ===== RESPONSIVE GENERAL ===== */
+        @media (max-width: 768px) {
+          .flash-offers-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .categories-modern-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .sale-products-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .flash-offers-wrapper,
+          .categories-modern-wrapper,
+          .new-products-wrapper,
+          .sale-products-wrapper,
+          .popular-categories-wrapper,
+          .featured-products-wrapper {
+            padding: 16px 12px;
+            margin: 6px 8px;
+          }
+
+          .slider-arrow-modern {
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+          }
+
+          .slider-arrow-modern.left {
+            left: -2px;
+          }
+
+          .slider-arrow-modern.right {
+            right: -2px;
+          }
+
+          .new-product-card,
+          .popular-category-card,
+          .featured-product-card {
+            min-width: 160px;
+            max-width: 160px;
+          }
+
+          .sale-timer {
+            padding: 8px 16px;
+            gap: 4px;
+          }
+
+          .timer-value {
+            font-size: 20px;
+          }
+
+          .timer-unit {
+            min-width: 30px;
+          }
+
+          .timer-separator {
+            font-size: 18px;
+          }
+
+          .flash-title,
+          .new-products-title,
+          .sale-products-title,
+          .popular-categories-title,
+          .featured-products-title,
+          .categories-modern-title {
+            font-size: 22px;
+          }
+        }
+
         @media (max-width: 480px) {
-          .slider-section #nuevoSlider,
-          .slider-section #vendidasSlider,
-          .slider-section #destacadosSlider {
-            padding: 8px 30px 12px 30px !important;
+          .categories-modern-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+          }
+
+          .flash-offers-wrapper,
+          .categories-modern-wrapper,
+          .new-products-wrapper,
+          .sale-products-wrapper,
+          .popular-categories-wrapper,
+          .featured-products-wrapper {
+            padding: 12px 8px;
+            margin: 4px 4px;
+          }
+
+          .new-product-card,
+          .popular-category-card,
+          .featured-product-card {
+            min-width: 140px;
+            max-width: 140px;
+          }
+
+          .category-modern-image-wrapper {
+            padding-top: 100%;
+          }
+
+          .sale-timer {
+            padding: 6px 12px;
+            gap: 2px;
+          }
+
+          .timer-value {
+            font-size: 16px;
+          }
+
+          .timer-unit {
+            min-width: 24px;
+          }
+
+          .timer-separator {
+            font-size: 14px;
+          }
+
+          .timer-label {
+            font-size: 8px;
+          }
+
+          .flash-title,
+          .new-products-title,
+          .sale-products-title,
+          .popular-categories-title,
+          .featured-products-title,
+          .categories-modern-title {
+            font-size: 18px;
+          }
+
+          .categories-modern-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+          }
+
+          .sale-products-btn-all {
+            padding: 10px 20px;
+            font-size: 14px;
+          }
+
+          .flash-icon,
+          .new-products-icon,
+          .sale-icon,
+          .popular-icon,
+          .featured-icon {
+            font-size: 22px;
+          }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+          .sale-products-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+
+          .flash-offers-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .categories-modern-grid {
+            grid-template-columns: repeat(3, 1fr);
           }
         }
       `}</style>
@@ -1400,7 +2189,7 @@ export default function Catalogo() {
 }
 
 // =================================================
-// ESTILOS - ESTILO MERCADO LIBRE PROFESIONAL
+// ESTILOS - ESTILO MODERNO Y LLAMATIVO
 // =================================================
 const styles = {
   loaderContainer: {
@@ -1426,576 +2215,11 @@ const styles = {
   },
   page: (darkMode) => ({
     background: darkMode 
-      ? "#1a1a2e"
-      : "#f5f5f5",
+      ? "#0f0f1a"
+      : "#f8faff",
     minHeight: "100vh",
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     overflowX: "hidden",
     color: darkMode ? "#f1f5f9" : "#333",
-  }),
-  sectionHeader: {
-    textAlign: "center",
-    marginBottom: "12px",
-    padding: "0 12px",
-  },
-  sectionTitle: (darkMode, isMobile, type) => ({
-    fontSize: isMobile ? "20px" : "32px",
-    fontWeight: "700",
-    marginBottom: "2px",
-    letterSpacing: "-0.01em",
-    color: darkMode ? "#f1f5f9" : "#333",
-    ...(type === "gradient" && {
-      background: "linear-gradient(135deg, #3483fa, #1a5cb5)",
-      WebkitBackgroundClip: "text",
-      WebkitTextFillColor: "transparent",
-    }),
-  }),
-  sectionSubtitle: (isMobile) => ({
-    fontSize: isMobile ? "13px" : "16px",
-    color: "#999",
-    fontWeight: "400",
-    marginTop: "0",
-  }),
-  buttonPrimary: (darkMode, isMobile) => ({
-    padding: isMobile ? "10px 24px" : "14px 40px",
-    fontSize: isMobile ? "14px" : "16px",
-    fontWeight: "600",
-    color: "#ffffff",
-    background: "linear-gradient(135deg, #3483fa, #1a5cb5)",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    boxShadow: "0 2px 12px rgba(52,131,250,0.3)",
-    letterSpacing: "0.3px",
-    transition: "all 0.25s ease",
-  }),
-  buttonDanger: (darkMode, isMobile) => ({
-    padding: isMobile ? "10px 24px" : "14px 40px",
-    fontSize: isMobile ? "14px" : "16px",
-    fontWeight: "600",
-    color: "#ffffff",
-    background: "linear-gradient(135deg, #ee0a0a, #c40a0a)",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    boxShadow: "0 2px 12px rgba(238,10,10,0.3)",
-    letterSpacing: "0.3px",
-    transition: "all 0.25s ease",
-  }),
-  categoriesSection: (isMobile) => ({
-    margin: isMobile ? "6px 4px" : "8px 8px",
-    padding: isMobile ? "8px 4px" : "12px 8px",
-    background: "transparent",
-    borderRadius: isMobile ? "12px" : "16px",
-  }),
-  categoriesGrid: (isMobile) => ({
-    display: "grid",
-    gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
-    gap: isMobile ? "8px" : "12px",
-  }),
-  categoryCardWrapper: {
-    width: "100%",
-  },
-  categoryCard: (darkMode) => ({
-    background: darkMode ? "rgba(30,41,59,0.85)" : "#ffffff",
-    borderRadius: "12px",
-    overflow: "hidden",
-    cursor: "pointer",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-    border: "1px solid #e8e8e8",
-    position: "relative",
-    height: "100%",
-    display: "flex",
-    flexDirection: "column",
-    transition: "all 0.25s ease",
-  }),
-  categoryBubble: (darkMode) => ({
-    position: "absolute",
-    top: "8px",
-    left: "8px",
-    zIndex: 10,
-    background: "linear-gradient(135deg, #3483fa, #1a5cb5)",
-    padding: "3px 12px",
-    borderRadius: "14px",
-    boxShadow: "0 2px 12px rgba(52,131,250,0.25)",
-    border: "1px solid rgba(255,255,255,0.15)",
-  }),
-  categoryBubbleText: (isMobile) => ({
-    color: "#fff",
-    fontSize: isMobile ? "9px" : "11px",
-    fontWeight: "600",
-    letterSpacing: "0.3px",
-    textTransform: "uppercase",
-  }),
-  categoryCardImage: {
-    width: "100%",
-    height: "160px",
-    objectFit: "cover",
-    background: "#f5f5f5",
-  },
-  categoryCardFooter: {
-    padding: "10px 12px 12px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  categoryCardCount: (isMobile) => ({
-    fontSize: isMobile ? "11px" : "13px",
-    color: "#666",
-    fontWeight: "400",
-    margin: 0,
-  }),
-  categoryCardArrow: {
-    fontSize: "18px",
-    fontWeight: "300",
-    color: "#3483fa",
-  },
-  categoriesFooter: {
-    display: "flex",
-    justifyContent: "center",
-    marginTop: "12px",
-  },
-  ofertasBannerWrapper: (isMobile) => ({
-    margin: isMobile ? "6px 4px" : "8px 8px",
-    padding: isMobile ? "6px 4px" : "8px 8px",
-    background: "transparent",
-    borderRadius: isMobile ? "12px" : "16px",
-    width: "auto",
-    maxWidth: "100%",
-  }),
-  ofertasBannerGrid: (isMobile, totalBanners) => ({
-    display: "grid",
-    gridTemplateColumns: isMobile ? "1fr" : totalBanners === 1 ? "1fr" : totalBanners === 2 ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
-    gap: isMobile ? "8px" : "12px",
-    width: "100%",
-    maxWidth: "100%",
-  }),
-  ofertaBannerCard: (darkMode, isMobile) => ({
-    borderRadius: isMobile ? "10px" : "14px",
-    overflow: "hidden",
-    cursor: "pointer",
-    boxShadow: darkMode ? "0 2px 12px rgba(0,0,0,0.3)" : "0 2px 12px rgba(0,0,0,0.06)",
-    background: darkMode ? "rgba(30,41,59,0.85)" : "#ffffff",
-    border: "1px solid #e8e8e8",
-    width: "100%",
-    maxWidth: "100%",
-    height: "100%",
-    transition: "all 0.25s ease",
-  }),
-  ofertaBannerImageWrapper: {
-    position: "relative",
-    width: "100%",
-    paddingTop: "56.25%",
-    overflow: "hidden",
-  },
-  ofertaBannerImage: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
-  ofertaBannerOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: "12px 16px",
-    background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)",
-    color: "#fff",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    minHeight: "40%",
-  },
-  ofertaBannerBadge: {
-    background: "linear-gradient(135deg, #ee0a0a, #c40a0a)",
-    color: "#fff",
-    fontSize: "12px",
-    fontWeight: "700",
-    padding: "2px 12px",
-    borderRadius: "14px",
-    marginBottom: "4px",
-    textTransform: "uppercase",
-    boxShadow: "0 2px 12px rgba(238,10,10,0.25)",
-    letterSpacing: "0.5px",
-  },
-  ofertaBannerTitle: {
-    fontSize: "16px",
-    fontWeight: "600",
-    margin: "0",
-    textAlign: "center",
-    textShadow: "0 2px 8px rgba(0,0,0,0.5)",
-  },
-  ofertaBannerDesc: {
-    fontSize: "12px",
-    opacity: 0.85,
-    margin: "2px 0 0 0",
-    textShadow: "0 2px 8px rgba(0,0,0,0.5)",
-  },
-  ofertaProductosWrapper: (isMobile) => ({
-    margin: isMobile ? "6px 4px" : "8px 8px",
-    padding: isMobile ? "8px 4px" : "12px 8px",
-    background: "transparent",
-    borderRadius: isMobile ? "12px" : "16px",
-    position: "relative",
-    overflow: "hidden",
-    width: "auto",
-    maxWidth: "100%",
-  }),
-  timerContainer: {
-    display: "flex",
-    justifyContent: "center",
-    marginBottom: "12px",
-    width: "100%",
-    maxWidth: "100%",
-    overflow: "hidden",
-  },
-  timerBox: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    background: "#ffffff",
-    padding: "10px 24px",
-    borderRadius: "12px",
-    border: "1px solid #e8e8e8",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  timerItem: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    minWidth: "42px",
-  },
-  timerNumber: {
-    fontSize: "28px",
-    fontWeight: "700",
-    color: "#3483fa",
-    letterSpacing: "1px",
-  },
-  timerLabel: {
-    fontSize: "10px",
-    textTransform: "uppercase",
-    color: "#999",
-    letterSpacing: "1px",
-    fontWeight: "500",
-  },
-  timerSeparator: {
-    color: "#ccc",
-    fontSize: "28px",
-    fontWeight: "300",
-  },
-  productCard: (darkMode, isMobile) => ({
-    background: darkMode ? "rgba(30,41,59,0.85)" : "#ffffff",
-    borderRadius: isMobile ? "10px" : "14px",
-    padding: isMobile ? "10px" : "14px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-    cursor: "pointer",
-    border: "1px solid #e8e8e8",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    position: "relative",
-    width: "100%",
-    maxWidth: "100%",
-    height: "100%",
-    minHeight: isMobile ? "280px" : "340px",
-    overflow: "hidden",
-    transition: "all 0.25s ease",
-  }),
-  ofertaProductoBadge: {
-    position: "absolute",
-    top: "8px",
-    left: "8px",
-    background: "linear-gradient(135deg, #ee0a0a, #c40a0a)",
-    color: "#fff",
-    padding: "2px 12px",
-    borderRadius: "14px",
-    fontSize: "10px",
-    fontWeight: "700",
-    zIndex: 10,
-    letterSpacing: "0.5px",
-    boxShadow: "0 2px 12px rgba(238,10,10,0.2)",
-    textTransform: "uppercase",
-  },
-  productImage: (isMobile) => ({
-    width: "100%",
-    height: isMobile ? "140px" : "180px",
-    objectFit: "contain",
-    borderRadius: "8px",
-    marginBottom: "6px",
-    background: "#f5f5f5",
-    padding: "8px",
-    maxWidth: "100%",
-    transition: "transform 0.25s ease",
-  }),
-  productName: (darkMode, isMobile) => ({
-    fontSize: isMobile ? "13px" : "15px",
-    fontWeight: "500",
-    margin: "4px 0",
-    textAlign: "center",
-    color: darkMode ? "#f1f5f9" : "#333",
-    lineHeight: "1.3",
-    display: "-webkit-box",
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
-    overflow: "hidden",
-    minHeight: isMobile ? "34px" : "40px",
-    width: "100%",
-  }),
-  productPrices: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "10px",
-    marginTop: "4px",
-    width: "100%",
-    flexWrap: "wrap",
-  },
-  productOldPrice: {
-    color: "#999",
-    textDecoration: "line-through",
-    fontSize: "13px",
-  },
-  productNewPrice: {
-    color: "#ee0a0a",
-    fontWeight: "700",
-    fontSize: "22px",
-  },
-  productButton: {
-    marginTop: "10px",
-    padding: "8px 20px",
-    background: "linear-gradient(135deg, #3483fa, #1a5cb5)",
-    color: "#fff",
-    borderRadius: "8px",
-    fontSize: "13px",
-    fontWeight: "600",
-    cursor: "pointer",
-    width: "100%",
-    textAlign: "center",
-    border: "none",
-    maxWidth: "100%",
-    transition: "all 0.25s ease",
-  },
-  verTodosContainer: {
-    display: "flex",
-    justifyContent: "center",
-    marginTop: "16px",
-    width: "100%",
-  },
-  section: (isMobile) => ({
-    margin: isMobile ? "6px 4px" : "8px 8px",
-    background: "transparent",
-    borderRadius: isMobile ? "12px" : "16px",
-    padding: isMobile ? "6px 0 10px 0" : "8px 0 12px 0",
-    boxSizing: "border-box",
-    overflow: "visible !important",
-    position: "relative",
-    zIndex: 10,
-    width: "auto",
-    maxWidth: "100%",
-  }),
-  sliderCard: (darkMode, isMobile) => ({
-    minWidth: isMobile ? "180px" : "280px",
-    maxWidth: isMobile ? "180px" : "280px",
-    background: darkMode ? "rgba(30,41,59,0.85)" : "#ffffff",
-    borderRadius: isMobile ? "10px" : "14px",
-    padding: isMobile ? "10px" : "14px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-    cursor: "pointer",
-    position: "relative",
-    flexShrink: 0,
-    border: "1px solid #e8e8e8",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    zIndex: 5,
-    overflow: "hidden",
-    transition: "all 0.25s ease",
-  }),
-  nuevoCard: (darkMode, isMobile) => ({
-    minWidth: isMobile ? "180px" : "280px",
-    maxWidth: isMobile ? "180px" : "280px",
-    background: darkMode ? "rgba(30,41,59,0.85)" : "#ffffff",
-    borderRadius: isMobile ? "10px" : "14px",
-    padding: isMobile ? "10px" : "14px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-    cursor: "pointer",
-    position: "relative",
-    flexShrink: 0,
-    border: "2px solid #00a650",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    zIndex: 5,
-    overflow: "hidden",
-    transition: "all 0.25s ease",
-  }),
-  cardImageWrapper: {
-    width: "100%",
-    position: "relative",
-    overflow: "hidden",
-    borderRadius: "8px",
-    background: "#f5f5f5",
-  },
-  sliderImage: {
-    width: "100%",
-    height: "160px",
-    objectFit: "contain",
-    padding: "8px",
-    background: "#f5f5f5",
-    transition: "transform 0.25s ease",
-  },
-  cardContent: {
-    width: "100%",
-    padding: "10px 2px 2px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "4px",
-  },
-  cardTitle: (isMobile) => ({
-    fontSize: isMobile ? "13px" : "15px",
-    fontWeight: "500",
-    margin: "0",
-    textAlign: "center",
-    color: "#333",
-    lineHeight: "1.3",
-    display: "-webkit-box",
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
-    overflow: "hidden",
-    minHeight: isMobile ? "34px" : "40px",
-  }),
-  cardPriceContainer: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
-    marginTop: "2px",
-  },
-  cardPrice: (isMobile) => ({
-    color: "#3483fa",
-    fontWeight: "700",
-    fontSize: isMobile ? "18px" : "22px",
-    letterSpacing: "-0.01em",
-  }),
-  cardOldPrice: {
-    color: "#999",
-    textDecoration: "line-through",
-    fontSize: "13px",
-  },
-  cardButton: {
-    marginTop: "6px",
-    padding: "6px 16px",
-    background: "linear-gradient(135deg, #3483fa, #1a5cb5)",
-    color: "#fff",
-    borderRadius: "8px",
-    fontSize: "12px",
-    fontWeight: "600",
-    cursor: "pointer",
-    width: "100%",
-    textAlign: "center",
-    border: "none",
-    transition: "all 0.25s ease",
-  },
-  cardBadge: {
-    background: "linear-gradient(135deg, #f5a623, #e09500)",
-    color: "#fff",
-    padding: "2px 12px",
-    borderRadius: "12px",
-    fontSize: "10px",
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    marginTop: "2px",
-  },
-  cardDesc: {
-    color: "#666",
-    fontSize: "12px",
-    lineHeight: "1.4",
-    margin: "0",
-    textAlign: "center",
-    display: "-webkit-box",
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
-    overflow: "hidden",
-    minHeight: "32px",
-  },
-  nuevoBadge: {
-    position: "absolute",
-    top: "8px",
-    left: "8px",
-    background: "#00a650",
-    color: "#fff",
-    padding: "2px 12px",
-    borderRadius: "14px",
-    fontSize: "10px",
-    fontWeight: "700",
-    zIndex: 10,
-    letterSpacing: "0.5px",
-    boxShadow: "0 2px 12px rgba(0,166,80,0.2)",
-    textTransform: "uppercase",
-  },
-  favBtn: {
-    position: "absolute",
-    top: "8px",
-    right: "8px",
-    width: "32px",
-    height: "32px",
-    borderRadius: "50%",
-    border: "1px solid #e8e8e8",
-    cursor: "pointer",
-    fontSize: "15px",
-    zIndex: 15,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-    transition: "all 0.25s ease",
-  },
-  arrowLeft: (isMobile) => ({
-    position: "absolute",
-    left: isMobile ? "2px" : "6px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "#ffffff",
-    border: "1px solid #d9d9d9",
-    width: isMobile ? "32px" : "40px",
-    height: isMobile ? "32px" : "40px",
-    borderRadius: "50%",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: isMobile ? "14px" : "20px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-    zIndex: 50,
-    userSelect: "none",
-    transition: "all 0.25s ease",
-  }),
-  arrowRight: (isMobile) => ({
-    position: "absolute",
-    right: isMobile ? "2px" : "6px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "#ffffff",
-    border: "1px solid #d9d9d9",
-    width: isMobile ? "32px" : "40px",
-    height: isMobile ? "32px" : "40px",
-    borderRadius: "50%",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: isMobile ? "14px" : "20px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-    zIndex: 50,
-    userSelect: "none",
-    transition: "all 0.25s ease",
   }),
 };
