@@ -70,6 +70,7 @@ const obtenerTipoVenta = (tipoVenta) => {
     'tramo': 'Tramo (metros)',
     'rollo': 'Rollo (metros)',
     'unidad': 'Unidad',
+    'metro_lineal': 'Metro Lineal (m²)',
     'otros': 'Otros'
   };
   return tipos[tipoVenta] || tipoVenta || 'No definido';
@@ -83,6 +84,7 @@ const obtenerIconoTipo = (tipoVenta) => {
     'tramo': <FaRuler size={12} />,
     'rollo': <FaLayerGroup size={12} />,
     'unidad': <FaPalette size={12} />,
+    'metro_lineal': <FaRuler size={12} />,
     'otros': <FaThLarge size={12} />
   };
   return iconos[tipoVenta] || <FaBox size={12} />;
@@ -90,12 +92,12 @@ const obtenerIconoTipo = (tipoVenta) => {
 
 // 🔥 FUNCIÓN PARA SABER SI EL PRODUCTO SE VENDE POR METROS
 const esVentaPorMetros = (tipoVenta) => {
-  return tipoVenta === 'tramo' || tipoVenta === 'rollo';
+  return tipoVenta === 'tramo' || tipoVenta === 'rollo' || tipoVenta === 'metro_lineal';
 };
 
 // 🔥 FUNCIÓN PARA OBTENER LA UNIDAD DE MEDIDA
 const obtenerUnidadMedida = (tipoVenta) => {
-  if (tipoVenta === 'tramo' || tipoVenta === 'rollo') {
+  if (tipoVenta === 'tramo' || tipoVenta === 'rollo' || tipoVenta === 'metro_lineal') {
     return 'metros';
   }
   if (tipoVenta === 'caja') {
@@ -105,6 +107,16 @@ const obtenerUnidadMedida = (tipoVenta) => {
     return 'piezas';
   }
   return 'unidades';
+};
+
+// 🔥 FUNCIÓN PARA CALCULAR SUBTOTAL DE FORMA SEGURA
+const calcularSubtotal = (item) => {
+  if (item.subtotal !== undefined && item.subtotal !== null && !isNaN(Number(item.subtotal))) {
+    return Number(item.subtotal);
+  }
+  const precio = Number(item.precio) || 0;
+  const cantidad = Number(item.cantidad) || 0;
+  return precio * cantidad;
 };
 
 export default function Pedido() {
@@ -196,7 +208,14 @@ export default function Pedido() {
       try {
         const parsed = JSON.parse(carritoGuardado);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setCarrito(parsed);
+          // Asegurar que cada item tenga los campos necesarios
+          const carritoLimpio = parsed.map(item => ({
+            ...item,
+            precio: Number(item.precio) || 0,
+            cantidad: Number(item.cantidad) || 1,
+            subtotal: Number(item.subtotal) || (Number(item.precio) || 0) * (Number(item.cantidad) || 1)
+          }));
+          setCarrito(carritoLimpio);
           setMostrarMensaje(false);
         }
       } catch (e) {
@@ -266,7 +285,7 @@ export default function Pedido() {
       id: producto.id,
       nombre: producto.nombre,
       sku: producto.sku || 'N/A',
-      precio: producto.precio || 0,
+      precio: Number(producto.precio) || 0,
       imagen: obtenerImagenProducto(producto),
       tipoVenta: producto.tipoVenta || 'unidad',
       presentacion: producto.presentacion || 'Unidad',
@@ -308,13 +327,13 @@ export default function Pedido() {
       
       let nuevoCarrito;
       if (existe) {
-        const nuevaCantidad = existe.cantidad + cantidad;
+        const nuevaCantidad = Number(existe.cantidad) + Number(cantidad);
         nuevoCarrito = prevCarrito.map(item => 
           item.id === producto.id 
             ? { 
                 ...item, 
                 cantidad: nuevaCantidad, 
-                subtotal: (item.precio || 0) * nuevaCantidad 
+                subtotal: Number(item.precio) * nuevaCantidad 
               }
             : item
         );
@@ -323,7 +342,7 @@ export default function Pedido() {
           id: producto.id,
           nombre: producto.nombre || 'Producto',
           sku: producto.sku || 'N/A',
-          precio: producto.precio || 0,
+          precio: Number(producto.precio) || 0,
           imagen: producto.imagen || obtenerImagenProducto(producto),
           tipoVenta: producto.tipoVenta || 'unidad',
           presentacion: producto.presentacion || 'Unidad',
@@ -332,8 +351,8 @@ export default function Pedido() {
           subcategoria: producto.subcategoria || '',
           ancho: producto.ancho || 0,
           alto: producto.alto || 0,
-          cantidad: cantidad,
-          subtotal: (producto.precio || 0) * cantidad
+          cantidad: Number(cantidad),
+          subtotal: Number(producto.precio) * Number(cantidad)
         };
         nuevoCarrito = [...prevCarrito, nuevoProducto];
       }
@@ -358,7 +377,11 @@ export default function Pedido() {
     setCarrito(prevCarrito => {
       const nuevoCarrito = prevCarrito.map(item => 
         item.id === id 
-          ? { ...item, cantidad: nuevaCantidad, subtotal: (item.precio || 0) * nuevaCantidad }
+          ? { 
+              ...item, 
+              cantidad: nuevaCantidad, 
+              subtotal: (Number(item.precio) || 0) * nuevaCantidad 
+            }
           : item
       );
       sessionStorage.setItem("carritoPedido", JSON.stringify(nuevoCarrito));
@@ -394,7 +417,7 @@ export default function Pedido() {
   const incrementarCantidad = (id, paso = 1) => {
     const item = carrito.find(i => i.id === id);
     if (!item) return;
-    const nuevaCantidad = item.cantidad + paso;
+    const nuevaCantidad = Number(item.cantidad) + paso;
     actualizarCantidad(id, nuevaCantidad);
   };
 
@@ -402,13 +425,13 @@ export default function Pedido() {
   const decrementarCantidad = (id, paso = 1) => {
     const item = carrito.find(i => i.id === id);
     if (!item) return;
-    if (item.cantidad <= paso) {
+    if (Number(item.cantidad) <= paso) {
       if (window.confirm(`¿Eliminar "${item.nombre}" del carrito?`)) {
         eliminarDelCarrito(id);
       }
       return;
     }
-    const nuevaCantidad = item.cantidad - paso;
+    const nuevaCantidad = Number(item.cantidad) - paso;
     actualizarCantidad(id, nuevaCantidad);
   };
 
@@ -421,7 +444,10 @@ export default function Pedido() {
   };
 
   // Calcular total del carrito
-  const totalCarrito = carrito.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+  const totalCarrito = carrito.reduce((sum, item) => {
+    const subtotal = calcularSubtotal(item);
+    return sum + subtotal;
+  }, 0);
 
   // Validar formulario
   const validarFormulario = () => {
@@ -464,9 +490,9 @@ export default function Pedido() {
         id: item.id,
         nombre: item.nombre || 'Producto',
         sku: item.sku || 'N/A',
-        cantidad: item.cantidad || 1,
-        precio: item.precio || 0,
-        subtotal: item.subtotal || (item.precio * item.cantidad) || 0,
+        cantidad: Number(item.cantidad) || 1,
+        precio: Number(item.precio) || 0,
+        subtotal: calcularSubtotal(item),
         imagen: item.imagen || obtenerImagenProducto(item),
         tipoVenta: item.tipoVenta || 'unidad',
         presentacion: item.presentacion || 'Unidad',
@@ -475,7 +501,7 @@ export default function Pedido() {
         subcategoria: item.subcategoria || '',
         unidadMedida: esVentaPorMetros(item.tipoVenta) ? 'metros' : 'unidades'
       })),
-      total: totalCarrito
+      total: Number(totalCarrito.toFixed(2))
     };
 
     try {
@@ -1209,6 +1235,7 @@ export default function Pedido() {
                         const unidad = esPorMetros ? 'm' : 'uds';
                         const paso = obtenerPaso(item.tipoVenta);
                         const esDecimal = paso < 1;
+                        const subtotal = calcularSubtotal(item);
                         
                         return (
                           <div key={item.id} style={{
@@ -1421,7 +1448,7 @@ export default function Pedido() {
                             )}
                             
                             <div style={{ color: '#60a5fa', fontSize: '14px', fontWeight: '600', minWidth: '70px', textAlign: 'right' }}>
-                              ${(item.subtotal || (item.precio * item.cantidad)).toFixed(2)}
+                              ${subtotal.toFixed(2)}
                             </div>
                             
                             <button

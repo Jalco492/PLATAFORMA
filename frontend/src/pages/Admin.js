@@ -111,6 +111,7 @@ export default function Admin() {
     alto: "",
     grueso: "",
     cobertura: "",
+    mostrarCobertura: true, // 🔥 NUEVO: Controla si se muestra la cobertura
     tipoVenta: "pieza",
     tipoCobertura: "m2",
     piezasCaja: "",
@@ -124,7 +125,14 @@ export default function Admin() {
     acabado: "",
     tipo_instalacion: "",
     espesor_capa_desgaste: "",
-    unidadGrueso: "mm"
+    unidadGrueso: "mm",
+    // NUEVOS CAMPOS PARA UNIDADES DE MEDIDA
+    unidadAncho: "cm",
+    unidadAlto: "cm",
+    unidadMetroLineal: "m",
+    metrosPorRollo: "",
+    anchoProducto: "",
+    precioPorMetroCuadrado: "",
   });
   
   // 🟡 FORM BANNERS
@@ -207,6 +215,22 @@ export default function Admin() {
   // Handlers de formulario
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
+    // Si cambia el tipo de venta, ajustamos campos relacionados
+    if (name === "tipoVenta") {
+      setForm({
+        ...form,
+        [name]: value,
+        // Resetear campos específicos al cambiar el tipo de venta
+        anchoProducto: "",
+        metrosPorRollo: "",
+        precioPorMetroCuadrado: "",
+        piezasCaja: "",
+        alto: "",
+      });
+      return;
+    }
+    
     setForm({
       ...form,
       [name]: type === "checkbox" ? checked : value
@@ -517,9 +541,10 @@ export default function Admin() {
       alto: producto.alto || "",
       grueso: producto.grueso || "",
       cobertura: producto.cobertura || "",
+      mostrarCobertura: producto.mostrarCobertura !== undefined ? Boolean(producto.mostrarCobertura) : true,
       tipoVenta: producto.tipoVenta || "pieza",
-      piezasCaja: producto.piezasCaja || "",
       tipoCobertura: producto.tipoCobertura || "m2",
+      piezasCaja: producto.piezasCaja || "",
       variante: producto.variante || "",
       uso: producto.uso || "",
       aplicacion: producto.aplicacion || "",
@@ -528,7 +553,13 @@ export default function Admin() {
       acabado: producto.acabado || "",
       tipo_instalacion: producto.tipo_instalacion || "",
       espesor_capa_desgaste: producto.espesor_capa_desgaste || "",
-      unidadGrueso: producto.unidadGrueso || "mm"
+      unidadGrueso: producto.unidadGrueso || "mm",
+      unidadAncho: producto.unidadAncho || "cm",
+      unidadAlto: producto.unidadAlto || "cm",
+      unidadMetroLineal: producto.unidadMetroLineal || "m",
+      metrosPorRollo: producto.metrosPorRollo || "",
+      anchoProducto: producto.anchoProducto || "",
+      precioPorMetroCuadrado: producto.precioPorMetroCuadrado || "",
     });
     setSugerencias(producto.sugerencias ? JSON.parse(producto.sugerencias) : []);
     setPreviewPrincipal(principal);
@@ -571,6 +602,7 @@ export default function Admin() {
       alto: producto.alto || "",
       grueso: producto.grueso || "",
       cobertura: producto.cobertura || "",
+      mostrarCobertura: producto.mostrarCobertura !== undefined ? Boolean(producto.mostrarCobertura) : true,
       tipoVenta: producto.tipoVenta || "pieza",
       piezasCaja: producto.piezasCaja || "",
       tipoCobertura: producto.tipoCobertura || "m2",
@@ -582,7 +614,13 @@ export default function Admin() {
       acabado: producto.acabado || "",
       tipo_instalacion: producto.tipo_instalacion || "",
       espesor_capa_desgaste: producto.espesor_capa_desgaste || "",
-      unidadGrueso: producto.unidadGrueso || "mm"
+      unidadGrueso: producto.unidadGrueso || "mm",
+      unidadAncho: producto.unidadAncho || "cm",
+      unidadAlto: producto.unidadAlto || "cm",
+      unidadMetroLineal: producto.unidadMetroLineal || "m",
+      metrosPorRollo: producto.metrosPorRollo || "",
+      anchoProducto: producto.anchoProducto || "",
+      precioPorMetroCuadrado: producto.precioPorMetroCuadrado || "",
     });
     setSugerencias(producto.sugerencias ? JSON.parse(producto.sugerencias) : []);
     setPreviewPrincipal(principal);
@@ -623,6 +661,7 @@ export default function Admin() {
       alto: "",
       grueso: "",
       cobertura: "",
+      mostrarCobertura: true,
       tipoVenta: "pieza",
       tipoCobertura: "m2",
       piezasCaja: "",
@@ -636,7 +675,13 @@ export default function Admin() {
       acabado: "",
       tipo_instalacion: "",
       espesor_capa_desgaste: "",
-      unidadGrueso: "mm"
+      unidadGrueso: "mm",
+      unidadAncho: "cm",
+      unidadAlto: "cm",
+      unidadMetroLineal: "m",
+      metrosPorRollo: "",
+      anchoProducto: "",
+      precioPorMetroCuadrado: "",
     });
     setSugerencias([]);
     setPreviewPrincipal("");
@@ -687,11 +732,49 @@ export default function Admin() {
       
       const imagenesString = todasLasImagenes.join(",");
       
+      // Calcular metros cuadrados si es metro lineal o metro cuadrado
+      let metrosCuadrados = null;
+      if (form.tipoVenta === "metro_lineal" && form.anchoProducto && form.metrosPorRollo) {
+        const anchoMetros = parseFloat(form.anchoProducto);
+        const metrosLineales = parseFloat(form.metrosPorRollo);
+        if (!isNaN(anchoMetros) && !isNaN(metrosLineales)) {
+          metrosCuadrados = anchoMetros * metrosLineales;
+        }
+      } else if (form.tipoVenta === "metro_cuadrado" && form.anchoProducto && form.alto) {
+        const anchoMetros = parseFloat(form.anchoProducto);
+        const altoMetros = parseFloat(form.alto);
+        if (!isNaN(anchoMetros) && !isNaN(altoMetros)) {
+          metrosCuadrados = anchoMetros * altoMetros;
+        }
+      }
+      
+      // Asegurar que precio no sea null
+      let precioFinal = form.precio;
+      if (precioFinal === null || precioFinal === undefined || precioFinal === '') {
+        if (form.tipoVenta === "metro_lineal" && form.precioPorMetroCuadrado && metrosCuadrados) {
+          precioFinal = parseFloat(form.precioPorMetroCuadrado) * metrosCuadrados;
+        } else if (form.tipoVenta === "metro_cuadrado" && form.precioPorMetroCuadrado && metrosCuadrados) {
+          precioFinal = parseFloat(form.precioPorMetroCuadrado) * metrosCuadrados;
+        } else {
+          precioFinal = 0;
+        }
+      }
+      
+      // Si mostrarCobertura es false, vaciar el campo cobertura
+      let coberturaFinal = form.cobertura;
+      if (!form.mostrarCobertura) {
+        coberturaFinal = "";
+      }
+      
       await api.post("/productos", {
         ...form,
+        precio: precioFinal,
+        cobertura: coberturaFinal,
         imagenes: imagenesString,
         fichaTecnica: fichaUrl,
-        sugerencias
+        sugerencias,
+        metrosCuadrados: metrosCuadrados,
+        mostrarCobertura: form.mostrarCobertura ? 1 : 0,
       });
       cargar();
       cerrarModal();
@@ -712,7 +795,6 @@ export default function Admin() {
       }
 
       console.log("📦 Actualizando producto ID:", productoId);
-      console.log("📦 Datos del formulario:", form);
 
       // 1. Preparar las imágenes
       let todasLasImagenes = [];
@@ -756,11 +838,45 @@ export default function Admin() {
         fichaUrl = uploadRes.data.url;
       }
       
+      // Calcular metros cuadrados si es metro lineal o metro cuadrado
+      let metrosCuadrados = null;
+      if (form.tipoVenta === "metro_lineal" && form.anchoProducto && form.metrosPorRollo) {
+        const anchoMetros = parseFloat(form.anchoProducto);
+        const metrosLineales = parseFloat(form.metrosPorRollo);
+        if (!isNaN(anchoMetros) && !isNaN(metrosLineales)) {
+          metrosCuadrados = anchoMetros * metrosLineales;
+        }
+      } else if (form.tipoVenta === "metro_cuadrado" && form.anchoProducto && form.alto) {
+        const anchoMetros = parseFloat(form.anchoProducto);
+        const altoMetros = parseFloat(form.alto);
+        if (!isNaN(anchoMetros) && !isNaN(altoMetros)) {
+          metrosCuadrados = anchoMetros * altoMetros;
+        }
+      }
+      
+      // Asegurar que precio no sea null
+      let precioFinal = form.precio;
+      if (precioFinal === null || precioFinal === undefined || precioFinal === '') {
+        if (form.tipoVenta === "metro_lineal" && form.precioPorMetroCuadrado && metrosCuadrados) {
+          precioFinal = parseFloat(form.precioPorMetroCuadrado) * metrosCuadrados;
+        } else if (form.tipoVenta === "metro_cuadrado" && form.precioPorMetroCuadrado && metrosCuadrados) {
+          precioFinal = parseFloat(form.precioPorMetroCuadrado) * metrosCuadrados;
+        } else {
+          precioFinal = 0;
+        }
+      }
+      
+      // Si mostrarCobertura es false, vaciar el campo cobertura
+      let coberturaFinal = form.cobertura;
+      if (!form.mostrarCobertura) {
+        coberturaFinal = "";
+      }
+      
       // 3. Crear el objeto de datos para enviar
       const datosParaEnviar = {
         nombre: form.nombre,
         descripcion: form.descripcion,
-        precio: form.precio,
+        precio: precioFinal,
         precioOferta: form.precioOferta || "",
         oferta: form.oferta ? 1 : 0,
         rebaja: form.rebaja ? 1 : 0,
@@ -777,7 +893,8 @@ export default function Admin() {
         ancho: form.ancho || "",
         alto: form.alto || "",
         grueso: form.grueso || "",
-        cobertura: form.cobertura || "",
+        cobertura: coberturaFinal,
+        mostrarCobertura: form.mostrarCobertura ? 1 : 0,
         tipoVenta: form.tipoVenta || "pieza",
         tipoCobertura: form.tipoCobertura || "m2",
         piezasCaja: form.piezasCaja || "",
@@ -792,6 +909,13 @@ export default function Admin() {
         tipo_instalacion: form.tipo_instalacion || "",
         espesor_capa_desgaste: form.espesor_capa_desgaste || "",
         unidadGrueso: form.unidadGrueso || "mm",
+        unidadAncho: form.unidadAncho || "cm",
+        unidadAlto: form.unidadAlto || "cm",
+        unidadMetroLineal: form.unidadMetroLineal || "m",
+        metrosPorRollo: form.metrosPorRollo || "",
+        anchoProducto: form.anchoProducto || "",
+        precioPorMetroCuadrado: form.precioPorMetroCuadrado || "",
+        metrosCuadrados: metrosCuadrados,
         sugerencias: sugerencias
       };
 
@@ -1270,23 +1394,125 @@ export default function Admin() {
             >
               <option value="pieza">Pieza</option>
               <option value="caja">Caja</option>
-              <option value="rollo">Rollo</option>
-              <option value="tramo">Tramo</option>
-              <option value="unidad">Unidad</option>
-              <option value="otros">Otros</option>
+              <option value="paquete">Paquete</option>
+              <option value="metro_cuadrado">Metro Cuadrado (m²)</option>
+              <option value="metro_lineal">Metro Lineal (ml)</option>
+              <option value="presentacion">Presentación</option>
             </select>
 
-            {form.tipoVenta === "caja" && (
+            {/* Campos para Paquete */}
+            {form.tipoVenta === "paquete" && (
               <input
                 name="piezasCaja"
-                placeholder="¿Cuántas piezas trae la caja?"
+                placeholder="¿Cuántas piezas trae el paquete?"
                 value={form.piezasCaja}
                 onChange={handleChange}
                 className="form-input"
+                type="number"
+                step="1"
               />
             )}
 
-            {form.tipoVenta === "otros" ? (
+            {/* Campos para Metro Lineal */}
+            {form.tipoVenta === "metro_lineal" && (
+              <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                <div>
+                  <label className="form-label">📏 Ancho del producto (en metros)</label>
+                  <input
+                    name="anchoProducto"
+                    placeholder="Ej: 3.98"
+                    value={form.anchoProducto}
+                    onChange={handleChange}
+                    className="form-input"
+                    step="0.01"
+                    type="number"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">📏 Metros lineales que trae el rollo</label>
+                  <input
+                    name="metrosPorRollo"
+                    placeholder="Ej: 30"
+                    value={form.metrosPorRollo}
+                    onChange={handleChange}
+                    className="form-input"
+                    step="0.01"
+                    type="number"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">💰 Precio por metro cuadrado (m²)</label>
+                  <input
+                    name="precioPorMetroCuadrado"
+                    placeholder="Ej: 150"
+                    value={form.precioPorMetroCuadrado}
+                    onChange={handleChange}
+                    className="form-input"
+                    step="0.01"
+                    type="number"
+                  />
+                  {form.anchoProducto && form.metrosPorRollo && form.precioPorMetroCuadrado && (
+                    <div style={{ marginTop: '8px', padding: '8px 12px', background: '#eef2ff', borderRadius: '8px', fontSize: '13px' }}>
+                      <strong>📊 Cálculo:</strong> {form.anchoProducto}m × {form.metrosPorRollo}ml = {(parseFloat(form.anchoProducto) * parseFloat(form.metrosPorRollo)).toFixed(2)} m²
+                      <br />
+                      <strong>💰 Precio total:</strong> ${(parseFloat(form.precioPorMetroCuadrado) * parseFloat(form.anchoProducto) * parseFloat(form.metrosPorRollo)).toFixed(2)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Campos para Metro Cuadrado */}
+            {form.tipoVenta === "metro_cuadrado" && (
+              <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                <div>
+                  <label className="form-label">📏 Ancho del producto (en metros)</label>
+                  <input
+                    name="anchoProducto"
+                    placeholder="Ej: 2.00"
+                    value={form.anchoProducto}
+                    onChange={handleChange}
+                    className="form-input"
+                    step="0.01"
+                    type="number"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">📏 Alto del producto (en metros)</label>
+                  <input
+                    name="alto"
+                    placeholder="Ej: 2.00"
+                    value={form.alto}
+                    onChange={handleChange}
+                    className="form-input"
+                    step="0.01"
+                    type="number"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">💰 Precio por metro cuadrado (m²)</label>
+                  <input
+                    name="precioPorMetroCuadrado"
+                    placeholder="Ej: 150"
+                    value={form.precioPorMetroCuadrado}
+                    onChange={handleChange}
+                    className="form-input"
+                    step="0.01"
+                    type="number"
+                  />
+                  {form.anchoProducto && form.alto && form.precioPorMetroCuadrado && (
+                    <div style={{ marginTop: '8px', padding: '8px 12px', background: '#eef2ff', borderRadius: '8px', fontSize: '13px' }}>
+                      <strong>📊 Cálculo:</strong> {form.anchoProducto}m × {form.alto}m = {(parseFloat(form.anchoProducto) * parseFloat(form.alto)).toFixed(2)} m²
+                      <br />
+                      <strong>💰 Precio total:</strong> ${(parseFloat(form.precioPorMetroCuadrado) * parseFloat(form.anchoProducto) * parseFloat(form.alto)).toFixed(2)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Campos para Presentación */}
+            {form.tipoVenta === "presentacion" && (
               <div>
                 <label className="form-label">🧴 Presentación</label>
                 <select
@@ -1304,27 +1530,58 @@ export default function Admin() {
                   <option value="19L">19 Litros</option>
                 </select>
               </div>
-            ) : (
+            )}
+
+            {/* Campos para Pieza, Caja y Paquete (medidas físicas) */}
+            {form.tipoVenta !== "metro_lineal" && form.tipoVenta !== "metro_cuadrado" && form.tipoVenta !== "presentacion" && (
               <div className="input-group">
                 <div>
-                  <label className="form-label">📏 Ancho (cm)</label>
-                  <input
-                    name="ancho"
-                    placeholder="Ej: 50"
-                    value={form.ancho}
-                    onChange={handleChange}
-                    className="form-input"
-                  />
+                  <label className="form-label">📏 Ancho</label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      name="ancho"
+                      placeholder="Ej: 50"
+                      value={form.ancho}
+                      onChange={handleChange}
+                      className="form-input"
+                      style={{ flex: 1 }}
+                    />
+                    <select
+                      name="unidadAncho"
+                      value={form.unidadAncho || 'cm'}
+                      onChange={handleChange}
+                      className="form-input"
+                      style={{ width: '80px', flexShrink: 0 }}
+                    >
+                      <option value="cm">cm</option>
+                      <option value="m">m</option>
+                      <option value="mm">mm</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
-                  <label className="form-label">📏 Alto (cm)</label>
-                  <input
-                    name="alto"
-                    placeholder="Ej: 50"
-                    value={form.alto}
-                    onChange={handleChange}
-                    className="form-input"
-                  />
+                  <label className="form-label">📏 Alto</label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      name="alto"
+                      placeholder="Ej: 50"
+                      value={form.alto}
+                      onChange={handleChange}
+                      className="form-input"
+                      style={{ flex: 1 }}
+                    />
+                    <select
+                      name="unidadAlto"
+                      value={form.unidadAlto || 'cm'}
+                      onChange={handleChange}
+                      className="form-input"
+                      style={{ width: '80px', flexShrink: 0 }}
+                    >
+                      <option value="cm">cm</option>
+                      <option value="m">m</option>
+                      <option value="mm">mm</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="form-label">📏 Grueso</label>
@@ -1353,29 +1610,49 @@ export default function Admin() {
               </div>
             )}
 
-            <div className="input-group">
-              <div>
-                <label className="form-label">📦 Cobertura</label>
-                <input
-                  name="cobertura"
-                  placeholder="Ej: 1.5"
-                  value={form.cobertura}
-                  onChange={handleChange}
-                  className="form-input"
-                />
+            {/* 🔥 SECCIÓN DE COBERTURA CON CHECKBOX */}
+            <div className="input-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="mostrarCobertura"
+                    checked={form.mostrarCobertura}
+                    onChange={handleChange}
+                  />
+                  Mostrar cobertura del producto
+                </label>
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                  {form.mostrarCobertura ? '✅ Activada' : '⛔ Desactivada'}
+                </span>
               </div>
-              <div>
-                <label className="form-label">📏 Unidad</label>
-                <select
-                  name="tipoCobertura"
-                  value={form.tipoCobertura}
-                  onChange={handleChange}
-                  className="form-input"
-                >
-                  <option value="m2">m²</option>
-                  <option value="ml">Lineal (ml)</option>
-                </select>
-              </div>
+              
+              {form.mostrarCobertura && (
+                <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                  <div>
+                    <label className="form-label">📦 Cobertura</label>
+                    <input
+                      name="cobertura"
+                      placeholder="Ej: 1.5"
+                      value={form.cobertura}
+                      onChange={handleChange}
+                      className="form-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">📏 Unidad</label>
+                    <select
+                      name="tipoCobertura"
+                      value={form.tipoCobertura}
+                      onChange={handleChange}
+                      className="form-input"
+                    >
+                      <option value="m2">m²</option>
+                      <option value="ml">Lineal (ml)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
             <select
@@ -1770,23 +2047,111 @@ export default function Admin() {
                 >
                   <option value="pieza">Pieza</option>
                   <option value="caja">Caja</option>
-                  <option value="rollo">Rollo</option>
-                  <option value="tramo">Tramo</option>
-                  <option value="unidad">Unidad</option>
-                  <option value="otros">Otros</option>
+                  <option value="paquete">Paquete</option>
+                  <option value="metro_cuadrado">Metro Cuadrado (m²)</option>
+                  <option value="metro_lineal">Metro Lineal (ml)</option>
+                  <option value="presentacion">Presentación</option>
                 </select>
 
-                {form.tipoVenta === "caja" && (
+                {/* Campos para Paquete */}
+                {form.tipoVenta === "paquete" && (
                   <input
                     name="piezasCaja"
-                    placeholder="¿Cuántas piezas trae la caja?"
+                    placeholder="¿Cuántas piezas trae el paquete?"
                     value={form.piezasCaja}
                     onChange={handleChange}
                     className="form-input"
+                    type="number"
+                    step="1"
                   />
                 )}
 
-                {form.tipoVenta === "otros" ? (
+                {/* Campos para Metro Lineal */}
+                {form.tipoVenta === "metro_lineal" && (
+                  <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                    <div>
+                      <label className="form-label">📏 Ancho del producto (en metros)</label>
+                      <input
+                        name="anchoProducto"
+                        placeholder="Ej: 3.98"
+                        value={form.anchoProducto}
+                        onChange={handleChange}
+                        className="form-input"
+                        step="0.01"
+                        type="number"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">📏 Metros lineales que trae el rollo</label>
+                      <input
+                        name="metrosPorRollo"
+                        placeholder="Ej: 30"
+                        value={form.metrosPorRollo}
+                        onChange={handleChange}
+                        className="form-input"
+                        step="0.01"
+                        type="number"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">💰 Precio por metro cuadrado (m²)</label>
+                      <input
+                        name="precioPorMetroCuadrado"
+                        placeholder="Ej: 150"
+                        value={form.precioPorMetroCuadrado}
+                        onChange={handleChange}
+                        className="form-input"
+                        step="0.01"
+                        type="number"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Campos para Metro Cuadrado */}
+                {form.tipoVenta === "metro_cuadrado" && (
+                  <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                    <div>
+                      <label className="form-label">📏 Ancho del producto (en metros)</label>
+                      <input
+                        name="anchoProducto"
+                        placeholder="Ej: 2.00"
+                        value={form.anchoProducto}
+                        onChange={handleChange}
+                        className="form-input"
+                        step="0.01"
+                        type="number"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">📏 Alto del producto (en metros)</label>
+                      <input
+                        name="alto"
+                        placeholder="Ej: 2.00"
+                        value={form.alto}
+                        onChange={handleChange}
+                        className="form-input"
+                        step="0.01"
+                        type="number"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">💰 Precio por metro cuadrado (m²)</label>
+                      <input
+                        name="precioPorMetroCuadrado"
+                        placeholder="Ej: 150"
+                        value={form.precioPorMetroCuadrado}
+                        onChange={handleChange}
+                        className="form-input"
+                        step="0.01"
+                        type="number"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Campos para Presentación */}
+                {form.tipoVenta === "presentacion" && (
                   <div>
                     <label className="form-label">🧴 Presentación</label>
                     <select
@@ -1804,27 +2169,58 @@ export default function Admin() {
                       <option value="19L">19 Litros</option>
                     </select>
                   </div>
-                ) : (
+                )}
+
+                {/* Campos para Pieza, Caja y Paquete (medidas físicas) */}
+                {form.tipoVenta !== "metro_lineal" && form.tipoVenta !== "metro_cuadrado" && form.tipoVenta !== "presentacion" && (
                   <div className="input-group">
                     <div>
-                      <label className="form-label">📏 Ancho (cm)</label>
-                      <input
-                        name="ancho"
-                        placeholder="Ej: 50"
-                        value={form.ancho}
-                        onChange={handleChange}
-                        className="form-input"
-                      />
+                      <label className="form-label">📏 Ancho</label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          name="ancho"
+                          placeholder="Ej: 50"
+                          value={form.ancho}
+                          onChange={handleChange}
+                          className="form-input"
+                          style={{ flex: 1 }}
+                        />
+                        <select
+                          name="unidadAncho"
+                          value={form.unidadAncho || 'cm'}
+                          onChange={handleChange}
+                          className="form-input"
+                          style={{ width: '80px', flexShrink: 0 }}
+                        >
+                          <option value="cm">cm</option>
+                          <option value="m">m</option>
+                          <option value="mm">mm</option>
+                        </select>
+                      </div>
                     </div>
                     <div>
-                      <label className="form-label">📏 Alto (cm)</label>
-                      <input
-                        name="alto"
-                        placeholder="Ej: 50"
-                        value={form.alto}
-                        onChange={handleChange}
-                        className="form-input"
-                      />
+                      <label className="form-label">📏 Alto</label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          name="alto"
+                          placeholder="Ej: 50"
+                          value={form.alto}
+                          onChange={handleChange}
+                          className="form-input"
+                          style={{ flex: 1 }}
+                        />
+                        <select
+                          name="unidadAlto"
+                          value={form.unidadAlto || 'cm'}
+                          onChange={handleChange}
+                          className="form-input"
+                          style={{ width: '80px', flexShrink: 0 }}
+                        >
+                          <option value="cm">cm</option>
+                          <option value="m">m</option>
+                          <option value="mm">mm</option>
+                        </select>
+                      </div>
                     </div>
                     <div>
                       <label className="form-label">📏 Grueso</label>
@@ -1853,29 +2249,49 @@ export default function Admin() {
                   </div>
                 )}
 
-                <div className="input-group">
-                  <div>
-                    <label className="form-label">📦 Cobertura</label>
-                    <input
-                      name="cobertura"
-                      placeholder="Ej: 1.5"
-                      value={form.cobertura}
-                      onChange={handleChange}
-                      className="form-input"
-                    />
+                {/* 🔥 SECCIÓN DE COBERTURA CON CHECKBOX - MODAL */}
+                <div className="input-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        name="mostrarCobertura"
+                        checked={form.mostrarCobertura}
+                        onChange={handleChange}
+                      />
+                      Mostrar cobertura del producto
+                    </label>
+                    <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                      {form.mostrarCobertura ? '✅ Activada' : '⛔ Desactivada'}
+                    </span>
                   </div>
-                  <div>
-                    <label className="form-label">📏 Unidad</label>
-                    <select
-                      name="tipoCobertura"
-                      value={form.tipoCobertura}
-                      onChange={handleChange}
-                      className="form-input"
-                    >
-                      <option value="m2">m²</option>
-                      <option value="ml">Lineal (ml)</option>
-                    </select>
-                  </div>
+                  
+                  {form.mostrarCobertura && (
+                    <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                      <div>
+                        <label className="form-label">📦 Cobertura</label>
+                        <input
+                          name="cobertura"
+                          placeholder="Ej: 1.5"
+                          value={form.cobertura}
+                          onChange={handleChange}
+                          className="form-input"
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label">📏 Unidad</label>
+                        <select
+                          name="tipoCobertura"
+                          value={form.tipoCobertura}
+                          onChange={handleChange}
+                          className="form-input"
+                        >
+                          <option value="m2">m²</option>
+                          <option value="ml">Lineal (ml)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <select
@@ -2296,12 +2712,40 @@ export default function Admin() {
                       <span className="badge-visible">👁 Visible</span>
                     )}
                   </div>
-                  {p.tipoVenta === "otros" ? (
+                  
+                  {/* Mostrar información según tipo de venta */}
+                  {p.tipoVenta === "metro_lineal" ? (
+                    <div>
+                      <p>📏 Ancho del producto: {p.anchoProducto || 'N/A'} m</p>
+                      <p>📏 Metros lineales por rollo: {p.metrosPorRollo || 'N/A'} ml</p>
+                      {p.metrosCuadrados && <p>📐 Total: {p.metrosCuadrados} m²</p>}
+                      {p.precioPorMetroCuadrado && <p>💰 Precio por m²: ${p.precioPorMetroCuadrado}</p>}
+                      <p>🚚 Venta: Metro Lineal</p>
+                    </div>
+                  ) : p.tipoVenta === "metro_cuadrado" ? (
+                    <div>
+                      <p>📏 Ancho: {p.anchoProducto || 'N/A'} m</p>
+                      <p>📏 Alto: {p.alto || 'N/A'} m</p>
+                      {p.metrosCuadrados && <p>📐 Total: {p.metrosCuadrados} m²</p>}
+                      {p.precioPorMetroCuadrado && <p>💰 Precio por m²: ${p.precioPorMetroCuadrado}</p>}
+                      <p>🚚 Venta: Metro Cuadrado</p>
+                    </div>
+                  ) : p.tipoVenta === "paquete" ? (
+                    <div>
+                      <p>📦 Piezas por paquete: {p.piezasCaja || 'N/A'}</p>
+                      <p>🚚 Venta: Paquete</p>
+                    </div>
+                  ) : p.tipoVenta === "presentacion" ? (
                     <p>🧴 Presentación: {p.presentacion}</p>
                   ) : (
-                    <p>📏 {p.ancho}cm x {p.alto}cm x {p.grueso}mm</p>
+                    <p>📏 {p.ancho || 'N/A'}{p.unidadAncho || 'cm'} x {p.alto || 'N/A'}{p.unidadAlto || 'cm'} x {p.grueso || 'N/A'}{p.unidadGrueso || 'mm'}</p>
                   )}
-                  <p>📦 Cobertura: {p.cobertura} {p.tipoCobertura}</p>
+                  
+                  {/* Mostrar cobertura solo si está activada */}
+                  {(p.mostrarCobertura === 1 || p.mostrarCobertura === true) && p.cobertura && (
+                    <p>📦 Cobertura: {p.cobertura} {p.tipoCobertura}</p>
+                  )}
+                  
                   <p>🚚 Venta: {p.tipoVenta}</p>
                   <p>💲 {p.precio}</p>
                   <p>📂 Categoría: {p.categoria || "Sin categoría"}</p>
@@ -3045,7 +3489,7 @@ export default function Admin() {
         ))}
       </section>
 
-      {/* ESTILOS */}
+      {/* ESTILOS - se mantienen igual */}
       <style jsx>{`
         * { box-sizing: border-box; }
 
