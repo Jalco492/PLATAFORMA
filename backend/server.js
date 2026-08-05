@@ -576,7 +576,7 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
 };
 
 // =================================================
-// 📋 OBTENER TODOS LOS PRODUCTOS (PÚBLICO)
+// 📋 OBTENER TODOS LOS PRODUCTOS (PÚBLICO) - ACTUALIZADO
 // =================================================
 app.get("/productos", async (req, res) => {
   try {
@@ -827,7 +827,8 @@ app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
         subcategorias.nombre AS subcategoria_nombre,
         tipos.nombre AS tipo_nombre
       FROM productos
-      LEFT JOIN categorias ON categorias.id = productos.categoria_id      LEFT JOIN subcategorias ON subcategorias.id = productos.subcategoria_id
+      LEFT JOIN categorias ON categorias.id = productos.categoria_id
+      LEFT JOIN subcategorias ON subcategorias.id = productos.subcategoria_id
       LEFT JOIN tipos ON tipos.id = productos.tipo_id
       WHERE LOWER(tipos.nombre) = LOWER(?) AND productos.visible = 1
       ORDER BY productos.nombre ASC
@@ -990,10 +991,12 @@ app.get("/productos/:id", async (req, res) => {
 });
 
 // =================================================
-// ➕ CREAR PRODUCTO
+// ➕ CREAR PRODUCTO - CON mostrarCobertura
 // =================================================
 app.post("/productos", async (req, res) => {
   try {
+    console.log("📦 Recibiendo producto:", req.body.nombre);
+    
     const {
       nombre,
       descripcion,
@@ -1029,47 +1032,152 @@ app.post("/productos", async (req, res) => {
       material,
       acabado,
       tipo_instalacion,
-      espesor_capa_desgaste
+      espesor_capa_desgaste,
+      unidadGrueso,
+      unidadAncho,
+      unidadAlto,
+      unidadMetroLineal,
+      metrosPorRollo,
+      anchoProducto,
+      precioPorMetroCuadrado,
+      metrosCuadrados,
+      mostrarCobertura  // 🔥 NUEVO CAMPO
     } = req.body;
 
+    // Calcular metros cuadrados si es metro lineal
+    let metrosCuadradosFinal = metrosCuadrados || null;
+    if (tipoVenta === 'metro_lineal' && anchoProducto && metrosPorRollo) {
+      const anchoMetros = parseFloat(anchoProducto);
+      const metrosLineales = parseFloat(metrosPorRollo);
+      if (!isNaN(anchoMetros) && !isNaN(metrosLineales)) {
+        metrosCuadradosFinal = anchoMetros * metrosLineales;
+      }
+    }
+
+    // EL SQL CORRECTO - Con mostrarCobertura
     const sql = `
-      INSERT INTO productos (
-        nombre, descripcion, precio, precioOferta, oferta, rebaja,
-        stock, imagenes, categoria_id, subcategoria_id, tipo_id,
-        destacado, nuevo, sugerencias, fichaTecnica, sku,
-        tipoProducto, presentacion, ancho, alto, grueso,
-        cobertura, piezasCaja, tipoVenta, tipoCobertura,
-        especificaciones, informacionAdicional, variante,
-        uso, aplicacion, tipo_diseno, material, acabado,
-        tipo_instalacion, espesor_capa_desgaste
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO productos SET
+        nombre = ?,
+        descripcion = ?,
+        precio = ?,
+        precioOferta = ?,
+        oferta = ?,
+        rebaja = ?,
+        stock = ?,
+        imagenes = ?,
+        categoria_id = ?,
+        subcategoria_id = ?,
+        tipo_id = ?,
+        destacado = ?,
+        nuevo = ?,
+        sugerencias = ?,
+        fichaTecnica = ?,
+        sku = ?,
+        tipoProducto = ?,
+        presentacion = ?,
+        ancho = ?,
+        alto = ?,
+        grueso = ?,
+        cobertura = ?,
+        piezasCaja = ?,
+        tipoVenta = ?,
+        tipoCobertura = ?,
+        especificaciones = ?,
+        informacionAdicional = ?,
+        variante = ?,
+        uso = ?,
+        aplicacion = ?,
+        tipo_diseno = ?,
+        material = ?,
+        acabado = ?,
+        tipo_instalacion = ?,
+        espesor_capa_desgaste = ?,
+        unidadGrueso = ?,
+        unidadAncho = ?,
+        unidadAlto = ?,
+        unidadMetroLineal = ?,
+        metrosPorRollo = ?,
+        anchoProducto = ?,
+        precioPorMetroCuadrado = ?,
+        metrosCuadrados = ?,
+        mostrarCobertura = ?
     `;
 
+    // VALORES: 44 valores
     const values = [
-      nombre, descripcion, precio, precioOferta, oferta ? 1 : 0, rebaja ? 1 : 0,
-      stock, imagenes, categoria_id, subcategoria_id, tipo_id,
-      destacado ? 1 : 0, nuevo ? 1 : 0, JSON.stringify(sugerencias || []), fichaTecnica, sku,
-      tipoProducto, presentacion, ancho, alto, grueso,
-      cobertura, piezasCaja, tipoVenta, tipoCobertura,
-      especificaciones, informacionAdicional, variante,
-      uso, aplicacion, tipo_diseno, material, acabado,
-      tipo_instalacion, espesor_capa_desgaste
+      nombre || null,
+      descripcion || null,
+      precio || null,
+      precioOferta || null,
+      oferta ? 1 : 0,
+      rebaja ? 1 : 0,
+      stock || 0,
+      imagenes || null,
+      categoria_id || null,
+      subcategoria_id || null,
+      tipo_id || null,
+      destacado ? 1 : 0,
+      nuevo ? 1 : 0,
+      sugerencias ? JSON.stringify(sugerencias) : '[]',
+      fichaTecnica || null,
+      sku || null,
+      tipoProducto || null,
+      presentacion || null,
+      ancho || null,
+      alto || null,
+      grueso || null,
+      cobertura || null,
+      piezasCaja || null,
+      tipoVenta || 'pieza',
+      tipoCobertura || 'm2',
+      especificaciones || null,
+      informacionAdicional || null,
+      variante || null,
+      uso || null,
+      aplicacion || null,
+      tipo_diseno || null,
+      material || null,
+      acabado || null,
+      tipo_instalacion || null,
+      espesor_capa_desgaste || null,
+      unidadGrueso || 'mm',
+      unidadAncho || 'cm',
+      unidadAlto || 'cm',
+      unidadMetroLineal || 'm',
+      metrosPorRollo || null,
+      anchoProducto || null,
+      precioPorMetroCuadrado || null,
+      metrosCuadradosFinal,
+      mostrarCobertura !== undefined ? (mostrarCobertura ? 1 : 0) : 1  // 🔥 Por defecto 1
     ];
 
+    console.log(`📝 Valores a insertar: ${values.length}`);
+    console.log(`📝 mostrarCobertura: ${values[values.length - 1]}`);
+    
     const [result] = await db.query(sql, values);
+    console.log("✅ Producto creado con ID:", result.insertId);
+    
     res.json({ mensaje: "Producto creado", id: result.insertId });
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: "Error al crear producto" });
+    console.error("❌ Error al crear producto:", err.message);
+    console.error("❌ SQL:", err.sql);
+    console.error("❌ Detalles:", err);
+    res.status(500).json({ 
+      error: "Error al crear producto", 
+      message: err.message,
+      sql: err.sql || null
+    });
   }
 });
 
 // =================================================
-// ✏️ ACTUALIZAR PRODUCTO
+// ✏️ ACTUALIZAR PRODUCTO - CON mostrarCobertura
 // =================================================
 app.put("/productos/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`📦 Actualizando producto ID: ${id}`);
+    
     const {
       nombre, descripcion, precio, precioOferta, oferta, rebaja,
       stock, imagenes, categoria_id, subcategoria_id, tipo_id,
@@ -1078,8 +1186,22 @@ app.put("/productos/:id", async (req, res) => {
       cobertura, piezasCaja, tipoVenta, tipoCobertura,
       especificaciones, informacionAdicional, variante,
       uso, aplicacion, tipo_diseno, material, acabado,
-      tipo_instalacion, espesor_capa_desgaste
+      tipo_instalacion, espesor_capa_desgaste,
+      unidadGrueso, unidadAncho, unidadAlto,
+      unidadMetroLineal, metrosPorRollo, anchoProducto,
+      precioPorMetroCuadrado, metrosCuadrados,
+      mostrarCobertura  // 🔥 NUEVO CAMPO
     } = req.body;
+
+    // Calcular metros cuadrados si es metro lineal
+    let metrosCuadradosFinal = metrosCuadrados || null;
+    if (tipoVenta === 'metro_lineal' && anchoProducto && metrosPorRollo) {
+      const anchoMetros = parseFloat(anchoProducto);
+      const metrosLineales = parseFloat(metrosPorRollo);
+      if (!isNaN(anchoMetros) && !isNaN(metrosLineales)) {
+        metrosCuadradosFinal = anchoMetros * metrosLineales;
+      }
+    }
 
     let imagenesFinal = imagenes;
     if (imagenesFinal === undefined || imagenesFinal === null) {
@@ -1099,36 +1221,119 @@ app.put("/productos/:id", async (req, res) => {
       }
     }
 
+    // UPDATE CORRECTO - Con mostrarCobertura
     const sql = `
       UPDATE productos SET
-        nombre=?, descripcion=?, precio=?, precioOferta=?, oferta=?, rebaja=?,
-        stock=?, imagenes=?, categoria_id=?, subcategoria_id=?, tipo_id=?,
-        destacado=?, nuevo=?, sugerencias=?, fichaTecnica=?,
-        sku=?, tipoProducto=?, presentacion=?, ancho=?, alto=?, grueso=?,
-        cobertura=?, piezasCaja=?, tipoVenta=?, tipoCobertura=?,
-        especificaciones=?, informacionAdicional=?, variante=?,
-        uso=?, aplicacion=?, tipo_diseno=?, material=?, acabado=?,
-        tipo_instalacion=?, espesor_capa_desgaste=?
-      WHERE id=?
+        nombre = ?,
+        descripcion = ?,
+        precio = ?,
+        precioOferta = ?,
+        oferta = ?,
+        rebaja = ?,
+        stock = ?,
+        imagenes = ?,
+        categoria_id = ?,
+        subcategoria_id = ?,
+        tipo_id = ?,
+        destacado = ?,
+        nuevo = ?,
+        sugerencias = ?,
+        fichaTecnica = ?,
+        sku = ?,
+        tipoProducto = ?,
+        presentacion = ?,
+        ancho = ?,
+        alto = ?,
+        grueso = ?,
+        cobertura = ?,
+        piezasCaja = ?,
+        tipoVenta = ?,
+        tipoCobertura = ?,
+        especificaciones = ?,
+        informacionAdicional = ?,
+        variante = ?,
+        uso = ?,
+        aplicacion = ?,
+        tipo_diseno = ?,
+        material = ?,
+        acabado = ?,
+        tipo_instalacion = ?,
+        espesor_capa_desgaste = ?,
+        unidadGrueso = ?,
+        unidadAncho = ?,
+        unidadAlto = ?,
+        unidadMetroLineal = ?,
+        metrosPorRollo = ?,
+        anchoProducto = ?,
+        precioPorMetroCuadrado = ?,
+        metrosCuadrados = ?,
+        mostrarCobertura = ?
+      WHERE id = ?
     `;
 
     const values = [
-      nombre, descripcion, precio, precioOferta, oferta ? 1 : 0, rebaja ? 1 : 0,
-      stock, imagenesFinal, categoria_id, subcategoria_id, tipo_id,
-      destacado ? 1 : 0, nuevo ? 1 : 0, JSON.stringify(sugerencias || []), fichaTecnica,
-      sku, tipoProducto, presentacion, ancho, alto, grueso,
-      cobertura, piezasCaja, tipoVenta, tipoCobertura,
-      especificaciones, informacionAdicional, variante,
-      uso, aplicacion, tipo_diseno, material, acabado,
-      tipo_instalacion, espesor_capa_desgaste,
+      nombre || null,
+      descripcion || null,
+      precio || null,
+      precioOferta || null,
+      oferta ? 1 : 0,
+      rebaja ? 1 : 0,
+      stock || 0,
+      imagenesFinal,
+      categoria_id || null,
+      subcategoria_id || null,
+      tipo_id || null,
+      destacado ? 1 : 0,
+      nuevo ? 1 : 0,
+      sugerencias ? JSON.stringify(sugerencias) : '[]',
+      fichaTecnica || null,
+      sku || null,
+      tipoProducto || null,
+      presentacion || null,
+      ancho || null,
+      alto || null,
+      grueso || null,
+      cobertura || null,
+      piezasCaja || null,
+      tipoVenta || 'pieza',
+      tipoCobertura || 'm2',
+      especificaciones || null,
+      informacionAdicional || null,
+      variante || null,
+      uso || null,
+      aplicacion || null,
+      tipo_diseno || null,
+      material || null,
+      acabado || null,
+      tipo_instalacion || null,
+      espesor_capa_desgaste || null,
+      unidadGrueso || 'mm',
+      unidadAncho || 'cm',
+      unidadAlto || 'cm',
+      unidadMetroLineal || 'm',
+      metrosPorRollo || null,
+      anchoProducto || null,
+      precioPorMetroCuadrado || null,
+      metrosCuadradosFinal,
+      mostrarCobertura !== undefined ? (mostrarCobertura ? 1 : 0) : 1,  // 🔥 Por defecto 1
       id
     ];
 
-    await db.query(sql, values);
-    res.json({ mensaje: "Producto actualizado" });
+    console.log(`📝 Valores a actualizar: ${values.length}`);
+    console.log(`📝 mostrarCobertura: ${values[values.length - 2]}`);
+    
+    const [result] = await db.query(sql, values);
+    console.log("✅ Producto actualizado, filas afectadas:", result.affectedRows);
+    
+    res.json({ mensaje: "Producto actualizado", affectedRows: result.affectedRows });
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: "Error al actualizar" });
+    console.error("❌ Error al actualizar:", err.message);
+    console.error("❌ SQL:", err.sql);
+    res.status(500).json({ 
+      error: "Error al actualizar", 
+      message: err.message,
+      sql: err.sql || null
+    });
   }
 });
 
