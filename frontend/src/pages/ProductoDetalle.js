@@ -6,7 +6,7 @@ import html2canvas from "html2canvas";
 import Footer from "./Footer";
 import Navbar from "./Navbar";
 
-// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
+// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN - SOLO UNA VEZ
 const getImageUrl = (imagen) => {
   if (!imagen) return "https://via.placeholder.com/200";
   if (imagen.startsWith("http://") || imagen.startsWith("https://")) return imagen;
@@ -338,30 +338,6 @@ export default function ProductoDetalle() {
     }, 50);
   };
 
-  const reiniciarCarruselAutomatico = () => {
-    if (carruselIntervalRef.current) {
-      clearInterval(carruselIntervalRef.current);
-    }
-    if (modelosDisponibles.length > 1) {
-      carruselIntervalRef.current = setInterval(() => {
-        setIndiceCarrusel((prev) => {
-          const nextIndex = (prev + 1) % modelosDisponibles.length;
-          if (carruselScrollRef.current) {
-            const items = carruselScrollRef.current.querySelectorAll('.modelo-carrusel-item');
-            if (items[nextIndex]) {
-              const itemWidth = items[nextIndex].offsetWidth + 12;
-              carruselScrollRef.current.scrollTo({
-                left: nextIndex * itemWidth,
-                behavior: 'smooth'
-              });
-            }
-          }
-          return nextIndex;
-        });
-      }, 3500);
-    }
-  };
-
   const getImagenActual = () => {
     let imgUrl = '';
     if (modeloSeleccionado) {
@@ -382,7 +358,6 @@ export default function ProductoDetalle() {
     return p.oferta ? p.precioOferta : p.precio;
   };
 
-  // 🔥 FUNCIÓN PARA MOSTRAR EL TIPO DE VENTA CORRECTO
   const getUnidadVenta = () => {
     const tipoVenta = producto?.tipoVenta || '';
     const unidadMap = {
@@ -471,11 +446,18 @@ export default function ProductoDetalle() {
   };
 
   // ========== CÁLCULOS COTIZADOR ==========
+  const obtenerAnchoEnMetros = () => {
+    const ancho = Number(producto?.anchoProducto) || 0;
+    if (ancho > 10) {
+      return ancho / 100;
+    }
+    return ancho;
+  };
+
   let areaIngresada = 0;
-  
-  // Para Metro Lineal: usamos largo x ancho para calcular el área
-  if (producto?.tipoVenta === "metro_lineal") {
-    // El usuario ingresa largo y ancho, calculamos el área
+  let anchoRollo = obtenerAnchoEnMetros();
+
+  if (producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado") {
     areaIngresada = modoCotizacion === "todas"
       ? medidas.reduce((total, item) => {
           const largo = Number(item.largo) || 0;
@@ -483,18 +465,7 @@ export default function ProductoDetalle() {
           return total + largo * ancho;
         }, 0)
       : (Number(medidas[areaSeleccionada]?.largo) || 0) * (Number(medidas[areaSeleccionada]?.ancho) || 0);
-  } else if (producto?.tipoVenta === "metro_cuadrado") {
-    // Para Metro Cuadrado: igual, largo x ancho
-    areaIngresada = modoCotizacion === "todas"
-      ? medidas.reduce((total, item) => {
-          const largo = Number(item.largo) || 0;
-          const ancho = Number(item.ancho) || 0;
-          return total + largo * ancho;
-        }, 0)
-      : (Number(medidas[areaSeleccionada]?.largo) || 0) * (Number(medidas[areaSeleccionada]?.ancho) || 0);
-  } else if (producto?.tipoVenta === "presentacion") {
-    areaIngresada = Number(medidas[0]?.area) || 0;
-  } else if (producto?.tipoVenta === "paquete") {
+  } else if (producto?.tipoVenta === "presentacion" || producto?.tipoVenta === "paquete") {
     areaIngresada = Number(medidas[0]?.area) || 0;
   } else {
     areaIngresada = modoCotizacion === "todas"
@@ -507,17 +478,14 @@ export default function ProductoDetalle() {
   }
 
   const areaConDesperdicio = areaIngresada * (1 + Number(desperdicio) / 100);
-  
+
   let coberturaPorUnidad = 0;
   if (producto?.tipoVenta === "metro_lineal") {
-    // Para metro lineal, la cobertura por "unidad" es el área total del rollo
-    const ancho = Number(producto.anchoProducto) || 0;
+    const ancho = obtenerAnchoEnMetros();
     const metrosRollo = Number(producto.metrosPorRollo) || 0;
     coberturaPorUnidad = ancho * metrosRollo;
   } else if (producto?.tipoVenta === "metro_cuadrado") {
-    const ancho = Number(producto.anchoProducto) || 0;
-    const alto = Number(producto.alto) || 0;
-    coberturaPorUnidad = ancho * alto;
+    coberturaPorUnidad = anchoRollo;
   } else if (producto?.tipoVenta === "presentacion") {
     coberturaPorUnidad = Number(producto?.cobertura) || 0;
   } else if (producto?.tipoVenta === "paquete") {
@@ -539,15 +507,16 @@ export default function ProductoDetalle() {
   let areaCubierta = 0;
 
   if (producto?.tipoVenta === "metro_lineal") {
-    // Para metro lineal: calculamos metros lineales necesarios a partir del área
-    const ancho = Number(producto.anchoProducto) || 0;
-    if (ancho > 0 && areaIngresada > 0) {
-      metrosLineales = areaConDesperdicio / ancho;
+    if (anchoRollo > 0 && areaIngresada > 0) {
+      metrosLineales = areaConDesperdicio / anchoRollo;
     }
     cantidadNecesaria = metrosLineales;
     areaCubierta = areaConDesperdicio;
   } else if (producto?.tipoVenta === "metro_cuadrado") {
-    cantidadNecesaria = areaConDesperdicio;
+    if (anchoRollo > 0 && areaIngresada > 0) {
+      metrosLineales = areaConDesperdicio / anchoRollo;
+    }
+    cantidadNecesaria = metrosLineales;
     areaCubierta = areaConDesperdicio;
   } else if (producto?.tipoVenta === "presentacion") {
     cantidadNecesaria = coberturaPorUnidad > 0 ? Math.ceil(areaIngresada / coberturaPorUnidad) : 0;
@@ -561,13 +530,19 @@ export default function ProductoDetalle() {
 
   const precioFinal = Number(producto?.oferta ? producto?.precioOferta : producto?.precio) || 0;
   let total = 0;
-  if (producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado") {
-    const precioPorM2 = Number(producto.precioPorMetroCuadrado) || 0;
-    total = areaConDesperdicio * precioPorM2;
+
+  if (producto?.tipoVenta === "metro_lineal") {
+    const precioPorMetroLineal = Number(producto.precio) || 0;
+    total = metrosLineales * precioPorMetroLineal;
+  } else if (producto?.tipoVenta === "metro_cuadrado") {
+    const precioPorMetroCuadrado = Number(producto.precio) || 0;
+    total = areaConDesperdicio * precioPorMetroCuadrado;
   } else {
     total = cantidadNecesaria * precioFinal;
   }
   total = total.toFixed(2);
+
+  const precioPorMetroCuadrado = Number(producto?.precio) || 0;
 
   // ========== PDF ==========
   const convertirImagenBase64 = async (url) => {
@@ -591,20 +566,12 @@ export default function ProductoDetalle() {
 
   const obtenerDetalleMedidas = () => {
     return medidas.map((item, index) => {
-      if (producto?.tipoVenta === "metro_lineal") {
+      if (producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado") {
         const largo = Number(item.largo) || 0;
         const ancho = Number(item.ancho) || 0;
         return { numero: index + 1, largo, ancho, area: largo * ancho };
       }
-      if (producto?.tipoVenta === "metro_cuadrado") {
-        const largo = Number(item.largo) || 0;
-        const ancho = Number(item.ancho) || 0;
-        return { numero: index + 1, largo, ancho, area: largo * ancho };
-      }
-      if (producto?.tipoVenta === "presentacion") {
-        return { numero: 1, area: Number(item.area) || 0 };
-      }
-      if (producto?.tipoVenta === "paquete") {
+      if (producto?.tipoVenta === "presentacion" || producto?.tipoVenta === "paquete") {
         return { numero: 1, area: Number(item.area) || 0 };
       }
       const largo = Number(item.largo) || 0;
@@ -677,11 +644,14 @@ export default function ProductoDetalle() {
         pdf.text(`Desperdicio: ${desperdicio}%`, 20, y + 18);
         pdf.text(`Área final: ${areaConDesperdicio.toFixed(2)} m²`, 20, y + 28);
         pdf.text(`Metros lineales necesarios: ${metrosLineales.toFixed(2)} ml`, 20, y + 38);
-        pdf.text(`Ancho del producto: ${producto.anchoProducto || 'N/A'} m`, 20, y + 48);
+        pdf.text(`Ancho del producto: ${anchoRollo.toFixed(2)} m`, 20, y + 48);
       } else if (producto?.tipoVenta === "metro_cuadrado") {
         pdf.text(`Área a cubrir: ${areaIngresada.toFixed(2)} m²`, 20, y + 8);
         pdf.text(`Desperdicio: ${desperdicio}%`, 20, y + 18);
         pdf.text(`Área final: ${areaConDesperdicio.toFixed(2)} m²`, 20, y + 28);
+        pdf.text(`Metros lineales a cortar: ${metrosLineales.toFixed(2)} ml`, 20, y + 38);
+        pdf.text(`Ancho del rollo: ${anchoRollo.toFixed(2)} m`, 20, y + 48);
+        pdf.text(`Precio por m²: $${precioPorMetroCuadrado}`, 20, y + 58);
       } else if (producto?.tipoVenta === "presentacion") {
         pdf.text(`Área a cubrir: ${areaIngresada.toFixed(2)} m²`, 20, y + 8);
         pdf.text(`Cobertura por unidad: ${coberturaPorUnidad.toFixed(2)} m²`, 20, y + 18);
@@ -729,22 +699,15 @@ export default function ProductoDetalle() {
 
       let notaProducto = "";
       if (producto.tipoVenta === "metro_lineal") {
-        const ancho = Number(producto.anchoProducto) || 0;
-        const metrosRollo = Number(producto.metrosPorRollo) || 0;
-        const totalM2 = ancho * metrosRollo;
         notaProducto =
-          `Este producto se vende por metro lineal pero se factura por metro cuadrado. ` +
-          `El rollo mide ${ancho} m de ancho y tiene ${metrosRollo} metros lineales, ` +
-          `lo que equivale a ${totalM2.toFixed(2)} m² por rollo. ` +
+          `Este producto se vende por metro lineal. El rollo mide ${anchoRollo.toFixed(2)} m de ancho y tiene ${producto.metrosPorRollo || 'N/A'} metros lineales. ` +
           `Para cubrir ${areaIngresada.toFixed(2)} m² necesitas aproximadamente ${metrosLineales.toFixed(2)} metros lineales. ` +
-          `Con desperdicio del ${desperdicio}% necesitas ${areaConDesperdicio.toFixed(2)} m².`;
+          `Precio por metro lineal: $${producto.precio}. Total: $${total}`;
       } else if (producto.tipoVenta === "metro_cuadrado") {
-        const ancho = Number(producto.anchoProducto) || 0;
-        const alto = Number(producto.alto) || 0;
         notaProducto =
-          `Este producto se vende por metro cuadrado. ` +
-          `Cada pieza mide ${ancho} m x ${alto} m y cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
-          `Para cubrir ${areaIngresada.toFixed(2)} m² necesitas aproximadamente ${cantidadNecesaria.toFixed(2)} m².`;
+          `Este producto se vende por metro cuadrado. El rollo mide ${anchoRollo.toFixed(2)} m de ancho. ` +
+          `Para cubrir ${areaIngresada.toFixed(2)} m² necesitas cortar ${metrosLineales.toFixed(2)} metros lineales. ` +
+          `Precio por metro cuadrado: $${precioPorMetroCuadrado}. Total: $${total}`;
       } else if (producto.tipoVenta === "paquete") {
         const piezas = Number(producto.piezasCaja) || 1;
         notaProducto =
@@ -881,8 +844,33 @@ export default function ProductoDetalle() {
   const relacionadosAgrupados = agruparPorTipo(relacionados);
   const sugeridosAgrupados = agruparPorTipo(sugeridos);
 
-  // 🔥 VARIABLE PARA SABER SI EL PRODUCTO TIENE COBERTURA
   const tieneCobertura = producto && (Number(producto.mostrarCobertura) === 1) && producto.cobertura && producto.cobertura.trim() !== '';
+
+  const debeMostrarCotizador = () => {
+    if (producto?.tipoVenta === "paquete") return false;
+    if (producto?.tipoVenta === "metro_cuadrado") return true;
+    if (producto?.tipoVenta === "metro_lineal") return true;
+    if (producto?.tipoVenta === "presentacion") return tieneCobertura;
+    if (producto?.tipoVenta === "caja") return tieneCobertura;
+    if (producto?.tipoVenta === "pieza") return tieneCobertura;
+    return tieneCobertura;
+  };
+
+  const mostrarGuiaMedicion = () => {
+    return producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado";
+  };
+
+  const mostrarSelectorModo = () => {
+    return producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado";
+  };
+
+  const mostrarDesperdicio = () => {
+    return producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado";
+  };
+
+  const mostrarBotonesMedidas = () => {
+    return producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado";
+  };
 
   return (
     <div className="producto-detalle-page">
@@ -896,20 +884,16 @@ export default function ProductoDetalle() {
         esFavorito={esFavorito}
       />
 
-      {/* NOTIFICACIÓN */}
       {mostrarNotificacion && (
         <div className="notificacion-flotante">
           <span>{notificacionMensaje}</span>
         </div>
       )}
 
-      {/* ===== CONTENEDOR PRINCIPAL ===== */}
       <div className="producto-detalle-wrapper">
         
-        {/* ===== COLUMNA IZQUIERDA ===== */}
         <div className="producto-detalle-left-col">
           
-          {/* GALERÍA */}
           <div className="producto-detalle-gallery">
             <div className="badges-container">
               {(producto.rebaja === 1 || producto.rebaja === true) && (
@@ -968,13 +952,12 @@ export default function ProductoDetalle() {
             </div>
           </div>
 
-          {/* ===== COTIZADOR - SOLO SE MUESTRA SI TIENE COBERTURA ===== */}
-          {tieneCobertura && (
+          {debeMostrarCotizador() && (
             <div className="cotizador-wrapper">
               <div className="cotizador-box" ref={cotizadorRef}>
                 <h3 className="cotizador-title">🧮 Calcula cuánto necesitas</h3>
 
-                {producto.tipoVenta !== "paquete" && producto.tipoVenta !== "presentacion" && (
+                {mostrarGuiaMedicion() && (
                   <div className="guia-medicion">
                     <h4 className="guia-titulo">📏 ¿Cómo calcular los m²?</h4>
                     <div className="guia-grid">
@@ -992,8 +975,7 @@ export default function ProductoDetalle() {
                   </div>
                 )}
 
-                {/* Selector de modo - Para todos menos paquete y presentacion */}
-                {producto.tipoVenta !== "paquete" && producto.tipoVenta !== "presentacion" && (
+                {mostrarSelectorModo() && (
                   <div className="selector-modo">
                     <label>
                       <input type="radio" checked={modoCotizacion === "todas"} onChange={() => setModoCotizacion("todas")} />
@@ -1010,7 +992,6 @@ export default function ProductoDetalle() {
                 )}
 
                 <div className="medidas-container">
-                  {/* Metro Lineal - Ingresar Largo y Ancho */}
                   {producto.tipoVenta === "metro_lineal" ? (
                     medidas.map((item, index) => (
                       <div key={index} className="medida-card">
@@ -1045,9 +1026,9 @@ export default function ProductoDetalle() {
                         <p className="resultado-medida">
                           Área: {((Number(item.largo) || 0) * (Number(item.ancho) || 0)).toFixed(2)} m²
                         </p>
-                        {producto.anchoProducto && Number(item.largo) > 0 && Number(item.ancho) > 0 && (
+                        {anchoRollo > 0 && Number(item.largo) > 0 && Number(item.ancho) > 0 && (
                           <p className="resultado-medida" style={{ color: '#2563eb' }}>
-                            📏 Metros lineales necesarios: {(((Number(item.largo) || 0) * (Number(item.ancho) || 0)) / Number(producto.anchoProducto)).toFixed(2)} ml
+                            📏 Metros lineales necesarios: {(((Number(item.largo) || 0) * (Number(item.ancho) || 0)) / anchoRollo).toFixed(2)} ml
                           </p>
                         )}
                         {medidas.length > 1 && (
@@ -1058,46 +1039,58 @@ export default function ProductoDetalle() {
                       </div>
                     ))
                   ) : producto.tipoVenta === "metro_cuadrado" ? (
-                    medidas.map((item, index) => (
-                      <div key={index} className="medida-card">
-                        <h4>📐 Área {index + 1}</h4>
-                        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
-                          Ingresa el largo y ancho en metros para calcular el área.
-                        </p>
-                        {modoCotizacion === "una" && (
-                          <label className="radio-label">
-                            <input type="radio" checked={areaSeleccionada === index} onChange={() => setAreaSeleccionada(index)} />
-                            Utilizar esta área
-                          </label>
-                        )}
-                        <div className="medidas-grid">
-                          <input
-                            type="number"
-                            placeholder="Largo (m)"
-                            value={item.largo}
-                            onChange={(e) => actualizarMedida(index, "largo", e.target.value)}
-                            className="input-field"
-                            step="0.01"
-                          />
-                          <input
-                            type="number"
-                            placeholder="Ancho (m)"
-                            value={item.ancho}
-                            onChange={(e) => actualizarMedida(index, "ancho", e.target.value)}
-                            className="input-field"
-                            step="0.01"
-                          />
+                    medidas.map((item, index) => {
+                      const largo = Number(item.largo) || 0;
+                      const ancho = Number(item.ancho) || 0;
+                      const areaMedida = largo * ancho;
+                      const mlMedida = anchoRollo > 0 && areaMedida > 0 ? areaMedida / anchoRollo : 0;
+                      
+                      return (
+                        <div key={index} className="medida-card">
+                          <h4>📐 Área {index + 1}</h4>
+                          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
+                            Ingresa el largo y ancho en metros para calcular el área.
+                          </p>
+                          {modoCotizacion === "una" && (
+                            <label className="radio-label">
+                              <input type="radio" checked={areaSeleccionada === index} onChange={() => setAreaSeleccionada(index)} />
+                              Utilizar esta área
+                            </label>
+                          )}
+                          <div className="medidas-grid">
+                            <input
+                              type="number"
+                              placeholder="Largo (m)"
+                              value={item.largo}
+                              onChange={(e) => actualizarMedida(index, "largo", e.target.value)}
+                              className="input-field"
+                              step="0.01"
+                            />
+                            <input
+                              type="number"
+                              placeholder="Ancho (m)"
+                              value={item.ancho}
+                              onChange={(e) => actualizarMedida(index, "ancho", e.target.value)}
+                              className="input-field"
+                              step="0.01"
+                            />
+                          </div>
+                          <p className="resultado-medida">
+                            Área: {areaMedida.toFixed(2)} m²
+                          </p>
+                          {anchoRollo > 0 && Number(item.largo) > 0 && Number(item.ancho) > 0 && (
+                            <p className="resultado-medida" style={{ color: '#2563eb' }}>
+                              📏 Metros lineales a cortar: {mlMedida.toFixed(2)} ml
+                            </p>
+                          )}
+                          {medidas.length > 1 && (
+                            <button className="btn-eliminar" onClick={() => eliminarMedida(index)}>
+                              🗑 Eliminar
+                            </button>
+                          )}
                         </div>
-                        <p className="resultado-medida">
-                          Área: {((Number(item.largo) || 0) * (Number(item.ancho) || 0)).toFixed(2)} m²
-                        </p>
-                        {medidas.length > 1 && (
-                          <button className="btn-eliminar" onClick={() => eliminarMedida(index)}>
-                            🗑 Eliminar
-                          </button>
-                        )}
-                      </div>
-                    ))
+                      );
+                    })
                   ) : producto.tipoVenta === "presentacion" ? (
                     <div className="medida-card">
                       <h4>🧴 Área a cubrir</h4>
@@ -1117,28 +1110,6 @@ export default function ProductoDetalle() {
                         Presentación: <strong>{producto.presentacion || 'N/A'}</strong>
                         {coberturaPorUnidad > 0 && (
                           <> • Cobertura por unidad: <strong>{coberturaPorUnidad.toFixed(2)} m²</strong></>
-                        )}
-                      </p>
-                    </div>
-                  ) : producto.tipoVenta === "paquete" ? (
-                    <div className="medida-card">
-                      <h4>📦 Área a cubrir</h4>
-                      <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
-                        Ingresa los metros cuadrados que deseas cubrir.
-                      </p>
-                      <input
-                        type="number"
-                        placeholder="Ingresa los m² que deseas cubrir"
-                        value={medidas[0]?.area || ""}
-                        onChange={(e) => setMedidas([{ area: e.target.value }])}
-                        className="input-field"
-                        step="0.01"
-                      />
-                      <p className="resultado-medida">Área ingresada: {areaIngresada.toFixed(2)} m²</p>
-                      <p style={{ fontSize: '13px', color: '#64748b', marginTop: '8px' }}>
-                        Cada paquete contiene <strong>{producto.piezasCaja || 'N/A'} piezas</strong>
-                        {coberturaPorUnidad > 0 && (
-                          <> • Cobertura por paquete: <strong>{coberturaPorUnidad.toFixed(2)} m²</strong></>
                         )}
                       </p>
                     </div>
@@ -1182,8 +1153,7 @@ export default function ProductoDetalle() {
                     ))
                   )}
 
-                  {/* Botones para agregar/limpiar - Solo para tipos con múltiples áreas */}
-                  {producto.tipoVenta !== "paquete" && producto.tipoVenta !== "presentacion" && (
+                  {mostrarBotonesMedidas() && (
                     <div className="botones-medidas">
                       {medidas.length < 5 && (
                         <button className="btn-agregar" onClick={agregarMedida}>
@@ -1197,8 +1167,7 @@ export default function ProductoDetalle() {
                   )}
                 </div>
 
-                {/* Desperdicio - Para todos excepto paquete y presentacion */}
-                {producto.tipoVenta !== "paquete" && producto.tipoVenta !== "presentacion" && (
+                {mostrarDesperdicio() && (
                   <div className="desperdicio-box">
                     <span className="desperdicio-label">Desperdicio:</span>
                     {[0, 10, 15, 20].map((p) => (
@@ -1213,25 +1182,65 @@ export default function ProductoDetalle() {
                   <div className="resultado-cotizacion">
                     {producto.tipoVenta === "metro_lineal" ? (
                       <>
-                        <p><strong>📐 Área ingresada:</strong> {areaIngresada.toFixed(2)} m²</p>
-                        <p><strong>📏 Ancho del producto:</strong> {producto.anchoProducto || 'N/A'} m</p>
-                        <p><strong>📏 Metros lineales necesarios:</strong> {metrosLineales.toFixed(2)} ml</p>
-                        <p><strong>📈 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²</p>
-                        <p><strong>💰 Precio por metro lineal:</strong> ${producto.precioPorMetroCuadrado || 'N/A'}</p>
+                        <p><strong>📐 Área a cubrir:</strong> {areaIngresada.toFixed(2)} m²</p>
+                        <p><strong>📏 Ancho del producto:</strong> {anchoRollo.toFixed(2)} m</p>
+                        <p><strong>📈 Desperdicio:</strong> {desperdicio}%</p>
+                        <p><strong>📐 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²</p>
+                        <p><strong>📏 Metros lineales necesarios:</strong> <span style={{ color: '#2563eb', fontWeight: 'bold', fontSize: '1.1rem' }}>{metrosLineales.toFixed(2)} ml</span></p>
+                        <p><strong>💰 Precio por metro lineal:</strong> ${Number(producto.precio).toLocaleString()}</p>
+                        <p className="total-estimado" style={{ fontSize: '1.5rem', color: '#16a34a' }}>
+                          Total estimado: ${Number(total).toLocaleString()}
+                        </p>
                       </>
                     ) : producto.tipoVenta === "metro_cuadrado" ? (
                       <>
-                        <p><strong>📐 Área ingresada:</strong> {areaIngresada.toFixed(2)} m²</p>
-                        <p><strong>📈 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²</p>
-                        <p><strong>💰 Precio por metro cuadrado:</strong> ${producto.precioPorMetroCuadrado || 'N/A'}</p>
-                      </>
-                    ) : producto.tipoVenta === "paquete" ? (
-                      <>
-                        <p><strong>📦 Área a cubrir:</strong> {areaIngresada.toFixed(2)} m²</p>
-                        <p><strong>📦 Piezas por paquete:</strong> {producto.piezasCaja || 'N/A'}</p>
-                        <p><strong>📐 Cobertura por paquete:</strong> {coberturaPorUnidad.toFixed(2)} m²</p>
-                        <p><strong>📦 Paquetes necesarios:</strong> {cantidadNecesaria}</p>
-                        <p><strong>📐 Área total cubierta:</strong> {areaCubierta.toFixed(2)} m²</p>
+                        <div style={{ 
+                          background: '#eff6ff', 
+                          padding: '12px', 
+                          borderRadius: '8px', 
+                          marginBottom: '12px',
+                          borderLeft: '4px solid #3b82f6'
+                        }}>
+                          <p style={{ margin: '4px 0' }}>
+                            <strong>📐 Área a cubrir:</strong> {areaIngresada.toFixed(2)} m²
+                          </p>
+                          <p style={{ margin: '4px 0' }}>
+                            <strong>📏 Ancho del rollo:</strong> {anchoRollo.toFixed(2)} m
+                          </p>
+                          <p style={{ margin: '4px 0' }}>
+                            <strong>📈 Desperdicio:</strong> {desperdicio}%
+                          </p>
+                          <p style={{ margin: '4px 0' }}>
+                            <strong>📐 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²
+                          </p>
+                          <hr style={{ margin: '8px 0', borderColor: '#bfdbfe' }} />
+                          <p style={{ margin: '4px 0', fontSize: '1.2rem', color: '#1e40af', fontWeight: 'bold' }}>
+                            📏 Metros lineales a cortar: {metrosLineales.toFixed(2)} ml
+                          </p>
+                          <p style={{ margin: '4px 0', fontSize: '1.1rem', color: '#16a34a' }}>
+                            💰 Precio por metro cuadrado: ${Number(precioPorMetroCuadrado).toLocaleString()}
+                          </p>
+                          <p style={{ margin: '4px 0', fontSize: '1.4rem', color: '#16a34a', fontWeight: 'bold' }}>
+                            💵 Total: ${Number(total).toLocaleString()}
+                          </p>
+                        </div>
+                        
+                        <div style={{ 
+                          background: '#fef3c7', 
+                          padding: '12px', 
+                          borderRadius: '8px',
+                          borderLeft: '4px solid #f59e0b'
+                        }}>
+                          <p style={{ margin: '0', fontSize: '0.95rem' }}>
+                            📌 <strong>Para cubrir {areaConDesperdicio.toFixed(2)} m²</strong> necesitas cortar <strong>{metrosLineales.toFixed(2)} metros lineales</strong>
+                          </p>
+                          <p style={{ margin: '4px 0 0 0', fontSize: '0.95rem' }}>
+                            💰 {areaConDesperdicio.toFixed(2)} m² × ${Number(precioPorMetroCuadrado).toLocaleString()} = <strong>${Number(total).toLocaleString()}</strong>
+                          </p>
+                          <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: '#64748b' }}>
+                            📐 {metrosLineales.toFixed(2)} ml × {anchoRollo.toFixed(2)} m = {areaConDesperdicio.toFixed(2)} m²
+                          </p>
+                        </div>
                       </>
                     ) : producto.tipoVenta === "presentacion" ? (
                       <>
@@ -1239,58 +1248,126 @@ export default function ProductoDetalle() {
                         <p><strong>📐 Cobertura por {producto.presentacion || "unidad"}:</strong> {coberturaPorUnidad.toFixed(2)} m²</p>
                         <p><strong>🧴 Unidades necesarias:</strong> {cantidadNecesaria}</p>
                         <p><strong>📐 Área total cubierta:</strong> {areaCubierta.toFixed(2)} m²</p>
+                        <p className="total-estimado">Total estimado: ${Number(total).toLocaleString()}</p>
                       </>
                     ) : (
                       <>
                         <p><strong>📐 Área ingresada:</strong> {areaIngresada.toFixed(2)} m²</p>
                         <p><strong>📈 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²</p>
+                        <p className="total-estimado">Total estimado: ${Number(total).toLocaleString()}</p>
                       </>
                     )}
                     
                     <p><strong>Necesitas:</strong> {
-                      producto.tipoVenta === "metro_lineal" ? <strong>{metrosLineales.toFixed(2)} ml</strong> :
-                      producto.tipoVenta === "metro_cuadrado" ? <strong>{areaConDesperdicio.toFixed(2)} m²</strong> :
-                      producto.tipoVenta === "paquete" ? <strong>{cantidadNecesaria} paquetes</strong> :
-                      producto.tipoVenta === "presentacion" ? <strong>{cantidadNecesaria} unidades</strong> :
-                      <strong>{cantidadNecesaria}</strong>
+                      producto.tipoVenta === "metro_lineal" ? (
+                        <span style={{ color: '#2563eb', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                          {metrosLineales.toFixed(2)} metros lineales
+                        </span>
+                      ) :
+                      producto.tipoVenta === "metro_cuadrado" ? (
+                        <span style={{ color: '#2563eb', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                          {metrosLineales.toFixed(2)} metros lineales
+                        </span>
+                      ) :
+                      producto.tipoVenta === "presentacion" ? (
+                        <span style={{ color: '#8b5cf6', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                          {cantidadNecesaria} unidades
+                        </span>
+                      ) :
+                      <span style={{ color: '#16a34a', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                        {cantidadNecesaria}
+                      </span>
                     }</p>
-                    
-                    <p className="total-estimado">Total estimado: ${total.toLocaleString()}</p>
 
                     <div className="nota-producto">
-                      ℹ️ Este producto se vende por <strong>{producto.tipoVenta}</strong>.
-                      
                       {producto.tipoVenta === "metro_lineal" && (
                         <>
-                          El rollo mide <strong>{producto.anchoProducto || 'N/A'} m de ancho</strong> y tiene <strong>{producto.metrosPorRollo || 'N/A'} metros lineales</strong>.
-                          <br/><br/>
-                          Total: <strong>{producto.metrosCuadrados ? `${producto.metrosCuadrados} m²` : 'N/A'}</strong>
-                          <br/>
-                          Precio por metro lineal: <strong>${producto.precioPorMetroCuadrado || 'N/A'}</strong>
-                          <br/><br/>
-                          Para cubrir <strong>{areaIngresada.toFixed(2)} m²</strong> necesitas aproximadamente <strong>{metrosLineales.toFixed(2)} metros lineales</strong>.
-                          <br/>
-                          Con desperdicio del {desperdicio}%: <strong>{areaConDesperdicio.toFixed(2)} m²</strong> → <strong>{metrosLineales.toFixed(2)} ml</strong>
+                          ℹ️ Este producto se vende por <strong>metro lineal</strong>.
+                          <div style={{ 
+                            background: '#eff6ff', 
+                            padding: '12px', 
+                            borderRadius: '8px', 
+                            margin: '10px 0',
+                            borderLeft: '4px solid #3b82f6'
+                          }}>
+                            <p style={{ margin: '4px 0' }}>
+                              <strong>📏 Ancho del producto:</strong> {anchoRollo.toFixed(2)} m
+                            </p>
+                            <p style={{ margin: '4px 0' }}>
+                              <strong>📐 Área a cubrir:</strong> {areaIngresada.toFixed(2)} m²
+                            </p>
+                            <p style={{ margin: '4px 0' }}>
+                              <strong>📈 Desperdicio:</strong> {desperdicio}%
+                            </p>
+                            <p style={{ margin: '4px 0' }}>
+                              <strong>📐 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²
+                            </p>
+                            <hr style={{ margin: '8px 0', borderColor: '#bfdbfe' }} />
+                            <p style={{ margin: '4px 0', fontSize: '1.1rem', color: '#1e40af' }}>
+                              <strong>📏 Metros lineales necesarios:</strong> {metrosLineales.toFixed(2)} ml
+                            </p>
+                            <p style={{ margin: '4px 0', fontSize: '1.1rem', color: '#16a34a' }}>
+                              <strong>💰 Precio por metro lineal:</strong> ${Number(producto.precio).toLocaleString()}
+                            </p>
+                            <p style={{ margin: '4px 0', fontSize: '1.3rem', color: '#16a34a', fontWeight: 'bold' }}>
+                              <strong>💵 Total:</strong> ${Number(total).toLocaleString()}
+                            </p>
+                          </div>
+                          <p style={{ fontSize: '0.9rem', color: '#64748b', marginTop: '8px' }}>
+                            💡 <strong>Cálculo:</strong> {areaConDesperdicio.toFixed(2)} m² ÷ {anchoRollo.toFixed(2)} m (ancho) = {metrosLineales.toFixed(2)} metros lineales
+                          </p>
                         </>
                       )}
                       
                       {producto.tipoVenta === "metro_cuadrado" && (
                         <>
-                          El producto mide <strong>{producto.anchoProducto || 'N/A'} m x {producto.alto || 'N/A'} m</strong>.
-                          <br/>
-                          Precio por metro cuadrado: <strong>${producto.precioPorMetroCuadrado || 'N/A'}</strong>
-                          <br/><br/>
-                          Para cubrir <strong>{areaIngresada.toFixed(2)} m²</strong> necesitas aproximadamente <strong>{areaConDesperdicio.toFixed(2)} m²</strong>.
-                        </>
-                      )}
-                      
-                      {producto.tipoVenta === "paquete" && (
-                        <>
-                          Cada paquete contiene <strong>{producto.piezasCaja || 'N/A'} piezas</strong> y cubre <strong>{coberturaPorUnidad.toFixed(2)} m²</strong>.
-                          <br/><br/>
-                          Para cubrir <strong>{areaIngresada.toFixed(2)} m²</strong> necesitas aproximadamente <strong>{cantidadNecesaria} paquetes</strong>.
-                          <br/>
-                          Esto cubrirá <strong>{areaCubierta.toFixed(2)} m²</strong>.
+                          ℹ️ Este producto se vende por <strong>metro cuadrado</strong>.
+                          <div style={{ 
+                            background: '#f0fdf4', 
+                            padding: '12px', 
+                            borderRadius: '8px', 
+                            margin: '10px 0',
+                            borderLeft: '4px solid #22c55e'
+                          }}>
+                            <p style={{ margin: '4px 0' }}>
+                              <strong>📏 Ancho del rollo:</strong> {anchoRollo.toFixed(2)} m
+                            </p>
+                            <p style={{ margin: '4px 0' }}>
+                              <strong>📐 Área a cubrir:</strong> {areaIngresada.toFixed(2)} m²
+                            </p>
+                            <p style={{ margin: '4px 0' }}>
+                              <strong>📈 Desperdicio:</strong> {desperdicio}%
+                            </p>
+                            <p style={{ margin: '4px 0' }}>
+                              <strong>📐 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²
+                            </p>
+                            <hr style={{ margin: '8px 0', borderColor: '#bbf7d0' }} />
+                            <p style={{ margin: '4px 0', fontSize: '1.2rem', color: '#1e40af', fontWeight: 'bold' }}>
+                              📏 Metros lineales a cortar: {metrosLineales.toFixed(2)} ml
+                            </p>
+                            <p style={{ margin: '4px 0', fontSize: '1.1rem', color: '#16a34a' }}>
+                              💰 Precio por metro cuadrado: ${Number(precioPorMetroCuadrado).toLocaleString()}
+                            </p>
+                            <p style={{ margin: '4px 0', fontSize: '1.3rem', color: '#16a34a', fontWeight: 'bold' }}>
+                              💵 Total: ${Number(total).toLocaleString()}
+                            </p>
+                          </div>
+                          <div style={{ 
+                            background: '#fef3c7', 
+                            padding: '12px', 
+                            borderRadius: '8px',
+                            borderLeft: '4px solid #f59e0b'
+                          }}>
+                            <p style={{ margin: '0', fontSize: '0.95rem' }}>
+                              📌 <strong>Para cubrir {areaConDesperdicio.toFixed(2)} m²</strong> necesitas cortar <strong>{metrosLineales.toFixed(2)} metros lineales</strong>
+                            </p>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '0.95rem' }}>
+                              💰 {areaConDesperdicio.toFixed(2)} m² × ${Number(precioPorMetroCuadrado).toLocaleString()} = <strong>${Number(total).toLocaleString()}</strong>
+                            </p>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: '#64748b' }}>
+                              📐 {metrosLineales.toFixed(2)} ml × {anchoRollo.toFixed(2)} m = {areaConDesperdicio.toFixed(2)} m²
+                            </p>
+                          </div>
                         </>
                       )}
                       
@@ -1303,15 +1380,17 @@ export default function ProductoDetalle() {
                           <strong>Unidades necesarias:</strong> {cantidadNecesaria}
                           <br/>
                           <strong>Área total cubierta:</strong> {areaCubierta.toFixed(2)} m²
+                          <br/>
+                          <strong style={{ color: '#16a34a', fontSize: '1.1rem' }}>Total: ${Number(total).toLocaleString()}</strong>
                         </>
                       )}
                       
                       {producto.tipoVenta === "caja" && (
-                        <> Cada caja contiene <strong>{producto.piezasCaja} piezas</strong> y cubre <strong>{coberturaPorUnidad.toFixed(2)} m²</strong>.<br/><br/>Para cubrir <strong>{areaConDesperdicio.toFixed(2)} m²</strong> necesitas aproximadamente <strong>{cantidadNecesaria} cajas</strong>.</>
+                        <> Cada caja contiene <strong>{producto.piezasCaja} piezas</strong> y cubre <strong>{coberturaPorUnidad.toFixed(2)} m²</strong>.<br/><br/>Para cubrir <strong>{areaConDesperdicio.toFixed(2)} m²</strong> necesitas aproximadamente <strong>{cantidadNecesaria} cajas</strong>.<br/><strong style={{ color: '#16a34a', fontSize: '1.1rem' }}>Total: ${Number(total).toLocaleString()}</strong></>
                       )}
                       
                       {producto.tipoVenta === "pieza" && (
-                        <> Cada pieza cubre <strong>{coberturaPorUnidad.toFixed(2)} m²</strong>.<br/><br/>Para cubrir <strong>{areaConDesperdicio.toFixed(2)} m²</strong> necesitas aproximadamente <strong>{cantidadNecesaria} piezas</strong>.</>
+                        <> Cada pieza cubre <strong>{coberturaPorUnidad.toFixed(2)} m²</strong>.<br/><br/>Para cubrir <strong>{areaConDesperdicio.toFixed(2)} m²</strong> necesitas aproximadamente <strong>{cantidadNecesaria} piezas</strong>.<br/><strong style={{ color: '#16a34a', fontSize: '1.1rem' }}>Total: ${Number(total).toLocaleString()}</strong></>
                       )}
                     </div>
 
@@ -1350,9 +1429,7 @@ export default function ProductoDetalle() {
           )}
         </div>
 
-        {/* ===== COLUMNA DERECHA ===== */}
         <div className="producto-detalle-right-col">
-          {/* Miga de pan */}
           <div className="breadcrumb">
             <span onClick={() => navigate('/')}>Inicio</span>
             <span>/</span>
@@ -1363,7 +1440,6 @@ export default function ProductoDetalle() {
 
           <h1 className="product-title">{getNombreActual()}</h1>
 
-          {/* CARRUSEL DE MODELOS */}
           {modelosDisponibles.length > 0 && (
             <div className="modelos-carrusel">
               <div className="modelos-carrusel-header">
@@ -1444,14 +1520,12 @@ export default function ProductoDetalle() {
             </div>
           )}
 
-          {/* CATEGORÍAS */}
           <div className="category-box">
             {producto.categoria && <span className="category-tag">📁 {producto.categoria}</span>}
             {producto.subcategoria && <span className="subcategory-tag">📂 {producto.subcategoria}</span>}
             {producto.tipo && <span className="type-tag">🏷️ {producto.tipo}</span>}
           </div>
 
-          {/* PRECIO */}
           <div className="precio-section">
             {producto.oferta === 1 || producto.oferta === true ? (
               <div className="precio-container">
@@ -1472,10 +1546,8 @@ export default function ProductoDetalle() {
             )}
           </div>
 
-          {/* SKU */}
           {producto.sku && <p className="sku-item"><strong>SKU:</strong> {producto.sku}</p>}
 
-          {/* STOCK */}
           <div className="stock-box-modern" style={{ borderColor: getStockColor(producto.stock) }}>
             <div className="stock-status">
               <span className={`stock-indicator ${producto.stock <= 0 ? 'agotado' : producto.stock <= 3 ? 'poco' : 'disponible'}`}></span>
@@ -1488,7 +1560,6 @@ export default function ProductoDetalle() {
             )}
           </div>
 
-          {/* DATOS DEL PRODUCTO */}
           <div className="data-box-modern">
             <div className="data-item-modern">
               <span className="data-icon">📦</span>
@@ -1506,14 +1577,13 @@ export default function ProductoDetalle() {
               </div>
             </div>
             
-            {/* Mostrar medidas según el tipo de venta */}
             {producto.tipoVenta === "metro_lineal" ? (
               <>
                 <div className="data-item-modern">
                   <span className="data-icon">📏</span>
                   <div>
                     <span className="data-label">Ancho del producto</span>
-                    <span className="data-value">{producto.anchoProducto || '-'} m</span>
+                    <span className="data-value">{anchoRollo.toFixed(2)} m</span>
                   </div>
                 </div>
                 <div className="data-item-modern">
@@ -1530,21 +1600,14 @@ export default function ProductoDetalle() {
                     <span className="data-value">{producto.metrosCuadrados ? `${producto.metrosCuadrados} m²` : '-'}</span>
                   </div>
                 </div>
-                <div className="data-item-modern">
-                  <span className="data-icon">💰</span>
-                  <div>
-                    <span className="data-label">Precio por metro lineal</span>
-                    <span className="data-value">${producto.precioPorMetroCuadrado || '-'}</span>
-                  </div>
-                </div>
               </>
             ) : producto.tipoVenta === "metro_cuadrado" ? (
               <>
                 <div className="data-item-modern">
                   <span className="data-icon">📏</span>
                   <div>
-                    <span className="data-label">Ancho</span>
-                    <span className="data-value">{producto.anchoProducto || '-'} m</span>
+                    <span className="data-label">Ancho del rollo</span>
+                    <span className="data-value">{anchoRollo.toFixed(2)} m</span>
                   </div>
                 </div>
                 <div className="data-item-modern">
@@ -1559,13 +1622,6 @@ export default function ProductoDetalle() {
                   <div>
                     <span className="data-label">Total en m²</span>
                     <span className="data-value">{producto.metrosCuadrados ? `${producto.metrosCuadrados} m²` : '-'}</span>
-                  </div>
-                </div>
-                <div className="data-item-modern">
-                  <span className="data-icon">💰</span>
-                  <div>
-                    <span className="data-label">Precio por metro cuadrado</span>
-                    <span className="data-value">${producto.precioPorMetroCuadrado || '-'}</span>
                   </div>
                 </div>
               </>
@@ -1621,7 +1677,6 @@ export default function ProductoDetalle() {
               </div>
             )}
             
-            {/* 🔥 COBERTURA - Solo se muestra si está activa */}
             {tieneCobertura && producto.tipoVenta !== "metro_lineal" && producto.tipoVenta !== "metro_cuadrado" && producto.tipoVenta !== "paquete" && (
               <div className="data-item-modern">
                 <span className="data-icon">📐</span>
@@ -1643,13 +1698,11 @@ export default function ProductoDetalle() {
             )}
           </div>
 
-          {/* DESCRIPCIÓN */}
           <div className="box-modern">
             <h3 className="box-title">📝 Descripción</h3>
             <p className="description">{producto.descripcion}</p>
           </div>
 
-          {/* ESPECIFICACIONES */}
           {producto.especificaciones && (
             <div className="box-modern">
               <h3 className="box-title">⚙️ Especificaciones</h3>
@@ -1657,7 +1710,6 @@ export default function ProductoDetalle() {
             </div>
           )}
 
-          {/* INFORMACIÓN ADICIONAL */}
           {producto.informacionAdicional && (
             <div className="box-modern">
               <h3 className="box-title">📋 Información adicional</h3>
@@ -1665,7 +1717,6 @@ export default function ProductoDetalle() {
             </div>
           )}
 
-          {/* BOTONES DE ACCIÓN */}
           <div className="botones-acciones">
             {producto.fichaTecnica && (
               <button className="btn-ficha-tecnica" onClick={() => setFichaZoom(true)}>
@@ -1679,7 +1730,6 @@ export default function ProductoDetalle() {
         </div>
       </div>
 
-      {/* MODALES ZOOM */}
       {fichaZoom && (
         <div className="modal-overlay" onClick={() => setFichaZoom(false)}>
           <img src={getImageUrl(producto.fichaTecnica)} alt="Ficha técnica ampliada" className="modal-image" />
@@ -1691,7 +1741,6 @@ export default function ProductoDetalle() {
         </div>
       )}
 
-      {/* ========== PRODUCTOS RELACIONADOS ========== */}
       <div className="full-width-related-wrapper">
         {sugeridos.length > 0 && (
           <div className="full-width-related-section">

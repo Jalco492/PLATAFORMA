@@ -67,10 +67,13 @@ const obtenerTipoVenta = (tipoVenta) => {
   const tipos = {
     'caja': 'Caja',
     'pieza': 'Pieza',
+    'paquete': 'Paquete',
+    'metro_cuadrado': 'Metro Cuadrado',
+    'metro_lineal': 'Metro Lineal',
+    'presentacion': 'Presentación',
+    'unidad': 'Unidad',
     'tramo': 'Tramo (metros)',
     'rollo': 'Rollo (metros)',
-    'unidad': 'Unidad',
-    'metro_lineal': 'Metro Lineal (m²)',
     'otros': 'Otros'
   };
   return tipos[tipoVenta] || tipoVenta || 'No definido';
@@ -81,10 +84,13 @@ const obtenerIconoTipo = (tipoVenta) => {
   const iconos = {
     'caja': <FaBox size={12} />,
     'pieza': <FaCubes size={12} />,
+    'paquete': <FaBox size={12} />,
+    'metro_cuadrado': <FaRuler size={12} />,
+    'metro_lineal': <FaRuler size={12} />,
+    'presentacion': <FaPalette size={12} />,
     'tramo': <FaRuler size={12} />,
     'rollo': <FaLayerGroup size={12} />,
     'unidad': <FaPalette size={12} />,
-    'metro_lineal': <FaRuler size={12} />,
     'otros': <FaThLarge size={12} />
   };
   return iconos[tipoVenta] || <FaBox size={12} />;
@@ -92,20 +98,17 @@ const obtenerIconoTipo = (tipoVenta) => {
 
 // 🔥 FUNCIÓN PARA SABER SI EL PRODUCTO SE VENDE POR METROS
 const esVentaPorMetros = (tipoVenta) => {
-  return tipoVenta === 'tramo' || tipoVenta === 'rollo' || tipoVenta === 'metro_lineal';
+  return tipoVenta === 'tramo' || tipoVenta === 'rollo' || tipoVenta === 'metro_lineal' || tipoVenta === 'metro_cuadrado';
 };
 
 // 🔥 FUNCIÓN PARA OBTENER LA UNIDAD DE MEDIDA
 const obtenerUnidadMedida = (tipoVenta) => {
-  if (tipoVenta === 'tramo' || tipoVenta === 'rollo' || tipoVenta === 'metro_lineal') {
-    return 'metros';
-  }
-  if (tipoVenta === 'caja') {
-    return 'cajas';
-  }
-  if (tipoVenta === 'pieza') {
-    return 'piezas';
-  }
+  if (tipoVenta === 'metro_cuadrado') return 'm²';
+  if (tipoVenta === 'metro_lineal') return 'ml';
+  if (tipoVenta === 'tramo' || tipoVenta === 'rollo') return 'metros';
+  if (tipoVenta === 'caja') return 'cajas';
+  if (tipoVenta === 'paquete') return 'paquetes';
+  if (tipoVenta === 'pieza') return 'piezas';
   return 'unidades';
 };
 
@@ -293,7 +296,9 @@ export default function Pedido() {
       categoria: producto.categoria || '',
       subcategoria: producto.subcategoria || '',
       ancho: producto.ancho || 0,
-      alto: producto.alto || 0
+      alto: producto.alto || 0,
+      anchoProducto: producto.anchoProducto || 0,
+      metrosPorRollo: producto.metrosPorRollo || 0
     };
     
     agregarProductoAlCarrito(productoCompleto, cantidad || 1);
@@ -351,6 +356,8 @@ export default function Pedido() {
           subcategoria: producto.subcategoria || '',
           ancho: producto.ancho || 0,
           alto: producto.alto || 0,
+          anchoProducto: producto.anchoProducto || 0,
+          metrosPorRollo: producto.metrosPorRollo || 0,
           cantidad: Number(cantidad),
           subtotal: Number(producto.precio) * Number(cantidad)
         };
@@ -437,10 +444,21 @@ export default function Pedido() {
 
   // 🔥 OBTENER EL PASO PARA CADA TIPO DE PRODUCTO
   const obtenerPaso = (tipoVenta) => {
-    if (esVentaPorMetros(tipoVenta)) {
+    if (tipoVenta === 'metro_cuadrado' || tipoVenta === 'metro_lineal' || tipoVenta === 'tramo' || tipoVenta === 'rollo') {
       return 0.5; // Para metros, incrementos de 0.5
     }
     return 1; // Para unidades, incrementos de 1
+  };
+
+  // 🔥 OBTENER LA UNIDAD DE MEDIDA PARA MOSTRAR
+  const obtenerUnidadMostrar = (tipoVenta) => {
+    if (tipoVenta === 'metro_cuadrado') return 'm²';
+    if (tipoVenta === 'metro_lineal') return 'ml';
+    if (tipoVenta === 'tramo' || tipoVenta === 'rollo') return 'm';
+    if (tipoVenta === 'caja') return 'caja';
+    if (tipoVenta === 'paquete') return 'paquete';
+    if (tipoVenta === 'pieza') return 'pieza';
+    return 'uds';
   };
 
   // Calcular total del carrito
@@ -499,7 +517,9 @@ export default function Pedido() {
         cobertura: item.cobertura || 0,
         categoria: item.categoria || '',
         subcategoria: item.subcategoria || '',
-        unidadMedida: esVentaPorMetros(item.tipoVenta) ? 'metros' : 'unidades'
+        unidadMedida: obtenerUnidadMedida(item.tipoVenta),
+        anchoProducto: item.anchoProducto || 0,
+        metrosPorRollo: item.metrosPorRollo || 0
       })),
       total: Number(totalCarrito.toFixed(2))
     };
@@ -1182,7 +1202,7 @@ export default function Pedido() {
                 marginBottom: '20px',
                 border: darkMode ? '1px solid rgba(59, 130, 246, 0.1)' : '1px solid #e5e7eb'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                   <h3 style={{ color: '#60a5fa', fontSize: '16px', margin: 0 }}>
                     🛒 Carrito de Pedido ({carrito.length} productos)
                   </h3>
@@ -1232,7 +1252,7 @@ export default function Pedido() {
                       {carrito.map(item => {
                         const imagenProducto = item.imagen || obtenerImagenProducto(item);
                         const esPorMetros = esVentaPorMetros(item.tipoVenta);
-                        const unidad = esPorMetros ? 'm' : 'uds';
+                        const unidad = obtenerUnidadMostrar(item.tipoVenta);
                         const paso = obtenerPaso(item.tipoVenta);
                         const esDecimal = paso < 1;
                         const subtotal = calcularSubtotal(item);
@@ -1291,7 +1311,7 @@ export default function Pedido() {
                               }}>
                                 {obtenerIconoTipo(item.tipoVenta)} 
                                 <span>{obtenerTipoVenta(item.tipoVenta)}</span>
-                                {esPorMetros && (
+                                {esPorMetros && item.anchoProducto > 0 && (
                                   <span style={{ 
                                     color: darkMode ? '#94a3b8' : '#64748b', 
                                     fontWeight: '400',
@@ -1299,7 +1319,7 @@ export default function Pedido() {
                                     padding: '0 8px',
                                     borderRadius: '4px'
                                   }}>
-                                    📏 {item.ancho || 0}cm x {item.alto || 0}cm
+                                    📏 Ancho: {item.anchoProducto} m
                                   </span>
                                 )}
                                 {item.cobertura > 0 && (
@@ -1307,10 +1327,15 @@ export default function Pedido() {
                                     • {item.cobertura} m²
                                   </span>
                                 )}
+                                {item.presentacion && item.tipoVenta === 'presentacion' && (
+                                  <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: '400' }}>
+                                    • {item.presentacion}
+                                  </span>
+                                )}
                               </div>
                             </div>
                             
-                            {/* 🔥 CONTROLES DE CANTIDAD - MEJORADOS PARA METROS */}
+                            {/* 🔥 CONTROLES DE CANTIDAD */}
                             {editandoCantidad === item.id ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <input
@@ -1338,7 +1363,7 @@ export default function Pedido() {
                                   }}
                                 />
                                 <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600' }}>
-                                  {esPorMetros ? 'm' : 'uds'}
+                                  {unidad}
                                 </span>
                                 <button
                                   onClick={() => guardarEdicionCantidad(item.id)}
@@ -1408,7 +1433,7 @@ export default function Pedido() {
                                 </span>
                                 
                                 <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600' }}>
-                                  {esPorMetros ? 'm' : 'uds'}
+                                  {unidad}
                                 </span>
                                 
                                 <button
