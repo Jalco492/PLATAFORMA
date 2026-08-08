@@ -1182,216 +1182,150 @@ export default function ProductoDetalle() {
                   <div className="resultado-cotizacion">
                     {producto.tipoVenta === "metro_lineal" ? (
                       <>
-                        <p><strong>📐 Área a cubrir:</strong> {areaIngresada.toFixed(2)} m²</p>
-                        <p><strong>📏 Ancho del producto:</strong> {anchoRollo.toFixed(2)} m</p>
-                        <p><strong>📈 Desperdicio:</strong> {desperdicio}%</p>
-                        <p><strong>📐 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²</p>
-                        <p><strong>📏 Metros lineales necesarios:</strong> <span style={{ color: '#2563eb', fontWeight: 'bold', fontSize: '1.1rem' }}>{metrosLineales.toFixed(2)} ml</span></p>
-                        <p><strong>💰 Precio por metro lineal:</strong> ${Number(producto.precio).toLocaleString()}</p>
-                        <p className="total-estimado" style={{ fontSize: '1.5rem', color: '#16a34a' }}>
-                          Total estimado: ${Number(total).toLocaleString()}
-                        </p>
+                        <div className="resultado-grid">
+                          <div className="resultado-item">
+                            <span className="resultado-label">📐 Área a cubrir</span>
+                            <span className="resultado-valor">{areaIngresada.toFixed(2)} m²</span>
+                          </div>
+                          <div className="resultado-item">
+                            <span className="resultado-label">📏 Ancho del producto</span>
+                            <span className="resultado-valor">{anchoRollo.toFixed(2)} m</span>
+                          </div>
+                          <div className="resultado-item">
+                            <span className="resultado-label">📈 Desperdicio</span>
+                            <span className="resultado-valor">{desperdicio}%</span>
+                          </div>
+                          <div className="resultado-item">
+                            <span className="resultado-label">📐 Área con desperdicio</span>
+                            <span className="resultado-valor">{areaConDesperdicio.toFixed(2)} m²</span>
+                          </div>
+                          <div className="resultado-item destacado">
+                            <span className="resultado-label">📏 Metros lineales necesarios</span>
+                            <span className="resultado-valor principal">{metrosLineales.toFixed(2)} ml</span>
+                          </div>
+                          <div className="resultado-item">
+                            <span className="resultado-label">💰 Precio por metro lineal</span>
+                            <span className="resultado-valor">${Number(producto.precio).toLocaleString()}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="total-box">
+                          <span className="total-label">Total estimado</span>
+                          <span className="total-valor">${Number(total).toLocaleString()}</span>
+                        </div>
+
+                        <div className="detalle-calculo">
+                          <p className="detalle-titulo">💡 Detalle del cálculo</p>
+                          <p>{areaConDesperdicio.toFixed(2)} m² ÷ {anchoRollo.toFixed(2)} m = {metrosLineales.toFixed(2)} metros lineales</p>
+                          <p>{areaConDesperdicio.toFixed(2)} m² × ${Number(producto.precio).toLocaleString()} = <strong>${Number(total).toLocaleString()}</strong></p>
+                        </div>
                       </>
                     ) : producto.tipoVenta === "metro_cuadrado" ? (
                       <>
-                        <div style={{ 
-                          background: '#eff6ff', 
-                          padding: '12px', 
-                          borderRadius: '8px', 
-                          marginBottom: '12px',
-                          borderLeft: '4px solid #3b82f6'
-                        }}>
-                          <p style={{ margin: '4px 0' }}>
-                            <strong>📐 Área a cubrir:</strong> {areaIngresada.toFixed(2)} m²
-                          </p>
-                          <p style={{ margin: '4px 0' }}>
-                            <strong>📏 Ancho del rollo:</strong> {anchoRollo.toFixed(2)} m
-                          </p>
-                          <p style={{ margin: '4px 0' }}>
-                            <strong>📈 Desperdicio:</strong> {desperdicio}%
-                          </p>
-                          <p style={{ margin: '4px 0' }}>
-                            <strong>📐 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²
-                          </p>
-                          <hr style={{ margin: '8px 0', borderColor: '#bfdbfe' }} />
-                          <p style={{ margin: '4px 0', fontSize: '1.2rem', color: '#1e40af', fontWeight: 'bold' }}>
-                            📏 Metros lineales a cortar: {metrosLineales.toFixed(2)} ml
-                          </p>
-                          <p style={{ margin: '4px 0', fontSize: '1.1rem', color: '#16a34a' }}>
-                            💰 Precio por metro cuadrado: ${Number(precioPorMetroCuadrado).toLocaleString()}
-                          </p>
-                          <p style={{ margin: '4px 0', fontSize: '1.4rem', color: '#16a34a', fontWeight: 'bold' }}>
-                            💵 Total: ${Number(total).toLocaleString()}
-                          </p>
+                        <div className="resultado-grid">
+                          <div className="resultado-item">
+                            <span className="resultado-label">📐 Área a cubrir</span>
+                            <span className="resultado-valor">{areaIngresada.toFixed(2)} m²</span>
+                          </div>
+                          <div className="resultado-item">
+                            <span className="resultado-label">📏 Ancho del rollo</span>
+                            <span className="resultado-valor">{anchoRollo.toFixed(2)} m</span>
+                          </div>
+                          <div className="resultado-item">
+                            <span className="resultado-label">📈 Desperdicio</span>
+                            <span className="resultado-valor">{desperdicio}%</span>
+                          </div>
+                          <div className="resultado-item">
+                            <span className="resultado-label">📐 Área con desperdicio</span>
+                            <span className="resultado-valor">{areaConDesperdicio.toFixed(2)} m²</span>
+                          </div>
+                          <div className="resultado-item destacado">
+                            <span className="resultado-label">📏 Metros lineales a cortar</span>
+                            <span className="resultado-valor principal">{metrosLineales.toFixed(2)} ml</span>
+                          </div>
+                          <div className="resultado-item">
+                            <span className="resultado-label">💰 Precio por m²</span>
+                            <span className="resultado-valor">${Number(precioPorMetroCuadrado).toLocaleString()}</span>
+                          </div>
                         </div>
                         
-                        <div style={{ 
-                          background: '#fef3c7', 
-                          padding: '12px', 
-                          borderRadius: '8px',
-                          borderLeft: '4px solid #f59e0b'
-                        }}>
-                          <p style={{ margin: '0', fontSize: '0.95rem' }}>
-                            📌 <strong>Para cubrir {areaConDesperdicio.toFixed(2)} m²</strong> necesitas cortar <strong>{metrosLineales.toFixed(2)} metros lineales</strong>
-                          </p>
-                          <p style={{ margin: '4px 0 0 0', fontSize: '0.95rem' }}>
-                            💰 {areaConDesperdicio.toFixed(2)} m² × ${Number(precioPorMetroCuadrado).toLocaleString()} = <strong>${Number(total).toLocaleString()}</strong>
-                          </p>
-                          <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: '#64748b' }}>
+                        <div className="total-box">
+                          <span className="total-label">Total estimado</span>
+                          <span className="total-valor">${Number(total).toLocaleString()}</span>
+                        </div>
+
+                        <div className="detalle-calculo">
+                          <p className="detalle-titulo">📌 Resumen</p>
+                          <p>Para cubrir <strong>{areaConDesperdicio.toFixed(2)} m²</strong> necesitas cortar <strong>{metrosLineales.toFixed(2)} metros lineales</strong></p>
+                          <p>{areaConDesperdicio.toFixed(2)} m² × ${Number(precioPorMetroCuadrado).toLocaleString()} = <strong>${Number(total).toLocaleString()}</strong></p>
+                          <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
                             📐 {metrosLineales.toFixed(2)} ml × {anchoRollo.toFixed(2)} m = {areaConDesperdicio.toFixed(2)} m²
                           </p>
+                        </div>
+
+                        <div className="nota-tipo-venta">
+                          ℹ️ Este producto se vende por <strong>metro cuadrado</strong>
                         </div>
                       </>
                     ) : producto.tipoVenta === "presentacion" ? (
                       <>
-                        <p><strong>🧴 Área a cubrir:</strong> {areaIngresada.toFixed(2)} m²</p>
-                        <p><strong>📐 Cobertura por {producto.presentacion || "unidad"}:</strong> {coberturaPorUnidad.toFixed(2)} m²</p>
-                        <p><strong>🧴 Unidades necesarias:</strong> {cantidadNecesaria}</p>
-                        <p><strong>📐 Área total cubierta:</strong> {areaCubierta.toFixed(2)} m²</p>
-                        <p className="total-estimado">Total estimado: ${Number(total).toLocaleString()}</p>
+                        <div className="resultado-grid">
+                          <div className="resultado-item">
+                            <span className="resultado-label">🧴 Área a cubrir</span>
+                            <span className="resultado-valor">{areaIngresada.toFixed(2)} m²</span>
+                          </div>
+                          <div className="resultado-item">
+                            <span className="resultado-label">📐 Cobertura por unidad</span>
+                            <span className="resultado-valor">{coberturaPorUnidad.toFixed(2)} m²</span>
+                          </div>
+                          <div className="resultado-item destacado">
+                            <span className="resultado-label">🧴 Unidades necesarias</span>
+                            <span className="resultado-valor principal">{cantidadNecesaria}</span>
+                          </div>
+                          <div className="resultado-item">
+                            <span className="resultado-label">📐 Área total cubierta</span>
+                            <span className="resultado-valor">{areaCubierta.toFixed(2)} m²</span>
+                          </div>
+                        </div>
+                        
+                        <div className="total-box">
+                          <span className="total-label">Total estimado</span>
+                          <span className="total-valor">${Number(total).toLocaleString()}</span>
+                        </div>
                       </>
                     ) : (
                       <>
-                        <p><strong>📐 Área ingresada:</strong> {areaIngresada.toFixed(2)} m²</p>
-                        <p><strong>📈 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²</p>
-                        <p className="total-estimado">Total estimado: ${Number(total).toLocaleString()}</p>
+                        <div className="resultado-grid">
+                          <div className="resultado-item">
+                            <span className="resultado-label">📐 Área ingresada</span>
+                            <span className="resultado-valor">{areaIngresada.toFixed(2)} m²</span>
+                          </div>
+                          <div className="resultado-item">
+                            <span className="resultado-label">📈 Área con desperdicio</span>
+                            <span className="resultado-valor">{areaConDesperdicio.toFixed(2)} m²</span>
+                          </div>
+                        </div>
+                        
+                        <div className="total-box">
+                          <span className="total-label">Total estimado</span>
+                          <span className="total-valor">${Number(total).toLocaleString()}</span>
+                        </div>
                       </>
                     )}
                     
-                    <p><strong>Necesitas:</strong> {
-                      producto.tipoVenta === "metro_lineal" ? (
-                        <span style={{ color: '#2563eb', fontWeight: 'bold', fontSize: '1.2rem' }}>
-                          {metrosLineales.toFixed(2)} metros lineales
-                        </span>
-                      ) :
-                      producto.tipoVenta === "metro_cuadrado" ? (
-                        <span style={{ color: '#2563eb', fontWeight: 'bold', fontSize: '1.2rem' }}>
-                          {metrosLineales.toFixed(2)} metros lineales
-                        </span>
-                      ) :
-                      producto.tipoVenta === "presentacion" ? (
-                        <span style={{ color: '#8b5cf6', fontWeight: 'bold', fontSize: '1.2rem' }}>
-                          {cantidadNecesaria} unidades
-                        </span>
-                      ) :
-                      <span style={{ color: '#16a34a', fontWeight: 'bold', fontSize: '1.2rem' }}>
-                        {cantidadNecesaria}
+                    <div className="necesitas-box">
+                      <span className="necesitas-label">Necesitas</span>
+                      <span className="necesitas-valor">
+                        {producto.tipoVenta === "metro_lineal" ? (
+                          <>{metrosLineales.toFixed(2)} metros lineales</>
+                        ) : producto.tipoVenta === "metro_cuadrado" ? (
+                          <>{metrosLineales.toFixed(2)} metros lineales</>
+                        ) : producto.tipoVenta === "presentacion" ? (
+                          <>{cantidadNecesaria} unidades</>
+                        ) : (
+                          <>{cantidadNecesaria}</>
+                        )}
                       </span>
-                    }</p>
-
-                    <div className="nota-producto">
-                      {producto.tipoVenta === "metro_lineal" && (
-                        <>
-                          ℹ️ Este producto se vende por <strong>metro lineal</strong>.
-                          <div style={{ 
-                            background: '#eff6ff', 
-                            padding: '12px', 
-                            borderRadius: '8px', 
-                            margin: '10px 0',
-                            borderLeft: '4px solid #3b82f6'
-                          }}>
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>📏 Ancho del producto:</strong> {anchoRollo.toFixed(2)} m
-                            </p>
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>📐 Área a cubrir:</strong> {areaIngresada.toFixed(2)} m²
-                            </p>
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>📈 Desperdicio:</strong> {desperdicio}%
-                            </p>
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>📐 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²
-                            </p>
-                            <hr style={{ margin: '8px 0', borderColor: '#bfdbfe' }} />
-                            <p style={{ margin: '4px 0', fontSize: '1.1rem', color: '#1e40af' }}>
-                              <strong>📏 Metros lineales necesarios:</strong> {metrosLineales.toFixed(2)} ml
-                            </p>
-                            <p style={{ margin: '4px 0', fontSize: '1.1rem', color: '#16a34a' }}>
-                              <strong>💰 Precio por metro lineal:</strong> ${Number(producto.precio).toLocaleString()}
-                            </p>
-                            <p style={{ margin: '4px 0', fontSize: '1.3rem', color: '#16a34a', fontWeight: 'bold' }}>
-                              <strong>💵 Total:</strong> ${Number(total).toLocaleString()}
-                            </p>
-                          </div>
-                          <p style={{ fontSize: '0.9rem', color: '#64748b', marginTop: '8px' }}>
-                            💡 <strong>Cálculo:</strong> {areaConDesperdicio.toFixed(2)} m² ÷ {anchoRollo.toFixed(2)} m (ancho) = {metrosLineales.toFixed(2)} metros lineales
-                          </p>
-                        </>
-                      )}
-                      
-                      {producto.tipoVenta === "metro_cuadrado" && (
-                        <>
-                          ℹ️ Este producto se vende por <strong>metro cuadrado</strong>.
-                          <div style={{ 
-                            background: '#f0fdf4', 
-                            padding: '12px', 
-                            borderRadius: '8px', 
-                            margin: '10px 0',
-                            borderLeft: '4px solid #22c55e'
-                          }}>
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>📏 Ancho del rollo:</strong> {anchoRollo.toFixed(2)} m
-                            </p>
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>📐 Área a cubrir:</strong> {areaIngresada.toFixed(2)} m²
-                            </p>
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>📈 Desperdicio:</strong> {desperdicio}%
-                            </p>
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>📐 Área con desperdicio:</strong> {areaConDesperdicio.toFixed(2)} m²
-                            </p>
-                            <hr style={{ margin: '8px 0', borderColor: '#bbf7d0' }} />
-                            <p style={{ margin: '4px 0', fontSize: '1.2rem', color: '#1e40af', fontWeight: 'bold' }}>
-                              📏 Metros lineales a cortar: {metrosLineales.toFixed(2)} ml
-                            </p>
-                            <p style={{ margin: '4px 0', fontSize: '1.1rem', color: '#16a34a' }}>
-                              💰 Precio por metro cuadrado: ${Number(precioPorMetroCuadrado).toLocaleString()}
-                            </p>
-                            <p style={{ margin: '4px 0', fontSize: '1.3rem', color: '#16a34a', fontWeight: 'bold' }}>
-                              💵 Total: ${Number(total).toLocaleString()}
-                            </p>
-                          </div>
-                          <div style={{ 
-                            background: '#fef3c7', 
-                            padding: '12px', 
-                            borderRadius: '8px',
-                            borderLeft: '4px solid #f59e0b'
-                          }}>
-                            <p style={{ margin: '0', fontSize: '0.95rem' }}>
-                              📌 <strong>Para cubrir {areaConDesperdicio.toFixed(2)} m²</strong> necesitas cortar <strong>{metrosLineales.toFixed(2)} metros lineales</strong>
-                            </p>
-                            <p style={{ margin: '4px 0 0 0', fontSize: '0.95rem' }}>
-                              💰 {areaConDesperdicio.toFixed(2)} m² × ${Number(precioPorMetroCuadrado).toLocaleString()} = <strong>${Number(total).toLocaleString()}</strong>
-                            </p>
-                            <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: '#64748b' }}>
-                              📐 {metrosLineales.toFixed(2)} ml × {anchoRollo.toFixed(2)} m = {areaConDesperdicio.toFixed(2)} m²
-                            </p>
-                          </div>
-                        </>
-                      )}
-                      
-                      {producto.tipoVenta === "presentacion" && (
-                        <>
-                          Cada unidad ({producto.presentacion || "presentación"}) cubre <strong>{coberturaPorUnidad.toFixed(2)} m²</strong>.
-                          <br/><br/>
-                          <strong>Área a cubrir:</strong> {areaIngresada.toFixed(2)} m²
-                          <br/>
-                          <strong>Unidades necesarias:</strong> {cantidadNecesaria}
-                          <br/>
-                          <strong>Área total cubierta:</strong> {areaCubierta.toFixed(2)} m²
-                          <br/>
-                          <strong style={{ color: '#16a34a', fontSize: '1.1rem' }}>Total: ${Number(total).toLocaleString()}</strong>
-                        </>
-                      )}
-                      
-                      {producto.tipoVenta === "caja" && (
-                        <> Cada caja contiene <strong>{producto.piezasCaja} piezas</strong> y cubre <strong>{coberturaPorUnidad.toFixed(2)} m²</strong>.<br/><br/>Para cubrir <strong>{areaConDesperdicio.toFixed(2)} m²</strong> necesitas aproximadamente <strong>{cantidadNecesaria} cajas</strong>.<br/><strong style={{ color: '#16a34a', fontSize: '1.1rem' }}>Total: ${Number(total).toLocaleString()}</strong></>
-                      )}
-                      
-                      {producto.tipoVenta === "pieza" && (
-                        <> Cada pieza cubre <strong>{coberturaPorUnidad.toFixed(2)} m²</strong>.<br/><br/>Para cubrir <strong>{areaConDesperdicio.toFixed(2)} m²</strong> necesitas aproximadamente <strong>{cantidadNecesaria} piezas</strong>.<br/><strong style={{ color: '#16a34a', fontSize: '1.1rem' }}>Total: ${Number(total).toLocaleString()}</strong></>
-                      )}
                     </div>
 
                     <div className="form-cliente">
@@ -2815,46 +2749,184 @@ if (typeof document !== "undefined") {
       .des-btn { padding: 6px 10px; font-size: 12px; min-width: 44px; }
     }
 
+    /* ============================================================ */
+    /* RESULTADO COTIZACIÓN - NUEVO DISEÑO */
+    /* ============================================================ */
     .resultado-cotizacion {
       background: #fff;
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 14px;
+      padding: 20px;
       border: 1px solid #e2e8f0;
       margin-top: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }
-    .resultado-cotizacion p {
-      margin: 6px 0;
-      font-size: 14px;
+
+    .resultado-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 20px;
+      margin-bottom: 16px;
+    }
+
+    .resultado-item {
+      display: flex;
+      flex-direction: column;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #f1f5f9;
+    }
+
+    .resultado-item.destacado {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      grid-column: 1 / -1;
+    }
+
+    .resultado-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .resultado-valor {
+      font-size: 16px;
+      font-weight: 700;
       color: #0f172a;
     }
 
-    .total-estimado {
-      font-size: 24px;
-      font-weight: 800;
-      color: #16a34a;
-      margin: 10px 0 6px 0 !important;
+    .resultado-valor.principal {
+      font-size: 20px;
+      color: #1e40af;
     }
 
-    @media (max-width: 767px) {
-      .total-estimado { font-size: 20px; }
-    }
-
-    .nota-producto {
-      margin-top: 12px;
-      background: #eff6ff;
-      padding: 14px;
+    .total-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: #f0fdf4;
+      border: 2px solid #86efac;
       border-radius: 10px;
-      color: #1e3a8a;
-      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+
+    .total-label {
+      font-size: 16px;
+      font-weight: 700;
+      color: #166534;
+    }
+
+    .total-valor {
+      font-size: 24px;
+      font-weight: 900;
+      color: #16a34a;
+    }
+
+    .detalle-calculo {
+      background: #fef3c7;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border-left: 4px solid #f59e0b;
+      margin-bottom: 12px;
+    }
+
+    .detalle-titulo {
+      font-weight: 700;
+      color: #92400e;
+      margin: 0 0 6px 0;
+      font-size: 14px;
+    }
+
+    .detalle-calculo p {
+      margin: 4px 0;
+      font-size: 14px;
+      color: #1e293b;
+    }
+
+    .detalle-calculo p strong {
+      color: #92400e;
+    }
+
+    .nota-tipo-venta {
+      background: #f1f5f9;
+      padding: 8px 16px;
+      border-radius: 8px;
       font-size: 13px;
+      color: #475569;
+      text-align: center;
+    }
+
+    .necesitas-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: #1e293b;
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
+
+    .necesitas-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .necesitas-valor {
+      font-size: 18px;
+      font-weight: 800;
+      color: #facc15;
     }
 
     @media (max-width: 767px) {
-      .nota-producto { font-size: 12px; padding: 12px; }
+      .resultado-grid {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      
+      .resultado-item.destacado {
+        grid-column: 1;
+      }
+      
+      .total-valor {
+        font-size: 20px;
+      }
+      
+      .necesitas-valor {
+        font-size: 16px;
+      }
     }
 
+    @media (max-width: 400px) {
+      .resultado-cotizacion {
+        padding: 14px;
+      }
+      
+      .resultado-item {
+        padding: 6px 10px;
+      }
+      
+      .resultado-valor {
+        font-size: 14px;
+      }
+      
+      .resultado-valor.principal {
+        font-size: 17px;
+      }
+      
+      .total-valor {
+        font-size: 18px;
+      }
+    }
+
+    /* ============================================================ */
+    /* FORMULARIO CLIENTE */
+    /* ============================================================ */
     .form-cliente {
-      margin-top: 20px;
+      margin-top: 4px;
       background: #fff;
       padding: 16px;
       border-radius: 12px;
