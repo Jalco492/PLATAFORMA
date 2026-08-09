@@ -42,17 +42,76 @@ export default function ProductoDetalle() {
   const [mensajeEnviado, setMensajeEnviado] = useState("");
   const [fichaZoom, setFichaZoom] = useState(false);
   const [mostrarCotizador, setMostrarCotizador] = useState(false);
-  const [medidas, setMedidas] = useState([{ largo: "", ancho: "" }]);
   const [desperdicio, setDesperdicio] = useState(0);
   const [modoCotizacion, setModoCotizacion] = useState("todas");
   const [areaSeleccionada, setAreaSeleccionada] = useState(0);
   const [mostrarNotificacion, setMostrarNotificacion] = useState(false);
   const [notificacionMensaje, setNotificacionMensaje] = useState("");
   
+  // ========== MÚLTIPLES ÁREAS ==========
+  const [areas, setAreas] = useState([
+    { 
+      id: Date.now() + 1,
+      tipo: "rectangulo", 
+      nombre: "Área 1",
+      datos: {
+        largo: "",
+        ancho: "",
+        lado: "",
+        diametro: "",
+        base: "",
+        altura: "",
+        baseMayor: "",
+        baseMenor: "",
+        alturaTrapecio: "",
+        escalones: "",
+        huella: "",
+        contrahuella: "",
+        anchoEscalon: "",
+        largoBarra: "",
+        anchoBarra: "",
+        cantidadBarras: "",
+        radio: "",
+        radioMenor: "",
+        diagonalMayor: "",
+        diagonalMenor: "",
+        perimetro: "",
+        apotema: "",
+        numLados: "",
+        longitudLado: "",
+        angulo: "",
+        radioExterior: "",
+        radioInterior: "",
+        descripcion: "",
+        areaPersonalizada: ""
+      }
+    }
+  ]);
+
   const cotizadorRef = useRef();
   const imagenPDFRef = useRef();
   const carruselIntervalRef = useRef(null);
   const carruselScrollRef = useRef(null);
+
+  // ========== TIPOS DE FORMAS DISPONIBLES ==========
+  const tiposDeFormas = [
+    { id: "rectangulo", icono: "📏", nombre: "Rectángulo", campos: ["largo", "ancho"] },
+    { id: "cuadrado", icono: "⬜", nombre: "Cuadrado", campos: ["lado"] },
+    { id: "circulo", icono: "⭕", nombre: "Círculo", campos: ["diametro"] },
+    { id: "triangulo", icono: "🔺", nombre: "Triángulo", campos: ["base", "altura"] },
+    { id: "trapecio", icono: "📐", nombre: "Trapecio", campos: ["baseMayor", "baseMenor", "alturaTrapecio"] },
+    { id: "rombo", icono: "💎", nombre: "Rombo", campos: ["diagonalMayor", "diagonalMenor"] },
+    { id: "pentagono", icono: "⬠", nombre: "Pentágono", campos: ["perimetro", "apotema"] },
+    { id: "hexagono", icono: "⬡", nombre: "Hexágono", campos: ["perimetro", "apotema"] },
+    { id: "octagono", icono: "⯃", nombre: "Octágono", campos: ["perimetro", "apotema"] },
+    { id: "elipse", icono: "🔵", nombre: "Elipse", campos: ["radio", "radioMenor"] },
+    { id: "escalera", icono: "🪜", nombre: "Escalera", campos: ["escalones", "huella", "contrahuella", "anchoEscalon"] },
+    { id: "barra", icono: "📊", nombre: "Barra", campos: ["largoBarra", "anchoBarra", "cantidadBarras"] },
+    { id: "poligono_regular", icono: "⬡", nombre: "Polígono Regular", campos: ["numLados", "longitudLado", "apotema"] },
+    { id: "sector_circular", icono: "🍕", nombre: "Sector Circular", campos: ["radio", "angulo"] },
+    { id: "corona_circular", icono: "⭕", nombre: "Corona Circular", campos: ["radioExterior", "radioInterior"] },
+    { id: "figura_personalizada", icono: "✏️", nombre: "Figura Personalizada", campos: ["descripcion", "areaPersonalizada"] }
+  ];
 
   // ========== EFECTOS ==========
   useEffect(() => {
@@ -86,7 +145,44 @@ export default function ProductoDetalle() {
         setIndice(0);
         setModeloSeleccionado(null);
         setIndiceCarrusel(0);
-        setMedidas([{ largo: "", ancho: "" }]);
+        setAreas([
+          { 
+            id: Date.now() + 1,
+            tipo: "rectangulo", 
+            nombre: "Área 1",
+            datos: {
+              largo: "",
+              ancho: "",
+              lado: "",
+              diametro: "",
+              base: "",
+              altura: "",
+              baseMayor: "",
+              baseMenor: "",
+              alturaTrapecio: "",
+              escalones: "",
+              huella: "",
+              contrahuella: "",
+              anchoEscalon: "",
+              largoBarra: "",
+              anchoBarra: "",
+              cantidadBarras: "",
+              radio: "",
+              radioMenor: "",
+              diagonalMayor: "",
+              diagonalMenor: "",
+              perimetro: "",
+              apotema: "",
+              numLados: "",
+              longitudLado: "",
+              angulo: "",
+              radioExterior: "",
+              radioInterior: "",
+              descripcion: "",
+              areaPersonalizada: ""
+            }
+          }
+        ]);
         setDesperdicio(0);
       })
       .catch((err) => console.error("Error cargando producto:", err));
@@ -229,7 +325,6 @@ export default function ProductoDetalle() {
       filtrarRelacionadosLocalmente();
     }
 
-    // Cargar sugeridos
     let idsSugeridos = [];
     try {
       idsSugeridos = producto.sugerencias ? JSON.parse(producto.sugerencias) : [];
@@ -248,7 +343,396 @@ export default function ProductoDetalle() {
     localStorage.setItem("favoritos", JSON.stringify(favoritos));
   }, [favoritos]);
 
-  // ========== FUNCIONES ==========
+  // ========== FUNCIONES DE CÁLCULO DE ÁREAS ==========
+  
+  const calcularAreaForma = (tipo, datos) => {
+    switch(tipo) {
+      case 'rectangulo': {
+        const largo = Number(datos.largo) || 0;
+        const ancho = Number(datos.ancho) || 0;
+        return largo * ancho;
+      }
+      case 'cuadrado': {
+        const lado = Number(datos.lado) || 0;
+        return lado * lado;
+      }
+      case 'circulo': {
+        const diametro = Number(datos.diametro) || 0;
+        const radio = diametro / 2;
+        return Math.PI * radio * radio;
+      }
+      case 'triangulo': {
+        const base = Number(datos.base) || 0;
+        const altura = Number(datos.altura) || 0;
+        return (base * altura) / 2;
+      }
+      case 'trapecio': {
+        const baseMayor = Number(datos.baseMayor) || 0;
+        const baseMenor = Number(datos.baseMenor) || 0;
+        const altura = Number(datos.alturaTrapecio) || 0;
+        return ((baseMayor + baseMenor) * altura) / 2;
+      }
+      case 'rombo': {
+        const diagonalMayor = Number(datos.diagonalMayor) || 0;
+        const diagonalMenor = Number(datos.diagonalMenor) || 0;
+        return (diagonalMayor * diagonalMenor) / 2;
+      }
+      case 'pentagono':
+      case 'hexagono':
+      case 'octagono': {
+        const perimetro = Number(datos.perimetro) || 0;
+        const apotema = Number(datos.apotema) || 0;
+        return (perimetro * apotema) / 2;
+      }
+      case 'elipse': {
+        const radio = Number(datos.radio) || 0;
+        const radioMenor = Number(datos.radioMenor) || 0;
+        return Math.PI * radio * radioMenor;
+      }
+      case 'escalera': {
+        const escalones = Number(datos.escalones) || 0;
+        const huella = Number(datos.huella) || 0;
+        const contrahuella = Number(datos.contrahuella) || 0;
+        const ancho = Number(datos.anchoEscalon) || 0;
+        return escalones * ancho * (huella + contrahuella);
+      }
+      case 'barra': {
+        const largo = Number(datos.largoBarra) || 0;
+        const ancho = Number(datos.anchoBarra) || 0;
+        const cantidad = Number(datos.cantidadBarras) || 1;
+        return largo * ancho * cantidad;
+      }
+      case 'poligono_regular': {
+        const n = Number(datos.numLados) || 0;
+        const lado = Number(datos.longitudLado) || 0;
+        const apotema = Number(datos.apotema) || 0;
+        if (n > 0 && lado > 0 && apotema > 0) {
+          return (n * lado * apotema) / 2;
+        }
+        return 0;
+      }
+      case 'sector_circular': {
+        const radio = Number(datos.radio) || 0;
+        const angulo = Number(datos.angulo) || 0;
+        if (radio > 0 && angulo > 0) {
+          return (Math.PI * radio * radio * angulo) / 360;
+        }
+        return 0;
+      }
+      case 'corona_circular': {
+        const radioExterior = Number(datos.radioExterior) || 0;
+        const radioInterior = Number(datos.radioInterior) || 0;
+        if (radioExterior > 0 && radioInterior > 0 && radioExterior > radioInterior) {
+          return Math.PI * (radioExterior * radioExterior - radioInterior * radioInterior);
+        }
+        return 0;
+      }
+      case 'figura_personalizada': {
+        return Number(datos.areaPersonalizada) || 0;
+      }
+      default:
+        return 0;
+    }
+  };
+
+  const getDescripcionArea = (tipo, datos) => {
+    switch(tipo) {
+      case 'rectangulo':
+        return `${datos.largo || 0}m × ${datos.ancho || 0}m`;
+      case 'cuadrado':
+        return `${datos.lado || 0}m × ${datos.lado || 0}m`;
+      case 'circulo':
+        return `⌀${datos.diametro || 0}m`;
+      case 'triangulo':
+        return `Base ${datos.base || 0}m × Altura ${datos.altura || 0}m ÷ 2`;
+      case 'trapecio':
+        return `(${datos.baseMayor || 0}m + ${datos.baseMenor || 0}m) × ${datos.alturaTrapecio || 0}m ÷ 2`;
+      case 'rombo':
+        return `(${datos.diagonalMayor || 0}m × ${datos.diagonalMenor || 0}m) ÷ 2`;
+      case 'pentagono':
+        return `Pentágono: (${datos.perimetro || 0}m × ${datos.apotema || 0}m) ÷ 2`;
+      case 'hexagono':
+        return `Hexágono: (${datos.perimetro || 0}m × ${datos.apotema || 0}m) ÷ 2`;
+      case 'octagono':
+        return `Octágono: (${datos.perimetro || 0}m × ${datos.apotema || 0}m) ÷ 2`;
+      case 'elipse':
+        return `π × ${datos.radio || 0}m × ${datos.radioMenor || 0}m`;
+      case 'escalera':
+        return `${datos.escalones || 0} escalones × ${datos.anchoEscalon || 0}m × (${datos.huella || 0}m + ${datos.contrahuella || 0}m)`;
+      case 'barra':
+        return `${datos.cantidadBarras || 1} barra(s) de ${datos.largoBarra || 0}m × ${datos.anchoBarra || 0}m`;
+      case 'poligono_regular':
+        return `${datos.numLados || 0} lados de ${datos.longitudLado || 0}m, apotema ${datos.apotema || 0}m`;
+      case 'sector_circular':
+        return `Radio ${datos.radio || 0}m, ángulo ${datos.angulo || 0}°`;
+      case 'corona_circular':
+        return `Radio ext. ${datos.radioExterior || 0}m, Radio int. ${datos.radioInterior || 0}m`;
+      case 'figura_personalizada':
+        return datos.descripcion || 'Figura personalizada';
+      default:
+        return '';
+    }
+  };
+
+  const getNombreForma = (tipo) => {
+    const forma = tiposDeFormas.find(f => f.id === tipo);
+    return forma ? forma.nombre : tipo;
+  };
+
+  const getIconoForma = (tipo) => {
+    const forma = tiposDeFormas.find(f => f.id === tipo);
+    return forma ? forma.icono : '📐';
+  };
+
+  // ========== VALIDACIÓN DE MEDIDAS ==========
+  const validarMedidas = (tipo, datos) => {
+    switch(tipo) {
+      case 'rectangulo': {
+        const largo = Number(datos.largo) || 0;
+        const ancho = Number(datos.ancho) || 0;
+        if (largo > 0 && ancho > 0) {
+          if (largo === ancho) {
+            return { valido: true, mensaje: "⚠️ Es un cuadrado (lados iguales)", tipo: "warning" };
+          }
+          return { valido: true, mensaje: "✅ Rectángulo con lados diferentes", tipo: "success" };
+        }
+        return { valido: false, mensaje: "❌ Ingresa largo y ancho", tipo: "error" };
+      }
+      case 'cuadrado': {
+        const lado = Number(datos.lado) || 0;
+        if (lado > 0) {
+          return { valido: true, mensaje: "✅ Cuadrado válido", tipo: "success" };
+        }
+        return { valido: false, mensaje: "❌ Ingresa el lado", tipo: "error" };
+      }
+      case 'circulo': {
+        const diametro = Number(datos.diametro) || 0;
+        if (diametro > 0) {
+          return { valido: true, mensaje: "✅ Círculo válido", tipo: "success" };
+        }
+        return { valido: false, mensaje: "❌ Ingresa el diámetro", tipo: "error" };
+      }
+      case 'triangulo': {
+        const base = Number(datos.base) || 0;
+        const altura = Number(datos.altura) || 0;
+        if (base > 0 && altura > 0) {
+          return { valido: true, mensaje: "✅ Triángulo válido", tipo: "success" };
+        }
+        return { valido: false, mensaje: "❌ Ingresa base y altura", tipo: "error" };
+      }
+      case 'trapecio': {
+        const baseMayor = Number(datos.baseMayor) || 0;
+        const baseMenor = Number(datos.baseMenor) || 0;
+        const altura = Number(datos.alturaTrapecio) || 0;
+        if (baseMayor > 0 && baseMenor > 0 && altura > 0) {
+          if (baseMayor === baseMenor) {
+            return { valido: true, mensaje: "⚠️ Es un rectángulo (bases iguales)", tipo: "warning" };
+          }
+          return { valido: true, mensaje: "✅ Trapecio válido", tipo: "success" };
+        }
+        return { valido: false, mensaje: "❌ Ingresa todas las medidas", tipo: "error" };
+      }
+      case 'poligono_regular': {
+        const n = Number(datos.numLados) || 0;
+        const lado = Number(datos.longitudLado) || 0;
+        const apotema = Number(datos.apotema) || 0;
+        if (n > 2 && lado > 0 && apotema > 0) {
+          return { valido: true, mensaje: `✅ ${n} lados válidos`, tipo: "success" };
+        }
+        return { valido: false, mensaje: "❌ Ingresa número de lados, longitud y apotema", tipo: "error" };
+      }
+      case 'sector_circular': {
+        const radio = Number(datos.radio) || 0;
+        const angulo = Number(datos.angulo) || 0;
+        if (radio > 0 && angulo > 0 && angulo <= 360) {
+          return { valido: true, mensaje: `✅ Sector de ${angulo}° válido`, tipo: "success" };
+        }
+        return { valido: false, mensaje: "❌ Radio y ángulo (0-360°) requeridos", tipo: "error" };
+      }
+      case 'corona_circular': {
+        const re = Number(datos.radioExterior) || 0;
+        const ri = Number(datos.radioInterior) || 0;
+        if (re > 0 && ri > 0 && re > ri) {
+          return { valido: true, mensaje: "✅ Corona circular válida", tipo: "success" };
+        }
+        if (re > 0 && ri > 0 && re <= ri) {
+          return { valido: false, mensaje: "❌ Radio exterior debe ser mayor que el interior", tipo: "error" };
+        }
+        return { valido: false, mensaje: "❌ Ingresa ambos radios", tipo: "error" };
+      }
+      case 'figura_personalizada': {
+        const area = Number(datos.areaPersonalizada) || 0;
+        if (area > 0) {
+          return { valido: true, mensaje: `✅ Área personalizada: ${area.toFixed(2)} m²`, tipo: "success" };
+        }
+        return { valido: false, mensaje: "❌ Ingresa el área calculada", tipo: "error" };
+      }
+      default:
+        return { valido: true, mensaje: "", tipo: "info" };
+    }
+  };
+
+  // ========== FUNCIONES DE MANEJO DE ÁREAS ==========
+  
+  const agregarArea = () => {
+    if (areas.length >= 10) return;
+    setAreas([
+      ...areas,
+      { 
+        id: Date.now() + areas.length + 1,
+        tipo: "rectangulo", 
+        nombre: `Área ${areas.length + 1}`,
+        datos: {
+          largo: "",
+          ancho: "",
+          lado: "",
+          diametro: "",
+          base: "",
+          altura: "",
+          baseMayor: "",
+          baseMenor: "",
+          alturaTrapecio: "",
+          escalones: "",
+          huella: "",
+          contrahuella: "",
+          anchoEscalon: "",
+          largoBarra: "",
+          anchoBarra: "",
+          cantidadBarras: "",
+          radio: "",
+          radioMenor: "",
+          diagonalMayor: "",
+          diagonalMenor: "",
+          perimetro: "",
+          apotema: "",
+          numLados: "",
+          longitudLado: "",
+          angulo: "",
+          radioExterior: "",
+          radioInterior: "",
+          descripcion: "",
+          areaPersonalizada: ""
+        }
+      }
+    ]);
+  };
+
+  const eliminarArea = (index) => {
+    if (areas.length <= 1) return;
+    setAreas(areas.filter((_, i) => i !== index));
+  };
+
+  const duplicarArea = (index) => {
+    if (areas.length >= 10) return;
+    const areaOriginal = areas[index];
+    const nuevaArea = {
+      ...areaOriginal,
+      id: Date.now() + areas.length + 1,
+      nombre: `${areaOriginal.nombre} (copia)`,
+      datos: { ...areaOriginal.datos }
+    };
+    const nuevasAreas = [...areas];
+    nuevasAreas.splice(index + 1, 0, nuevaArea);
+    setAreas(nuevasAreas);
+  };
+
+  const actualizarArea = (index, campo, valor) => {
+    const nuevasAreas = [...areas];
+    if (campo === 'tipo') {
+      nuevasAreas[index].tipo = valor;
+      nuevasAreas[index].datos = {
+        largo: "",
+        ancho: "",
+        lado: "",
+        diametro: "",
+        base: "",
+        altura: "",
+        baseMayor: "",
+        baseMenor: "",
+        alturaTrapecio: "",
+        escalones: "",
+        huella: "",
+        contrahuella: "",
+        anchoEscalon: "",
+        largoBarra: "",
+        anchoBarra: "",
+        cantidadBarras: "",
+        radio: "",
+        radioMenor: "",
+        diagonalMayor: "",
+        diagonalMenor: "",
+        perimetro: "",
+        apotema: "",
+        numLados: "",
+        longitudLado: "",
+        angulo: "",
+        radioExterior: "",
+        radioInterior: "",
+        descripcion: "",
+        areaPersonalizada: ""
+      };
+    } else if (campo === 'nombre') {
+      nuevasAreas[index].nombre = valor;
+    } else {
+      nuevasAreas[index].datos[campo] = valor;
+    }
+    setAreas(nuevasAreas);
+  };
+
+  const limpiarAreas = () => {
+    setAreas([
+      { 
+        id: Date.now() + 1,
+        tipo: "rectangulo", 
+        nombre: "Área 1",
+        datos: {
+          largo: "",
+          ancho: "",
+          lado: "",
+          diametro: "",
+          base: "",
+          altura: "",
+          baseMayor: "",
+          baseMenor: "",
+          alturaTrapecio: "",
+          escalones: "",
+          huella: "",
+          contrahuella: "",
+          anchoEscalon: "",
+          largoBarra: "",
+          anchoBarra: "",
+          cantidadBarras: "",
+          radio: "",
+          radioMenor: "",
+          diagonalMayor: "",
+          diagonalMenor: "",
+          perimetro: "",
+          apotema: "",
+          numLados: "",
+          longitudLado: "",
+          angulo: "",
+          radioExterior: "",
+          radioInterior: "",
+          descripcion: "",
+          areaPersonalizada: ""
+        }
+      }
+    ]);
+  };
+
+  const calcularAreaTotal = () => {
+    return areas.reduce((total, area) => {
+      return total + calcularAreaForma(area.tipo, area.datos);
+    }, 0);
+  };
+
+  const getAreasValidas = () => {
+    return areas.filter(area => {
+      return calcularAreaForma(area.tipo, area.datos) > 0;
+    });
+  };
+
+  // ========== FUNCIONES EXISTENTES ==========
   const toggleFavorito = (producto) => {
     const existe = favoritos.find((fav) => fav.id === producto.id);
     if (existe) {
@@ -425,26 +909,6 @@ export default function ProductoDetalle() {
     }, 1500);
   };
 
-  const agregarMedida = () => {
-    if (medidas.length >= 5) return;
-    setMedidas([...medidas, { largo: "", ancho: "" }]);
-  };
-
-  const eliminarMedida = (index) => {
-    if (medidas.length === 1) return;
-    setMedidas(medidas.filter((_, i) => i !== index));
-  };
-
-  const actualizarMedida = (index, campo, valor) => {
-    const nuevas = [...medidas];
-    nuevas[index][campo] = valor;
-    setMedidas(nuevas);
-  };
-
-  const limpiarCampos = () => {
-    setMedidas([{ largo: "", ancho: "" }]);
-  };
-
   // ========== CÁLCULOS COTIZADOR ==========
   const obtenerAnchoEnMetros = () => {
     const ancho = Number(producto?.anchoProducto) || 0;
@@ -454,28 +918,8 @@ export default function ProductoDetalle() {
     return ancho;
   };
 
-  let areaIngresada = 0;
+  let areaIngresada = calcularAreaTotal();
   let anchoRollo = obtenerAnchoEnMetros();
-
-  if (producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado") {
-    areaIngresada = modoCotizacion === "todas"
-      ? medidas.reduce((total, item) => {
-          const largo = Number(item.largo) || 0;
-          const ancho = Number(item.ancho) || 0;
-          return total + largo * ancho;
-        }, 0)
-      : (Number(medidas[areaSeleccionada]?.largo) || 0) * (Number(medidas[areaSeleccionada]?.ancho) || 0);
-  } else if (producto?.tipoVenta === "presentacion" || producto?.tipoVenta === "paquete") {
-    areaIngresada = Number(medidas[0]?.area) || 0;
-  } else {
-    areaIngresada = modoCotizacion === "todas"
-      ? medidas.reduce((total, item) => {
-          const largo = Number(item.largo) || 0;
-          const ancho = Number(item.ancho) || 0;
-          return total + largo * ancho;
-        }, 0)
-      : (Number(medidas[areaSeleccionada]?.largo) || 0) * (Number(medidas[areaSeleccionada]?.ancho) || 0);
-  }
 
   const areaConDesperdicio = areaIngresada * (1 + Number(desperdicio) / 100);
 
@@ -504,6 +948,7 @@ export default function ProductoDetalle() {
 
   let metrosLineales = 0;
   let cantidadNecesaria = 0;
+  let cantidadNecesariaTexto = "";
   let areaCubierta = 0;
 
   if (producto?.tipoVenta === "metro_lineal") {
@@ -511,21 +956,40 @@ export default function ProductoDetalle() {
       metrosLineales = areaConDesperdicio / anchoRollo;
     }
     cantidadNecesaria = metrosLineales;
+    cantidadNecesariaTexto = `${metrosLineales.toFixed(2)} metros lineales`;
     areaCubierta = areaConDesperdicio;
+    
   } else if (producto?.tipoVenta === "metro_cuadrado") {
     if (anchoRollo > 0 && areaIngresada > 0) {
       metrosLineales = areaConDesperdicio / anchoRollo;
     }
     cantidadNecesaria = metrosLineales;
+    cantidadNecesariaTexto = `${metrosLineales.toFixed(2)} metros lineales (equivale a ${areaConDesperdicio.toFixed(2)} m²)`;
     areaCubierta = areaConDesperdicio;
+    
   } else if (producto?.tipoVenta === "presentacion") {
     cantidadNecesaria = coberturaPorUnidad > 0 ? Math.ceil(areaIngresada / coberturaPorUnidad) : 0;
+    cantidadNecesariaTexto = `${cantidadNecesaria} unidades`;
     areaCubierta = cantidadNecesaria * coberturaPorUnidad;
+    
   } else if (producto?.tipoVenta === "paquete") {
     cantidadNecesaria = coberturaPorUnidad > 0 ? Math.ceil(areaConDesperdicio / coberturaPorUnidad) : 0;
+    cantidadNecesariaTexto = `${cantidadNecesaria} paquetes`;
     areaCubierta = cantidadNecesaria * coberturaPorUnidad;
+    
+  } else if (producto?.tipoVenta === "caja") {
+    cantidadNecesaria = coberturaPorUnidad > 0 ? Math.ceil(areaConDesperdicio / coberturaPorUnidad) : 0;
+    cantidadNecesariaTexto = `${cantidadNecesaria} cajas`;
+    areaCubierta = cantidadNecesaria * coberturaPorUnidad;
+    
+  } else if (producto?.tipoVenta === "pieza") {
+    cantidadNecesaria = coberturaPorUnidad > 0 ? Math.ceil(areaConDesperdicio / coberturaPorUnidad) : 0;
+    cantidadNecesariaTexto = `${cantidadNecesaria} piezas`;
+    areaCubierta = cantidadNecesaria * coberturaPorUnidad;
+    
   } else {
     cantidadNecesaria = coberturaPorUnidad > 0 ? Math.ceil(areaConDesperdicio / coberturaPorUnidad) : 0;
+    cantidadNecesariaTexto = `${cantidadNecesaria} unidades`;
   }
 
   const precioFinal = Number(producto?.oferta ? producto?.precioOferta : producto?.precio) || 0;
@@ -562,22 +1026,6 @@ export default function ProductoDetalle() {
       console.error('Error convirtiendo imagen a base64:', error);
       return null;
     }
-  };
-
-  const obtenerDetalleMedidas = () => {
-    return medidas.map((item, index) => {
-      if (producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado") {
-        const largo = Number(item.largo) || 0;
-        const ancho = Number(item.ancho) || 0;
-        return { numero: index + 1, largo, ancho, area: largo * ancho };
-      }
-      if (producto?.tipoVenta === "presentacion" || producto?.tipoVenta === "paquete") {
-        return { numero: 1, area: Number(item.area) || 0 };
-      }
-      const largo = Number(item.largo) || 0;
-      const ancho = Number(item.ancho) || 0;
-      return { numero: index + 1, largo, ancho, area: largo * ancho };
-    });
   };
 
   const generarPDF = async () => {
@@ -652,6 +1100,7 @@ export default function ProductoDetalle() {
         pdf.text(`Metros lineales a cortar: ${metrosLineales.toFixed(2)} ml`, 20, y + 38);
         pdf.text(`Ancho del rollo: ${anchoRollo.toFixed(2)} m`, 20, y + 48);
         pdf.text(`Precio por m²: $${precioPorMetroCuadrado}`, 20, y + 58);
+        pdf.text(`Total a pagar: ${areaConDesperdicio.toFixed(2)} m² × $${precioPorMetroCuadrado} = $${total}`, 20, y + 68);
       } else if (producto?.tipoVenta === "presentacion") {
         pdf.text(`Área a cubrir: ${areaIngresada.toFixed(2)} m²`, 20, y + 8);
         pdf.text(`Cobertura por unidad: ${coberturaPorUnidad.toFixed(2)} m²`, 20, y + 18);
@@ -662,6 +1111,11 @@ export default function ProductoDetalle() {
         pdf.text(`Piezas por paquete: ${producto.piezasCaja || 1}`, 20, y + 18);
         pdf.text(`Cobertura por paquete: ${coberturaPorUnidad.toFixed(2)} m²`, 20, y + 28);
         pdf.text(`Paquetes necesarios: ${cantidadNecesaria}`, 20, y + 38);
+      } else if (producto?.tipoVenta === "caja") {
+        pdf.text(`Área a cubrir: ${areaIngresada.toFixed(2)} m²`, 20, y + 8);
+        pdf.text(`Piezas por caja: ${producto.piezasCaja || 1}`, 20, y + 18);
+        pdf.text(`Cobertura por caja: ${coberturaPorUnidad.toFixed(2)} m²`, 20, y + 28);
+        pdf.text(`Cajas necesarias: ${cantidadNecesaria}`, 20, y + 38);
       } else {
         pdf.text(
           `Modo de cotización: ${modoCotizacion === "todas" ? "Todas las áreas" : "Área seleccionada"}`,
@@ -676,24 +1130,18 @@ export default function ProductoDetalle() {
       y += 60;
       pdf.setFontSize(14);
       pdf.setTextColor(30);
-      pdf.text("Detalle de Medidas", 15, y);
+      pdf.text("Detalle de Áreas Calculadas", 15, y);
       y += 10;
-      const detalleMedidas = obtenerDetalleMedidas();
-      detalleMedidas.forEach((item) => {
+      
+      const areasValidas = getAreasValidas();
+      areasValidas.forEach((area, idx) => {
+        const areaValor = calcularAreaForma(area.tipo, area.datos);
         pdf.setFontSize(11);
-        if (producto.tipoVenta === "metro_lineal" || producto.tipoVenta === "metro_cuadrado") {
-          pdf.text(`Área ${item.numero}: ${item.largo} x ${item.ancho} = ${item.area.toFixed(2)} m²`, 20, y);
-        } else if (producto.tipoVenta === "presentacion") {
-          pdf.text(`Área a cubrir: ${item.area.toFixed(2)} m²`, 20, y);
-        } else if (producto.tipoVenta === "paquete") {
-          pdf.text(`Área a cubrir: ${item.area.toFixed(2)} m²`, 20, y);
-        } else {
-          pdf.text(
-            `Área ${item.numero}: ${item.largo} x ${item.ancho} = ${item.area.toFixed(2)} m²`,
-            20,
-            y
-          );
-        }
+        pdf.text(`${area.nombre} (${getNombreForma(area.tipo)})`, 20, y);
+        y += 5;
+        pdf.text(`  Cálculo: ${getDescripcionArea(area.tipo, area.datos)}`, 25, y);
+        y += 5;
+        pdf.text(`  Área: ${areaValor.toFixed(2)} m²`, 25, y);
         y += 8;
       });
 
@@ -706,7 +1154,7 @@ export default function ProductoDetalle() {
       } else if (producto.tipoVenta === "metro_cuadrado") {
         notaProducto =
           `Este producto se vende por metro cuadrado. El rollo mide ${anchoRollo.toFixed(2)} m de ancho. ` +
-          `Para cubrir ${areaIngresada.toFixed(2)} m² necesitas cortar ${metrosLineales.toFixed(2)} metros lineales. ` +
+          `Para cubrir ${areaIngresada.toFixed(2)} m² necesitas cortar ${metrosLineales.toFixed(2)} metros lineales del rollo. ` +
           `Precio por metro cuadrado: $${precioPorMetroCuadrado}. Total: $${total}`;
       } else if (producto.tipoVenta === "paquete") {
         const piezas = Number(producto.piezasCaja) || 1;
@@ -714,17 +1162,18 @@ export default function ProductoDetalle() {
           `Este producto se vende por paquete. ` +
           `Cada paquete contiene ${piezas} piezas y cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
           `Para cubrir ${areaConDesperdicio.toFixed(2)} m² necesitas aproximadamente ${cantidadNecesaria} paquetes.`;
+      } else if (producto.tipoVenta === "caja") {
+        const piezas = Number(producto.piezasCaja) || 1;
+        notaProducto =
+          `Este producto se vende por caja. ` +
+          `Cada caja contiene ${piezas} piezas y cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
+          `Para cubrir ${areaConDesperdicio.toFixed(2)} m² necesitas aproximadamente ${cantidadNecesaria} cajas.`;
       } else if (producto.tipoVenta === "presentacion") {
         notaProducto =
           `Este producto se vende por presentación (${producto.presentacion || "unidad"}). ` +
           `Cada unidad cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
           `Para cubrir ${areaIngresada.toFixed(2)} m² necesitas aproximadamente ${cantidadNecesaria} unidades. ` +
           `Esto cubrirá ${areaCubierta.toFixed(2)} m².`;
-      } else if (producto.tipoVenta === "caja") {
-        notaProducto =
-          `Este producto se vende por caja. ` +
-          `Cada caja contiene ${producto.piezasCaja} piezas y cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
-          `Para cubrir ${areaConDesperdicio.toFixed(2)} m² necesitas aproximadamente ${cantidadNecesaria} cajas.`;
       } else if (producto.tipoVenta === "pieza") {
         notaProducto =
           `Cada pieza cubre ${coberturaPorUnidad.toFixed(2)} m². ` +
@@ -860,16 +1309,382 @@ export default function ProductoDetalle() {
     return producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado";
   };
 
-  const mostrarSelectorModo = () => {
-    return producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado";
-  };
-
   const mostrarDesperdicio = () => {
     return producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado";
   };
 
-  const mostrarBotonesMedidas = () => {
-    return producto?.tipoVenta === "metro_lineal" || producto?.tipoVenta === "metro_cuadrado";
+  const renderizarCamposForma = (area, index) => {
+    const tipo = area.tipo;
+    const datos = area.datos;
+
+    switch(tipo) {
+      case 'rectangulo':
+        return (
+          <>
+            <input
+              type="number"
+              placeholder="Largo (m)"
+              value={datos.largo}
+              onChange={(e) => actualizarArea(index, "largo", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Ancho (m)"
+              value={datos.ancho}
+              onChange={(e) => actualizarArea(index, "ancho", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+          </>
+        );
+      case 'cuadrado':
+        return (
+          <input
+            type="number"
+            placeholder="Lado (m)"
+            value={datos.lado}
+            onChange={(e) => actualizarArea(index, "lado", e.target.value)}
+            className="input-field"
+            step="0.01"
+            min="0"
+          />
+        );
+      case 'circulo':
+        return (
+          <input
+            type="number"
+            placeholder="Diámetro (m)"
+            value={datos.diametro}
+            onChange={(e) => actualizarArea(index, "diametro", e.target.value)}
+            className="input-field"
+            step="0.01"
+            min="0"
+          />
+        );
+      case 'triangulo':
+        return (
+          <>
+            <input
+              type="number"
+              placeholder="Base (m)"
+              value={datos.base}
+              onChange={(e) => actualizarArea(index, "base", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Altura (m)"
+              value={datos.altura}
+              onChange={(e) => actualizarArea(index, "altura", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+          </>
+        );
+      case 'trapecio':
+        return (
+          <>
+            <input
+              type="number"
+              placeholder="Base Mayor (m)"
+              value={datos.baseMayor}
+              onChange={(e) => actualizarArea(index, "baseMayor", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Base Menor (m)"
+              value={datos.baseMenor}
+              onChange={(e) => actualizarArea(index, "baseMenor", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Altura (m)"
+              value={datos.alturaTrapecio}
+              onChange={(e) => actualizarArea(index, "alturaTrapecio", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+          </>
+        );
+      case 'rombo':
+        return (
+          <>
+            <input
+              type="number"
+              placeholder="Diagonal Mayor (m)"
+              value={datos.diagonalMayor}
+              onChange={(e) => actualizarArea(index, "diagonalMayor", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Diagonal Menor (m)"
+              value={datos.diagonalMenor}
+              onChange={(e) => actualizarArea(index, "diagonalMenor", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+          </>
+        );
+      case 'pentagono':
+      case 'hexagono':
+      case 'octagono':
+        return (
+          <>
+            <input
+              type="number"
+              placeholder="Perímetro (m)"
+              value={datos.perimetro}
+              onChange={(e) => actualizarArea(index, "perimetro", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Apotema (m)"
+              value={datos.apotema}
+              onChange={(e) => actualizarArea(index, "apotema", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+          </>
+        );
+      case 'elipse':
+        return (
+          <>
+            <input
+              type="number"
+              placeholder="Radio mayor (m)"
+              value={datos.radio}
+              onChange={(e) => actualizarArea(index, "radio", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Radio menor (m)"
+              value={datos.radioMenor}
+              onChange={(e) => actualizarArea(index, "radioMenor", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+          </>
+        );
+      case 'escalera':
+        return (
+          <>
+            <input
+              type="number"
+              placeholder="Número de escalones"
+              value={datos.escalones}
+              onChange={(e) => actualizarArea(index, "escalones", e.target.value)}
+              className="input-field"
+              step="1"
+              min="1"
+            />
+            <input
+              type="number"
+              placeholder="Huella (m)"
+              value={datos.huella}
+              onChange={(e) => actualizarArea(index, "huella", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Contrahuella (m)"
+              value={datos.contrahuella}
+              onChange={(e) => actualizarArea(index, "contrahuella", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Ancho del escalón (m)"
+              value={datos.anchoEscalon}
+              onChange={(e) => actualizarArea(index, "anchoEscalon", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <div className="campo-ayuda">
+              💡 Área = escalones × ancho × (huella + contrahuella)
+            </div>
+          </>
+        );
+      case 'barra':
+        return (
+          <>
+            <input
+              type="number"
+              placeholder="Largo de la barra (m)"
+              value={datos.largoBarra}
+              onChange={(e) => actualizarArea(index, "largoBarra", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Ancho de la barra (m)"
+              value={datos.anchoBarra}
+              onChange={(e) => actualizarArea(index, "anchoBarra", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Cantidad de barras"
+              value={datos.cantidadBarras}
+              onChange={(e) => actualizarArea(index, "cantidadBarras", e.target.value)}
+              className="input-field"
+              step="1"
+              min="1"
+            />
+            <div className="campo-ayuda">
+              💡 Área = largo × ancho × cantidad de barras
+            </div>
+          </>
+        );
+      case 'poligono_regular':
+        return (
+          <>
+            <input
+              type="number"
+              placeholder="Número de lados"
+              value={datos.numLados}
+              onChange={(e) => actualizarArea(index, "numLados", e.target.value)}
+              className="input-field"
+              step="1"
+              min="3"
+            />
+            <input
+              type="number"
+              placeholder="Longitud del lado (m)"
+              value={datos.longitudLado}
+              onChange={(e) => actualizarArea(index, "longitudLado", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Apotema (m)"
+              value={datos.apotema}
+              onChange={(e) => actualizarArea(index, "apotema", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <div className="campo-ayuda">
+              💡 Área = (n × lado × apotema) / 2
+            </div>
+          </>
+        );
+      case 'sector_circular':
+        return (
+          <>
+            <input
+              type="number"
+              placeholder="Radio (m)"
+              value={datos.radio}
+              onChange={(e) => actualizarArea(index, "radio", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Ángulo (°)"
+              value={datos.angulo}
+              onChange={(e) => actualizarArea(index, "angulo", e.target.value)}
+              className="input-field"
+              step="0.1"
+              min="0"
+              max="360"
+            />
+            <div className="campo-ayuda">
+              💡 Área = (π × r² × ángulo) / 360
+            </div>
+          </>
+        );
+      case 'corona_circular':
+        return (
+          <>
+            <input
+              type="number"
+              placeholder="Radio exterior (m)"
+              value={datos.radioExterior}
+              onChange={(e) => actualizarArea(index, "radioExterior", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <input
+              type="number"
+              placeholder="Radio interior (m)"
+              value={datos.radioInterior}
+              onChange={(e) => actualizarArea(index, "radioInterior", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <div className="campo-ayuda">
+              💡 Área = π × (R² - r²)
+            </div>
+          </>
+        );
+      case 'figura_personalizada':
+        return (
+          <>
+            <textarea
+              placeholder="Descripción de la figura"
+              value={datos.descripcion}
+              onChange={(e) => actualizarArea(index, "descripcion", e.target.value)}
+              className="input-field"
+              rows="2"
+            />
+            <input
+              type="number"
+              placeholder="Área calculada (m²)"
+              value={datos.areaPersonalizada}
+              onChange={(e) => actualizarArea(index, "areaPersonalizada", e.target.value)}
+              className="input-field"
+              step="0.01"
+              min="0"
+            />
+            <div className="campo-ayuda">
+              💡 Ingresa directamente el área que ya calculaste
+            </div>
+          </>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
@@ -956,216 +1771,149 @@ export default function ProductoDetalle() {
             <div className="cotizador-wrapper">
               <div className="cotizador-box" ref={cotizadorRef}>
                 <h3 className="cotizador-title">🧮 Calcula cuánto necesitas</h3>
-
-                {mostrarGuiaMedicion() && (
-                  <div className="guia-medicion">
-                    <h4 className="guia-titulo">📏 ¿Cómo calcular los m²?</h4>
-                    <div className="guia-grid">
-                      <div className="guia-card">
-                        <img src="/areasplanas.png" alt="Cómo medir piso" className="guia-img" onClick={() => setImagenGuiaZoom("/areasplanas.png")} />
-                        <h4>Áreas planas (Pisos)</h4>
-                        <p>Da clic en la imagen para ampliar.</p>
-                      </div>
-                      <div className="guia-card">
-                        <img src="/paredes.png" alt="Cómo medir muro" className="guia-img" onClick={() => setImagenGuiaZoom("/paredes.png")} />
-                        <h4>Muros (Paredes)</h4>
-                        <p>Da clic en la imagen para ampliar.</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {mostrarSelectorModo() && (
-                  <div className="selector-modo">
-                    <label>
-                      <input type="radio" checked={modoCotizacion === "todas"} onChange={() => setModoCotizacion("todas")} />
-                      Cotizar todas las áreas
-                    </label>
-                    <label>
-                      <input type="radio" checked={modoCotizacion === "una"} onChange={() => setModoCotizacion("una")} />
-                      Cotizar una sola área
-                    </label>
-                    <div className="resumen-area">
-                      {modoCotizacion === "todas" ? `📐 Área total: ${areaIngresada.toFixed(2)} m²` : `📐 Área seleccionada: ${areaIngresada.toFixed(2)} m²`}
-                    </div>
-                  </div>
-                )}
-
-                <div className="medidas-container">
-                  {producto.tipoVenta === "metro_lineal" ? (
-                    medidas.map((item, index) => (
-                      <div key={index} className="medida-card">
-                        <h4>📐 Área {index + 1}</h4>
-                        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
-                          Ingresa el largo y ancho en metros para calcular el área.
-                        </p>
-                        {modoCotizacion === "una" && (
-                          <label className="radio-label">
-                            <input type="radio" checked={areaSeleccionada === index} onChange={() => setAreaSeleccionada(index)} />
-                            Utilizar esta área
-                          </label>
-                        )}
-                        <div className="medidas-grid">
-                          <input
-                            type="number"
-                            placeholder="Largo (m)"
-                            value={item.largo}
-                            onChange={(e) => actualizarMedida(index, "largo", e.target.value)}
-                            className="input-field"
-                            step="0.01"
-                          />
-                          <input
-                            type="number"
-                            placeholder="Ancho (m)"
-                            value={item.ancho}
-                            onChange={(e) => actualizarMedida(index, "ancho", e.target.value)}
-                            className="input-field"
-                            step="0.01"
-                          />
-                        </div>
-                        <p className="resultado-medida">
-                          Área: {((Number(item.largo) || 0) * (Number(item.ancho) || 0)).toFixed(2)} m²
-                        </p>
-                        {anchoRollo > 0 && Number(item.largo) > 0 && Number(item.ancho) > 0 && (
-                          <p className="resultado-medida" style={{ color: '#2563eb' }}>
-                            📏 Metros lineales necesarios: {(((Number(item.largo) || 0) * (Number(item.ancho) || 0)) / anchoRollo).toFixed(2)} ml
-                          </p>
-                        )}
-                        {medidas.length > 1 && (
-                          <button className="btn-eliminar" onClick={() => eliminarMedida(index)}>
-                            🗑 Eliminar
-                          </button>
-                        )}
-                      </div>
-                    ))
-                  ) : producto.tipoVenta === "metro_cuadrado" ? (
-                    medidas.map((item, index) => {
-                      const largo = Number(item.largo) || 0;
-                      const ancho = Number(item.ancho) || 0;
-                      const areaMedida = largo * ancho;
-                      const mlMedida = anchoRollo > 0 && areaMedida > 0 ? areaMedida / anchoRollo : 0;
-                      
-                      return (
-                        <div key={index} className="medida-card">
-                          <h4>📐 Área {index + 1}</h4>
-                          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
-                            Ingresa el largo y ancho en metros para calcular el área.
-                          </p>
-                          {modoCotizacion === "una" && (
-                            <label className="radio-label">
-                              <input type="radio" checked={areaSeleccionada === index} onChange={() => setAreaSeleccionada(index)} />
-                              Utilizar esta área
-                            </label>
-                          )}
-                          <div className="medidas-grid">
-                            <input
-                              type="number"
-                              placeholder="Largo (m)"
-                              value={item.largo}
-                              onChange={(e) => actualizarMedida(index, "largo", e.target.value)}
-                              className="input-field"
-                              step="0.01"
-                            />
-                            <input
-                              type="number"
-                              placeholder="Ancho (m)"
-                              value={item.ancho}
-                              onChange={(e) => actualizarMedida(index, "ancho", e.target.value)}
-                              className="input-field"
-                              step="0.01"
-                            />
-                          </div>
-                          <p className="resultado-medida">
-                            Área: {areaMedida.toFixed(2)} m²
-                          </p>
-                          {anchoRollo > 0 && Number(item.largo) > 0 && Number(item.ancho) > 0 && (
-                            <p className="resultado-medida" style={{ color: '#2563eb' }}>
-                              📏 Metros lineales a cortar: {mlMedida.toFixed(2)} ml
-                            </p>
-                          )}
-                          {medidas.length > 1 && (
-                            <button className="btn-eliminar" onClick={() => eliminarMedida(index)}>
-                              🗑 Eliminar
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : producto.tipoVenta === "presentacion" ? (
-                    <div className="medida-card">
-                      <h4>🧴 Área a cubrir</h4>
-                      <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
-                        Ingresa los metros cuadrados que deseas cubrir.
-                      </p>
-                      <input
-                        type="number"
-                        placeholder="Ingresa los m² que deseas cubrir"
-                        value={medidas[0]?.area || ""}
-                        onChange={(e) => setMedidas([{ area: e.target.value }])}
-                        className="input-field"
-                        step="0.01"
-                      />
-                      <p className="resultado-medida">Área ingresada: {areaIngresada.toFixed(2)} m²</p>
-                      <p style={{ fontSize: '13px', color: '#64748b', marginTop: '8px' }}>
-                        Presentación: <strong>{producto.presentacion || 'N/A'}</strong>
-                        {coberturaPorUnidad > 0 && (
-                          <> • Cobertura por unidad: <strong>{coberturaPorUnidad.toFixed(2)} m²</strong></>
-                        )}
-                      </p>
-                    </div>
-                  ) : (
-                    medidas.map((item, index) => (
-                      <div key={index} className="medida-card">
-                        <h4>
-                          {producto.tipoVenta === "pieza" ? `Pieza ${index + 1}` : `Área ${index + 1}`}
-                        </h4>
-                        {modoCotizacion === "una" && (
-                          <label className="radio-label">
-                            <input type="radio" checked={areaSeleccionada === index} onChange={() => setAreaSeleccionada(index)} />
-                            Utilizar esta área
-                          </label>
-                        )}
-                        <div className="medidas-grid">
-                          <input
-                            type="number"
-                            placeholder="Largo (m)"
-                            value={item.largo}
-                            onChange={(e) => actualizarMedida(index, "largo", e.target.value)}
-                            className="input-field"
-                          />
-                          <input
-                            type="number"
-                            placeholder="Ancho (m)"
-                            value={item.ancho}
-                            onChange={(e) => actualizarMedida(index, "ancho", e.target.value)}
-                            className="input-field"
-                          />
-                        </div>
-                        <p className="resultado-medida">
-                          Área: {((Number(item.largo) || 0) * (Number(item.ancho) || 0)).toFixed(2)} m²
-                        </p>
-                        {medidas.length > 1 && (
-                          <button className="btn-eliminar" onClick={() => eliminarMedida(index)}>
-                            🗑 Eliminar
-                          </button>
-                        )}
-                      </div>
-                    ))
-                  )}
-
-                  {mostrarBotonesMedidas() && (
-                    <div className="botones-medidas">
-                      {medidas.length < 5 && (
-                        <button className="btn-agregar" onClick={agregarMedida}>
-                          ➕ Agregar medida
-                        </button>
-                      )}
-                      <button className="btn-limpiar" onClick={limpiarCampos}>
-                        🧹 Limpiar campos
-                      </button>
-                    </div>
-                  )}
+                
+                <div style={{ 
+                  background: '#eff6ff', 
+                  padding: '12px 16px', 
+                  borderRadius: '10px',
+                  marginBottom: '16px',
+                  borderLeft: '4px solid #3b82f6',
+                  fontSize: '14px',
+                  color: '#1e3a8a'
+                }}>
+                  <p style={{ margin: 0 }}>
+                    💡 Puedes calcular varias áreas diferentes. Cada área puede ser una forma geométrica distinta.
+                    {producto.tipoVenta === "metro_lineal" ? (
+                      <> Se sumarán todas para obtener los metros lineales totales.</>
+                    ) : producto.tipoVenta === "metro_cuadrado" ? (
+                      <> Se sumarán todas para obtener los metros cuadrados totales. Luego se calculan los metros lineales a cortar según el ancho del rollo.</>
+                    ) : (
+                      <> Se sumarán todas para obtener el total de unidades necesarias.</>
+                    )}
+                  </p>
                 </div>
+
+                <div className="areas-container">
+                  {areas.map((area, index) => {
+                    const areaValor = calcularAreaForma(area.tipo, area.datos);
+                    const validacion = validarMedidas(area.tipo, area.datos);
+                    
+                    return (
+                      <div key={area.id} className="area-card">
+                        <div className="area-header">
+                          <div className="area-nombre-input">
+                            <input
+                              type="text"
+                              value={area.nombre}
+                              onChange={(e) => actualizarArea(index, "nombre", e.target.value)}
+                              className="input-field"
+                              placeholder="Nombre del área"
+                              style={{ flex: 1, minWidth: '100px' }}
+                            />
+                            <select
+                              value={area.tipo}
+                              onChange={(e) => actualizarArea(index, "tipo", e.target.value)}
+                              className="input-field"
+                              style={{ width: 'auto', minWidth: '140px' }}
+                            >
+                              {tiposDeFormas.map((forma) => (
+                                <option key={forma.id} value={forma.id}>
+                                  {forma.icono} {forma.nombre}
+                                </option>
+                              ))}
+                            </select>
+                            <button className="btn-duplicar" onClick={() => duplicarArea(index)} title="Duplicar área">
+                              📋
+                            </button>
+                            {areas.length > 1 && (
+                              <button className="btn-eliminar" onClick={() => eliminarArea(index)} title="Eliminar área">
+                                🗑
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="area-campos">
+                          {renderizarCamposForma(area, index)}
+                        </div>
+
+                        {areaValor > 0 && (
+                          <div className="area-resultado">
+                            <span className="area-resultado-label">📐 Área calculada:</span>
+                            <span className="area-resultado-valor">{areaValor.toFixed(2)} m²</span>
+                            <span className="area-resultado-detalle">{getDescripcionArea(area.tipo, area.datos)}</span>
+                            {validacion.mensaje && (
+                              <span className={`area-validacion ${validacion.tipo}`}>
+                                {validacion.mensaje}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  <div className="botones-areas">
+                    {areas.length < 10 && (
+                      <button className="btn-agregar" onClick={agregarArea}>
+                        ➕ Agregar área
+                      </button>
+                    )}
+                    <button className="btn-limpiar" onClick={limpiarAreas}>
+                      🧹 Reiniciar
+                    </button>
+                  </div>
+                </div>
+
+                {getAreasValidas().length > 1 && (
+                  <>
+                    <div className="resumen-areas">
+                      <p className="resumen-titulo">📊 Resumen de todas las áreas</p>
+                      {getAreasValidas().map((area, idx) => {
+                        const areaValor = calcularAreaForma(area.tipo, area.datos);
+                        return (
+                          <p key={idx} className="resumen-item">
+                            {area.nombre}: {areaValor.toFixed(2)} m² 
+                            ({getNombreForma(area.tipo)}: {getDescripcionArea(area.tipo, area.datos)})
+                          </p>
+                        );
+                      })}
+                      <p className="total-areas">
+                        <strong>Total área a cubrir: {areaIngresada.toFixed(2)} m²</strong>
+                      </p>
+                    </div>
+
+                    <div className="resumen-areas-detallado">
+                      <p className="resumen-titulo">📊 Detalle por área</p>
+                      <table className="tabla-areas">
+                        <thead>
+                          <tr>
+                            <th>Nombre</th>
+                            <th>Forma</th>
+                            <th>Medidas</th>
+                            <th>Área (m²)</th>
+                            <th>% del total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getAreasValidas().map((area, idx) => {
+                            const areaValor = calcularAreaForma(area.tipo, area.datos);
+                            const porcentaje = areaIngresada > 0 ? (areaValor / areaIngresada * 100) : 0;
+                            return (
+                              <tr key={idx}>
+                                <td>{area.nombre}</td>
+                                <td>{getNombreForma(area.tipo)}</td>
+                                <td>{getDescripcionArea(area.tipo, area.datos)}</td>
+                                <td>{areaValor.toFixed(2)}</td>
+                                <td>{porcentaje.toFixed(1)}%</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
 
                 {mostrarDesperdicio() && (
                   <div className="desperdicio-box">
@@ -1178,140 +1926,75 @@ export default function ProductoDetalle() {
                   </div>
                 )}
 
-                {(areaIngresada > 0 || Number(medidas[0]?.area || 0) > 0) && (
+                {areaIngresada > 0 && (
                   <div className="resultado-cotizacion">
-                    {producto.tipoVenta === "metro_lineal" ? (
-                      <>
-                        <div className="resultado-grid">
-                          <div className="resultado-item">
-                            <span className="resultado-label">📐 Área a cubrir</span>
-                            <span className="resultado-valor">{areaIngresada.toFixed(2)} m²</span>
-                          </div>
-                          <div className="resultado-item">
-                            <span className="resultado-label">📏 Ancho del producto</span>
-                            <span className="resultado-valor">{anchoRollo.toFixed(2)} m</span>
-                          </div>
-                          <div className="resultado-item">
-                            <span className="resultado-label">📈 Desperdicio</span>
-                            <span className="resultado-valor">{desperdicio}%</span>
-                          </div>
-                          <div className="resultado-item">
-                            <span className="resultado-label">📐 Área con desperdicio</span>
-                            <span className="resultado-valor">{areaConDesperdicio.toFixed(2)} m²</span>
-                          </div>
-                          <div className="resultado-item destacado">
-                            <span className="resultado-label">📏 Metros lineales necesarios</span>
-                            <span className="resultado-valor principal">{metrosLineales.toFixed(2)} ml</span>
-                          </div>
-                          <div className="resultado-item">
-                            <span className="resultado-label">💰 Precio por metro lineal</span>
-                            <span className="resultado-valor">${Number(producto.precio).toLocaleString()}</span>
-                          </div>
+                    <div className="resultado-grid">
+                      <div className="resultado-item">
+                        <span className="resultado-label">📐 Área a cubrir</span>
+                        <span className="resultado-valor">{areaIngresada.toFixed(2)} m²</span>
+                      </div>
+                      <div className="resultado-item">
+                        <span className="resultado-label">📈 Desperdicio</span>
+                        <span className="resultado-valor">{desperdicio}%</span>
+                      </div>
+                      <div className="resultado-item">
+                        <span className="resultado-label">📐 Área con desperdicio</span>
+                        <span className="resultado-valor">{areaConDesperdicio.toFixed(2)} m²</span>
+                      </div>
+                      <div className="resultado-item destacado">
+                        <span className="resultado-label">
+                          {producto.tipoVenta === "metro_lineal" ? "📏 Metros lineales a cortar" :
+                           producto.tipoVenta === "metro_cuadrado" ? "📏 Metros lineales a cortar" :
+                           "📦 Cantidad necesaria"}
+                        </span>
+                        <span className="resultado-valor principal">
+                          {producto.tipoVenta === "metro_lineal" ? `${metrosLineales.toFixed(2)} ml` :
+                           producto.tipoVenta === "metro_cuadrado" ? `${metrosLineales.toFixed(2)} ml` :
+                           `${cantidadNecesaria}`}
+                        </span>
+                      </div>
+                      {producto.tipoVenta === "metro_cuadrado" && (
+                        <div className="resultado-item">
+                          <span className="resultado-label">📐 Equivale a</span>
+                          <span className="resultado-valor">{areaConDesperdicio.toFixed(2)} m²</span>
                         </div>
-                        
-                        <div className="total-box">
-                          <span className="total-label">Total estimado</span>
-                          <span className="total-valor">${Number(total).toLocaleString()}</span>
-                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="total-box">
+                      <span className="total-label">Total estimado</span>
+                      <span className="total-valor">${Number(total).toLocaleString()}</span>
+                    </div>
 
-                        <div className="detalle-calculo">
-                          <p className="detalle-titulo">💡 Detalle del cálculo</p>
-                          <p>{areaConDesperdicio.toFixed(2)} m² ÷ {anchoRollo.toFixed(2)} m = {metrosLineales.toFixed(2)} metros lineales</p>
-                          <p>{areaConDesperdicio.toFixed(2)} m² × ${Number(producto.precio).toLocaleString()} = <strong>${Number(total).toLocaleString()}</strong></p>
-                        </div>
-                      </>
-                    ) : producto.tipoVenta === "metro_cuadrado" ? (
-                      <>
-                        <div className="resultado-grid">
-                          <div className="resultado-item">
-                            <span className="resultado-label">📐 Área a cubrir</span>
-                            <span className="resultado-valor">{areaIngresada.toFixed(2)} m²</span>
-                          </div>
-                          <div className="resultado-item">
-                            <span className="resultado-label">📏 Ancho del rollo</span>
-                            <span className="resultado-valor">{anchoRollo.toFixed(2)} m</span>
-                          </div>
-                          <div className="resultado-item">
-                            <span className="resultado-label">📈 Desperdicio</span>
-                            <span className="resultado-valor">{desperdicio}%</span>
-                          </div>
-                          <div className="resultado-item">
-                            <span className="resultado-label">📐 Área con desperdicio</span>
-                            <span className="resultado-valor">{areaConDesperdicio.toFixed(2)} m²</span>
-                          </div>
-                          <div className="resultado-item destacado">
-                            <span className="resultado-label">📏 Metros lineales a cortar</span>
-                            <span className="resultado-valor principal">{metrosLineales.toFixed(2)} ml</span>
-                          </div>
-                          <div className="resultado-item">
-                            <span className="resultado-label">💰 Precio por m²</span>
-                            <span className="resultado-valor">${Number(precioPorMetroCuadrado).toLocaleString()}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="total-box">
-                          <span className="total-label">Total estimado</span>
-                          <span className="total-valor">${Number(total).toLocaleString()}</span>
-                        </div>
+                    <div className="detalle-calculo">
+                      <p className="detalle-titulo">📌 Detalle del cálculo</p>
+                      <p>Total de áreas: <strong>{getAreasValidas().length} área(s)</strong></p>
+                      <p>Área total: <strong>{areaIngresada.toFixed(2)} m²</strong></p>
+                      {producto.tipoVenta === "metro_lineal" && (
+                        <>
+                          <p>Metros lineales necesarios: <strong>{metrosLineales.toFixed(2)} ml</strong></p>
+                          <p>Cálculo: {areaConDesperdicio.toFixed(2)} m² ÷ {anchoRollo.toFixed(2)} m = {metrosLineales.toFixed(2)} ml</p>
+                        </>
+                      )}
+                      {producto.tipoVenta === "metro_cuadrado" && (
+                        <>
+                          <p>Metros lineales a cortar: <strong>{metrosLineales.toFixed(2)} ml</strong></p>
+                          <p>Cálculo: {areaConDesperdicio.toFixed(2)} m² ÷ {anchoRollo.toFixed(2)} m = {metrosLineales.toFixed(2)} ml</p>
+                          <p>El rollo mide <strong>{anchoRollo.toFixed(2)} m</strong> de ancho</p>
+                          <p>Se paga por m²: <strong>{areaConDesperdicio.toFixed(2)} m²</strong></p>
+                        </>
+                      )}
+                      <p style={{ color: '#16a34a', fontSize: '1.1rem', marginTop: '6px' }}>
+                        💰 {areaConDesperdicio.toFixed(2)} m² × ${Number(precioFinal).toLocaleString()} = <strong>${Number(total).toLocaleString()}</strong>
+                      </p>
+                    </div>
 
-                        <div className="detalle-calculo">
-                          <p className="detalle-titulo">📌 Resumen</p>
-                          <p>Para cubrir <strong>{areaConDesperdicio.toFixed(2)} m²</strong> necesitas cortar <strong>{metrosLineales.toFixed(2)} metros lineales</strong></p>
-                          <p>{areaConDesperdicio.toFixed(2)} m² × ${Number(precioPorMetroCuadrado).toLocaleString()} = <strong>${Number(total).toLocaleString()}</strong></p>
-                          <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
-                            📐 {metrosLineales.toFixed(2)} ml × {anchoRollo.toFixed(2)} m = {areaConDesperdicio.toFixed(2)} m²
-                          </p>
-                        </div>
-
-                        <div className="nota-tipo-venta">
-                          ℹ️ Este producto se vende por <strong>metro cuadrado</strong>
-                        </div>
-                      </>
-                    ) : producto.tipoVenta === "presentacion" ? (
-                      <>
-                        <div className="resultado-grid">
-                          <div className="resultado-item">
-                            <span className="resultado-label">🧴 Área a cubrir</span>
-                            <span className="resultado-valor">{areaIngresada.toFixed(2)} m²</span>
-                          </div>
-                          <div className="resultado-item">
-                            <span className="resultado-label">📐 Cobertura por unidad</span>
-                            <span className="resultado-valor">{coberturaPorUnidad.toFixed(2)} m²</span>
-                          </div>
-                          <div className="resultado-item destacado">
-                            <span className="resultado-label">🧴 Unidades necesarias</span>
-                            <span className="resultado-valor principal">{cantidadNecesaria}</span>
-                          </div>
-                          <div className="resultado-item">
-                            <span className="resultado-label">📐 Área total cubierta</span>
-                            <span className="resultado-valor">{areaCubierta.toFixed(2)} m²</span>
-                          </div>
-                        </div>
-                        
-                        <div className="total-box">
-                          <span className="total-label">Total estimado</span>
-                          <span className="total-valor">${Number(total).toLocaleString()}</span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="resultado-grid">
-                          <div className="resultado-item">
-                            <span className="resultado-label">📐 Área ingresada</span>
-                            <span className="resultado-valor">{areaIngresada.toFixed(2)} m²</span>
-                          </div>
-                          <div className="resultado-item">
-                            <span className="resultado-label">📈 Área con desperdicio</span>
-                            <span className="resultado-valor">{areaConDesperdicio.toFixed(2)} m²</span>
-                          </div>
-                        </div>
-                        
-                        <div className="total-box">
-                          <span className="total-label">Total estimado</span>
-                          <span className="total-valor">${Number(total).toLocaleString()}</span>
-                        </div>
-                      </>
-                    )}
+                    <div className="nota-tipo-venta">
+                      ℹ️ Este producto se vende por <strong>{producto.tipoVenta === "metro_lineal" ? "metro lineal" : producto.tipoVenta === "metro_cuadrado" ? "metro cuadrado" : producto.tipoVenta}</strong>
+                      {producto.tipoVenta === "metro_cuadrado" && (
+                        <> • El rollo mide <strong>{anchoRollo.toFixed(2)} m</strong> de ancho</>
+                      )}
+                    </div>
                     
                     <div className="necesitas-box">
                       <span className="necesitas-label">Necesitas</span>
@@ -1319,7 +2002,13 @@ export default function ProductoDetalle() {
                         {producto.tipoVenta === "metro_lineal" ? (
                           <>{metrosLineales.toFixed(2)} metros lineales</>
                         ) : producto.tipoVenta === "metro_cuadrado" ? (
-                          <>{metrosLineales.toFixed(2)} metros lineales</>
+                          <>{metrosLineales.toFixed(2)} metros lineales (equivale a {areaConDesperdicio.toFixed(2)} m²)</>
+                        ) : producto.tipoVenta === "caja" ? (
+                          <>{cantidadNecesaria} cajas</>
+                        ) : producto.tipoVenta === "paquete" ? (
+                          <>{cantidadNecesaria} paquetes</>
+                        ) : producto.tipoVenta === "pieza" ? (
+                          <>{cantidadNecesaria} piezas</>
                         ) : producto.tipoVenta === "presentacion" ? (
                           <>{cantidadNecesaria} unidades</>
                         ) : (
@@ -1586,6 +2275,34 @@ export default function ProductoDetalle() {
                   <span className="data-value">{producto.presentacion || '-'}</span>
                 </div>
               </div>
+            ) : producto.tipoVenta === "caja" ? (
+              <>
+                <div className="data-item-modern">
+                  <span className="data-icon">📦</span>
+                  <div>
+                    <span className="data-label">Piezas por caja</span>
+                    <span className="data-value">{producto.piezasCaja || '-'}</span>
+                  </div>
+                </div>
+                {tieneCobertura && (
+                  <div className="data-item-modern">
+                    <span className="data-icon">📐</span>
+                    <div>
+                      <span className="data-label">Cobertura por pieza</span>
+                      <span className="data-value">{producto.cobertura} {producto.tipoCobertura}</span>
+                    </div>
+                  </div>
+                )}
+                {coberturaPorUnidad > 0 && (
+                  <div className="data-item-modern">
+                    <span className="data-icon">📦</span>
+                    <div>
+                      <span className="data-label">Cobertura por caja</span>
+                      <span className="data-value">{coberturaPorUnidad.toFixed(2)} m²</span>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="data-item-modern">
                 <span className="data-icon">📏</span>
@@ -1600,18 +2317,8 @@ export default function ProductoDetalle() {
                 </div>
               </div>
             )}
-
-            {producto.tipoVenta === "caja" && (
-              <div className="data-item-modern">
-                <span className="data-icon">📦</span>
-                <div>
-                  <span className="data-label">Piezas por caja</span>
-                  <span className="data-value">{producto.piezasCaja}</span>
-                </div>
-              </div>
-            )}
             
-            {tieneCobertura && producto.tipoVenta !== "metro_lineal" && producto.tipoVenta !== "metro_cuadrado" && producto.tipoVenta !== "paquete" && (
+            {tieneCobertura && producto.tipoVenta !== "metro_lineal" && producto.tipoVenta !== "metro_cuadrado" && producto.tipoVenta !== "paquete" && producto.tipoVenta !== "caja" && (
               <div className="data-item-modern">
                 <span className="data-icon">📐</span>
                 <div>
@@ -1750,1851 +2457,316 @@ export default function ProductoDetalle() {
 }
 
 // ============================================================
-// ESTILOS CSS MEJORADOS - DISEÑO TIENDA EN LÍNEA
+// ESTILOS CSS ADICIONALES
 // ============================================================
 if (typeof document !== "undefined") {
-  const styleSheet = document.createElement("style");
-  styleSheet.textContent = `
-    /* ============================================================ */
-    /* BASE Y RESET */
-    /* ============================================================ */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    .producto-detalle-page {
-      padding-top: 50px !important;
-      background: #f8fafc;
-      min-height: 100vh;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      overflow-x: hidden;
-      padding-top: 0px;
-    }
-
-    /* ============================================================ */
-    /* AJUSTE PARA NAVBAR EN MÓVIL */
-    /* ============================================================ */
-    @media (max-width: 767px) {
-      .navbar {
-        position: sticky !important;
-        top: 0 !important;
-        z-index: 1000 !important;
-        background: #fff !important;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08) !important;
-      }
-      
-      .producto-detalle-page {
-        padding-top: 60px !important;
-        margin-top: 0 !important;
-      }
-    }
-
-    /* ============================================================ */
-    /* NUEVO LAYOUT - GALERÍA + COTIZADOR A LA IZQUIERDA */
-    /* ============================================================ */
-    .producto-detalle-wrapper {
+  const extraStyles = document.createElement("style");
+  extraStyles.textContent = `
+    .areas-container {
       display: flex;
-      flex-wrap: wrap;
-      gap: 30px;
-      max-width: 1400px;
-      margin: 10px auto 20px;
-      padding: 24px;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .area-card {
       background: #fff;
-      border-radius: 24px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-      width: 100%;
-      box-sizing: border-box;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
       transition: all 0.3s ease;
     }
+    .area-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
 
-    .producto-detalle-left-col {
-      flex: 1 1 100%;
-      max-width: 100%;
+    .area-header {
+      margin-bottom: 10px;
+    }
+
+    .area-nombre-input {
       display: flex;
-      flex-direction: column;
-      gap: 20px;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
     }
 
-    .producto-detalle-right-col {
-      flex: 1 1 100%;
-      max-width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+    .area-nombre-input select {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      font-size: 13px;
+      background: #fff;
+      cursor: pointer;
     }
 
-    /* En desktop: galería + cotizador ocupan el lado izquierdo */
-    @media (min-width: 1024px) {
-      .producto-detalle-wrapper {
-        padding: 36px 40px;
-        gap: 40px;
-        margin: 20px auto 30px;
-        border-radius: 28px;
-      }
-      
-      .producto-detalle-left-col {
-        flex: 0 0 50%;
-        max-width: 50%;
-      }
-      
-      .producto-detalle-right-col {
-        flex: 0 0 45%;
-        max-width: 45%;
-      }
+    .area-campos {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
     }
 
-    @media (min-width: 1440px) {
-      .producto-detalle-wrapper {
-        max-width: 1600px;
-        padding: 48px 56px;
-        gap: 56px;
-        margin: 25px auto 40px;
-        border-radius: 36px;
-      }
-      .producto-detalle-left-col { flex: 0 0 48%; max-width: 48%; }
-      .producto-detalle-right-col { flex: 0 0 46%; max-width: 46%; }
-    }
-
-    /* En móvil: todo en una columna */
-    @media (max-width: 767px) {
-      .producto-detalle-wrapper {
-        padding: 14px;
-        gap: 16px;
-        margin: 10px 8px 16px;
-        border-radius: 16px;
-      }
-      
-      .producto-detalle-left-col,
-      .producto-detalle-right-col {
-        flex: 1 1 100%;
-        max-width: 100%;
-      }
-    }
-
-    /* ============================================================ */
-    /* COTIZADOR WRAPPER - visible siempre */
-    /* ============================================================ */
-    .cotizador-wrapper {
+    .area-campos > input,
+    .area-campos > textarea {
       width: 100%;
-      display: block;
     }
 
-    .cotizador-box {
-      background: #f8fafc;
+    .area-resultado {
+      margin-top: 10px;
+      padding: 8px 14px;
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .area-resultado-label {
+      font-weight: 600;
+      color: #166534;
+      font-size: 13px;
+    }
+
+    .area-resultado-valor {
+      font-size: 18px;
+      font-weight: 800;
+      color: #16a34a;
+    }
+
+    .area-resultado-detalle {
+      font-size: 12px;
+      color: #166534;
+      background: #dcfce7;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-weight: 500;
+    }
+
+    .area-validacion {
+      font-size: 12px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-weight: 500;
+    }
+
+    .area-validacion.success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .area-validacion.warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .area-validacion.error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .area-validacion.info {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .btn-duplicar {
+      background: #f1f5f9;
       border: 1px solid #e2e8f0;
-      padding: 18px;
-      border-radius: 14px;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-duplicar:hover {
+      background: #e2e8f0;
+      transform: scale(1.05);
+    }
+
+    .btn-eliminar {
+      background: #fee2e2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-eliminar:hover {
+      background: #fecaca;
+      transform: scale(1.05);
+    }
+
+    .botones-areas {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .btn-agregar {
+      background: #dbeafe;
+      border: 1px solid #93c5fd;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e40af;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-agregar:hover {
+      background: #bfdbfe;
+      transform: scale(1.02);
+    }
+
+    .btn-limpiar {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-limpiar:hover {
+      background: #e2e8f0;
+    }
+
+    .resumen-areas {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+
+    .resumen-titulo {
+      font-weight: 700;
+      color: #0c4a6e;
+      margin: 0 0 6px 0;
+      font-size: 14px;
+    }
+
+    .resumen-item {
+      margin: 3px 0;
+      font-size: 13px;
+      color: #1e293b;
+    }
+
+    .total-areas {
+      margin: 6px 0 0 0;
+      font-size: 15px;
+      color: #0369a1;
+      border-top: 1px dashed #bae6fd;
+      padding-top: 6px;
+    }
+
+    .resumen-areas-detallado {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+    }
+
+    .tabla-areas {
       width: 100%;
-      margin-top: 0;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 8px;
     }
 
-    /* En móvil el cotizador se muestra después de la galería */
-    @media (max-width: 767px) {
-      .cotizador-box {
-        margin-top: 10px;
-      }
+    .tabla-areas th {
+      background: #f1f5f9;
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 600;
+      color: #1e293b;
+      border-bottom: 2px solid #e2e8f0;
     }
 
-    /* ============================================================ */
-    /* NOTIFICACIÓN FLOTANTE */
-    /* ============================================================ */
+    .tabla-areas td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .tabla-areas tr:hover {
+      background: #f8fafc;
+    }
+
+    .campo-ayuda {
+      grid-column: 1 / -1;
+      font-size: 12px;
+      color: #64748b;
+      background: #f1f5f9;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border-left: 3px solid #3b82f6;
+    }
+
     .notificacion-flotante {
       position: fixed;
-      top: 80px;
+      top: 20px;
       right: 20px;
       background: #1e293b;
       color: #fff;
       padding: 14px 24px;
       border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
       z-index: 9999;
-      animation: slideInRight 0.4s ease;
-      font-weight: 500;
+      animation: slideIn 0.3s ease;
       font-size: 14px;
-      max-width: 90%;
+      max-width: 400px;
     }
 
-    @keyframes slideInRight {
-      from { transform: translateX(100px); opacity: 0; }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
 
     @media (max-width: 767px) {
-      .notificacion-flotante {
-        top: 70px;
-        right: 10px;
-        padding: 12px 16px;
-        font-size: 13px;
-        max-width: 95%;
+      .area-nombre-input {
+        flex-direction: column;
+        align-items: stretch;
       }
-    }
-
-    /* ============================================================ */
-    /* LOADING */
-    /* ============================================================ */
-    .loading-container {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      gap: 16px;
-    }
-
-    .loading-spinner {
-      width: 50px;
-      height: 50px;
-      border: 4px solid #e2e8f0;
-      border-top-color: #3b82f6;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* ============================================================ */
-    /* BREADCRUMB */
-    /* ============================================================ */
-    .breadcrumb {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      color: #64748b;
-      flex-wrap: wrap;
-    }
-    .breadcrumb span {
-      cursor: pointer;
-      transition: color 0.2s;
-    }
-    .breadcrumb span:hover {
-      color: #3b82f6;
-    }
-    .breadcrumb-actual {
-      color: #1e293b;
-      font-weight: 600;
-      cursor: default !important;
-    }
-
-    @media (max-width: 767px) {
-      .breadcrumb { font-size: 12px; }
-    }
-
-    /* ============================================================ */
-    /* GALERÍA */
-    /* ============================================================ */
-    .producto-detalle-gallery {
-      position: relative;
-      width: 100%;
-    }
-
-    .badges-container {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      z-index: 20;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .badge {
-      padding: 5px 12px;
-      border-radius: 8px;
-      font-size: 10px;
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      animation: badgePulse 2s ease-in-out infinite;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    }
-    .rebaja { background: linear-gradient(135deg, #dc2626, #b91c1c); }
-    .destacado { background: linear-gradient(135deg, #f59e0b, #d97706); }
-    .ultimas { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
-
-    @keyframes badgePulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-    }
-
-    @media (max-width: 400px) {
-      .badge { font-size: 9px; padding: 3px 8px; }
-    }
-
-    .fav-btn {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      border: none;
-      font-size: 20px;
-      cursor: pointer;
-      z-index: 30;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.12);
-      transition: all 0.3s ease;
-      background: rgba(255,255,255,0.95);
-      backdrop-filter: blur(4px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .fav-btn:hover {
-      transform: scale(1.1);
-      box-shadow: 0 6px 25px rgba(0,0,0,0.2);
-    }
-
-    @media (max-width: 400px) {
-      .fav-btn { width: 36px; height: 36px; font-size: 16px; }
-    }
-
-    .main-image-container {
-      width: 100%;
-      height: 320px;
-      overflow: hidden;
-      border-radius: 16px;
-      background: #f8fafc;
-      position: relative;
-      border: 1px solid #f1f5f9;
-    }
-
-    .main-image {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: block;
-      transition: transform 0.1s ease;
-    }
-
-    .zoom-indicator {
-      position: absolute;
-      bottom: 12px;
-      right: 12px;
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      backdrop-filter: blur(4px);
-    }
-
-    .thumbs-container {
-      display: flex;
-      gap: 10px;
-      margin-top: 14px;
-      flex-wrap: wrap;
-    }
-
-    .thumb {
-      width: 60px;
-      height: 60px;
-      object-fit: cover;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      border: 2px solid transparent;
-      background: #f8fafc;
-    }
-    .thumb:hover {
-      transform: scale(1.05);
-      border-color: #94a3b8;
-    }
-    .thumb.active {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-    }
-
-    @media (min-width: 1024px) {
-      .main-image-container { height: 440px; }
-      .thumb { width: 80px; height: 80px; }
-    }
-
-    @media (min-width: 1440px) {
-      .main-image-container { height: 520px; }
-      .thumb { width: 90px; height: 90px; }
-    }
-
-    @media (max-width: 767px) {
-      .main-image-container { height: 280px; }
-      .thumb { width: 50px; height: 50px; }
-    }
-
-    @media (max-width: 400px) {
-      .main-image-container { height: 220px; }
-      .thumb { width: 40px; height: 40px; }
-    }
-
-    /* ============================================================ */
-    /* TÍTULOS Y PRECIOS */
-    /* ============================================================ */
-    .product-title {
-      font-size: 24px;
-      font-weight: 800;
-      color: #0f172a;
-      line-height: 1.2;
-      letter-spacing: -0.5px;
-      margin: 0;
-    }
-
-    @media (min-width: 1024px) {
-      .product-title { font-size: 32px; }
-    }
-
-    @media (min-width: 1440px) {
-      .product-title { font-size: 36px; }
-    }
-
-    @media (max-width: 767px) {
-      .product-title { font-size: 20px; }
-    }
-
-    @media (max-width: 400px) {
-      .product-title { font-size: 17px; }
-    }
-
-    .precio-section {
-      margin: 2px 0;
-    }
-
-    .precio-normal {
-      color: #16a34a;
-      font-size: 32px;
-      font-weight: 900;
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .precio-oferta {
-      color: #dc2626;
-      font-size: 32px;
-      font-weight: 900;
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .precio-anterior {
-      text-decoration: line-through;
-      color: #94a3b8;
-      font-size: 20px;
-      font-weight: 600;
-      display: block;
-    }
-
-    .precio-unidad {
-      font-size: 16px;
-      font-weight: 600;
-      color: #64748b;
-    }
-
-    .descuento-badge {
-      background: #dc2626;
-      color: #fff;
-      padding: 2px 12px;
-      border-radius: 999px;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    @media (min-width: 1024px) {
-      .precio-normal, .precio-oferta { font-size: 40px; }
-      .precio-unidad { font-size: 18px; }
-    }
-
-    @media (min-width: 1440px) {
-      .precio-normal, .precio-oferta { font-size: 44px; }
-      .precio-unidad { font-size: 20px; }
-    }
-
-    @media (max-width: 767px) {
-      .precio-normal, .precio-oferta { font-size: 26px; }
-      .precio-anterior { font-size: 17px; }
-      .precio-unidad { font-size: 13px; }
-    }
-
-    @media (max-width: 400px) {
-      .precio-normal, .precio-oferta { font-size: 22px; }
-      .precio-unidad { font-size: 11px; }
-    }
-
-    /* ============================================================ */
-    /* CATEGORÍAS */
-    /* ============================================================ */
-    .category-box {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin: 0;
-    }
-
-    .category-tag {
-      background: #0f172a;
-      color: #fff;
-      padding: 4px 14px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 600;
-      transition: all 0.3s ease;
-    }
-    .category-tag:hover { transform: scale(1.05); }
-
-    .subcategory-tag {
-      background: #e2e8f0;
-      color: #0f172a;
-      padding: 4px 14px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 600;
-      transition: all 0.3s ease;
-    }
-    .subcategory-tag:hover { transform: scale(1.05); }
-
-    .type-tag {
-      background: #3b82f6;
-      color: #fff;
-      padding: 4px 14px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 600;
-      transition: all 0.3s ease;
-    }
-    .type-tag:hover { transform: scale(1.05); }
-
-    /* ============================================================ */
-    /* SKU */
-    /* ============================================================ */
-    .sku-item {
-      font-size: 13px;
-      color: #64748b;
-      margin: -2px 0 0 0;
-    }
-    .sku-item strong {
-      color: #0f172a;
-    }
-
-    /* ============================================================ */
-    /* STOCK - MODERNO */
-    /* ============================================================ */
-    .stock-box-modern {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
-      border-radius: 12px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .stock-status {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .stock-indicator {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-    .stock-indicator.disponible { background: #16a34a; }
-    .stock-indicator.poco { background: #f59e0b; animation: pulse 1.5s infinite; }
-    .stock-indicator.agotado { background: #dc2626; }
-
-    .stock-text {
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .stock-cantidad {
-      font-size: 13px;
-      color: #64748b;
-      background: #fff;
-      padding: 2px 14px;
-      border-radius: 999px;
-      border: 1px solid #e2e8f0;
-    }
-
-    @media (max-width: 767px) {
-      .stock-box-modern { flex-direction: column; align-items: flex-start; }
-    }
-
-    /* ============================================================ */
-    /* DATA BOX - MODERNO */
-    /* ============================================================ */
-    .data-box-modern {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4px 16px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 14px 16px;
-    }
-
-    .data-item-modern {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 6px 0;
-      border-bottom: 1px solid #f1f5f9;
-    }
-    .data-item-modern:last-child {
-      border-bottom: none;
-    }
-
-    .data-icon {
-      font-size: 18px;
-      width: 30px;
-      text-align: center;
-      flex-shrink: 0;
-    }
-
-    .data-label {
-      display: block;
-      font-size: 10px;
-      font-weight: 600;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .data-value {
-      display: block;
-      font-size: 14px;
-      font-weight: 600;
-      color: #0f172a;
-      word-break: break-word;
-    }
-
-    @media (max-width: 767px) {
-      .data-box-modern { grid-template-columns: 1fr; padding: 12px; }
-      .data-item-modern { padding: 4px 0; }
-      .data-value { font-size: 13px; }
-    }
-
-    /* ============================================================ */
-    /* CAJAS DE TEXTO - MODERNAS */
-    /* ============================================================ */
-    .box-modern {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      padding: 16px;
-      border-radius: 14px;
-    }
-
-    .box-title {
-      margin-bottom: 10px;
-      font-size: 15px;
-      font-weight: 700;
-      color: #0f172a;
-    }
-
-    .description {
-      color: #475569;
-      line-height: 1.8;
-      margin: 0;
-      font-size: 14px;
-    }
-
-    /* ============================================================ */
-    /* BOTONES DE ACCIÓN */
-    /* ============================================================ */
-    .botones-acciones {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      width: 100%;
-      margin-top: 2px;
-    }
-
-    .btn-ficha-tecnica {
-      background: #1e293b;
-      color: #fff;
-      border: none;
-      padding: 14px 16px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 14px;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      box-shadow: 0 4px 12px rgba(30, 41, 59, 0.2);
-    }
-    .btn-ficha-tecnica:hover {
-      background: #0f172a;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(30, 41, 59, 0.3);
-    }
-
-    .btn-agregar-pedido {
-      background: linear-gradient(135deg, #16a34a, #15803d);
-      color: #fff;
-      border: none;
-      padding: 14px 16px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 700;
-      font-size: 14px;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(22, 163, 74, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    .btn-agregar-pedido:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 25px rgba(22, 163, 74, 0.4);
-      background: linear-gradient(135deg, #15803d, #166534);
-    }
-
-    @media (max-width: 767px) {
-      .botones-acciones { grid-template-columns: 1fr; gap: 8px; }
-      .btn-ficha-tecnica, .btn-agregar-pedido { padding: 12px; font-size: 14px; }
-    }
-
-    @media (max-width: 400px) {
-      .botones-acciones { gap: 6px; }
-      .btn-ficha-tecnica, .btn-agregar-pedido { padding: 10px; font-size: 13px; }
-    }
-
-    /* ============================================================ */
-    /* COTIZADOR - SIEMPRE VISIBLE */
-    /* ============================================================ */
-    .cotizador-title {
-      margin: 0 0 16px 0;
-      color: #0f172a;
-      font-size: 17px;
-      font-weight: 700;
-    }
-
-    .guia-medicion {
-      margin-bottom: 20px;
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 16px;
-    }
-
-    .guia-titulo {
-      text-align: center;
-      margin: 0 0 14px 0;
-      color: #0f172a;
-      font-size: 15px;
-      font-weight: 700;
-    }
-
-    .guia-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .guia-card {
-      background: #f8fafc;
-      border-radius: 12px;
-      padding: 12px;
-      text-align: center;
-      border: 1px solid #e2e8f0;
-      transition: all 0.3s ease;
-      cursor: pointer;
-    }
-    .guia-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-    }
-
-    .guia-img {
-      width: 100%;
-      height: 100px;
-      object-fit: contain;
-      margin-bottom: 8px;
-      transition: all 0.3s ease;
-    }
-    .guia-img:hover { transform: scale(1.05); }
-    .guia-card h4 { font-size: 13px; margin: 6px 0; color: #0f172a; }
-    .guia-card p { font-size: 11px; color: #64748b; margin: 0; }
-
-    @media (min-width: 1024px) {
-      .guia-img { height: 120px; }
-    }
-
-    @media (max-width: 767px) {
-      .guia-grid { grid-template-columns: 1fr; }
-      .guia-img { height: 100px; }
-    }
-
-    .selector-modo {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
-      padding: 12px;
-      background: #fff;
-      border-radius: 10px;
-      border: 1px solid #e2e8f0;
-    }
-    .selector-modo label {
-      font-size: 14px;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-      color: #0f172a;
-    }
-    .selector-modo input[type="radio"] {
-      accent-color: #3b82f6;
-      width: 16px;
-      height: 16px;
-    }
-
-    @media (max-width: 767px) {
-      .selector-modo { padding: 10px; flex-direction: column; }
-      .selector-modo label { font-size: 13px; }
-    }
-
-    .resumen-area {
-      background: #ecfdf5;
-      border: 1px solid #16a34a;
-      color: #166534;
-      padding: 10px;
-      border-radius: 10px;
-      text-align: center;
-      font-weight: 700;
-      font-size: 14px;
-      width: 100%;
-    }
-
-    @media (max-width: 767px) {
-      .resumen-area { font-size: 13px; padding: 8px; }
-    }
-
-    .medidas-container {
-      margin-bottom: 16px;
-    }
-
-    .medida-card {
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 12px;
-      transition: all 0.3s ease;
-    }
-    .medida-card:hover {
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-    .medida-card h4 {
-      font-size: 14px;
-      margin: 0 0 10px 0;
-      color: #0f172a;
-    }
-
-    .medidas-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    @media (max-width: 767px) {
-      .medidas-grid { grid-template-columns: 1fr; }
-    }
-
-    .input-field {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid #d1d5db;
-      box-sizing: border-box;
-      font-size: 14px;
-      transition: all 0.25s ease;
-      background: #fff;
-    }
-    .input-field:focus {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-      outline: none;
-    }
-
-    .resultado-medida {
-      font-weight: 600;
-      color: #16a34a;
-      margin: 8px 0 0 0;
-      font-size: 13px;
-    }
-
-    .radio-label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 500;
-      font-size: 13px;
-      color: #0f172a;
-    }
-    .radio-label input {
-      margin-right: 6px;
-    }
-
-    .botones-medidas {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .btn-agregar {
-      background: #16a34a;
-      color: #fff;
-      border: none;
-      padding: 10px 14px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 13px;
-      flex: 1;
-      transition: all 0.25s ease;
-    }
-    .btn-agregar:hover {
-      transform: scale(1.02);
-      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
-    }
-
-    .btn-limpiar {
-      background: #f59e0b;
-      color: #fff;
-      border: none;
-      padding: 10px 14px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 13px;
-      flex: 1;
-      transition: all 0.25s ease;
-    }
-    .btn-limpiar:hover {
-      transform: scale(1.02);
-      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-    }
-
-    .btn-eliminar {
-      background: #dc2626;
-      color: #fff;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 12px;
-      margin-top: 8px;
-      width: 100%;
-      transition: all 0.25s ease;
-    }
-    .btn-eliminar:hover {
-      transform: scale(1.02);
-      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
-    }
-
-    .desperdicio-box {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .desperdicio-label {
-      font-weight: 600;
-      color: #0f172a;
-      font-size: 14px;
-      margin-right: 4px;
-    }
-    .des-btn {
-      border: 1px solid #e2e8f0;
-      padding: 8px 14px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 13px;
-      background: #fff;
-      color: #0f172a;
-      transition: all 0.25s ease;
-      min-width: 50px;
-    }
-    .des-btn.active {
-      background: #0f172a;
-      color: #fff;
-      border-color: #0f172a;
-    }
-    .des-btn:hover {
-      transform: scale(1.05);
-    }
-
-    @media (max-width: 767px) {
-      .desperdicio-box { gap: 4px; }
-      .des-btn { padding: 6px 10px; font-size: 12px; min-width: 44px; }
-    }
-
-    /* ============================================================ */
-    /* RESULTADO COTIZACIÓN - NUEVO DISEÑO */
-    /* ============================================================ */
-    .resultado-cotizacion {
-      background: #fff;
-      border-radius: 14px;
-      padding: 20px;
-      border: 1px solid #e2e8f0;
-      margin-top: 4px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    }
-
-    .resultado-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 20px;
-      margin-bottom: 16px;
-    }
-
-    .resultado-item {
-      display: flex;
-      flex-direction: column;
-      padding: 8px 12px;
-      background: #f8fafc;
-      border-radius: 8px;
-      border: 1px solid #f1f5f9;
-    }
-
-    .resultado-item.destacado {
-      background: #eff6ff;
-      border-color: #bfdbfe;
-      grid-column: 1 / -1;
-    }
-
-    .resultado-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-
-    .resultado-valor {
-      font-size: 16px;
-      font-weight: 700;
-      color: #0f172a;
-    }
-
-    .resultado-valor.principal {
-      font-size: 20px;
-      color: #1e40af;
-    }
-
-    .total-box {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 16px;
-      background: #f0fdf4;
-      border: 2px solid #86efac;
-      border-radius: 10px;
-      margin-bottom: 16px;
-    }
-
-    .total-label {
-      font-size: 16px;
-      font-weight: 700;
-      color: #166534;
-    }
-
-    .total-valor {
-      font-size: 24px;
-      font-weight: 900;
-      color: #16a34a;
-    }
-
-    .detalle-calculo {
-      background: #fef3c7;
-      padding: 12px 16px;
-      border-radius: 8px;
-      border-left: 4px solid #f59e0b;
-      margin-bottom: 12px;
-    }
-
-    .detalle-titulo {
-      font-weight: 700;
-      color: #92400e;
-      margin: 0 0 6px 0;
-      font-size: 14px;
-    }
-
-    .detalle-calculo p {
-      margin: 4px 0;
-      font-size: 14px;
-      color: #1e293b;
-    }
-
-    .detalle-calculo p strong {
-      color: #92400e;
-    }
-
-    .nota-tipo-venta {
-      background: #f1f5f9;
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 13px;
-      color: #475569;
-      text-align: center;
-    }
-
-    .necesitas-box {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 16px;
-      background: #1e293b;
-      border-radius: 10px;
-      margin-bottom: 16px;
-    }
-
-    .necesitas-label {
-      font-size: 14px;
-      font-weight: 600;
-      color: #94a3b8;
-    }
-
-    .necesitas-valor {
-      font-size: 18px;
-      font-weight: 800;
-      color: #facc15;
-    }
-
-    @media (max-width: 767px) {
-      .resultado-grid {
+      
+      .area-campos {
         grid-template-columns: 1fr;
-        gap: 6px;
       }
       
-      .resultado-item.destacado {
-        grid-column: 1;
+      .area-resultado {
+        flex-direction: column;
+        align-items: flex-start;
       }
-      
-      .total-valor {
-        font-size: 20px;
+
+      .notificacion-flotante {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+        font-size: 13px;
+        padding: 12px 16px;
       }
-      
-      .necesitas-valor {
-        font-size: 16px;
+
+      .tabla-areas {
+        font-size: 11px;
       }
-    }
 
-    @media (max-width: 400px) {
-      .resultado-cotizacion {
-        padding: 14px;
+      .tabla-areas th,
+      .tabla-areas td {
+        padding: 6px 8px;
       }
-      
-      .resultado-item {
-        padding: 6px 10px;
-      }
-      
-      .resultado-valor {
-        font-size: 14px;
-      }
-      
-      .resultado-valor.principal {
-        font-size: 17px;
-      }
-      
-      .total-valor {
-        font-size: 18px;
-      }
-    }
-
-    /* ============================================================ */
-    /* FORMULARIO CLIENTE */
-    /* ============================================================ */
-    .form-cliente {
-      margin-top: 4px;
-      background: #fff;
-      padding: 16px;
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-    }
-    .form-cliente h3 {
-      margin: 0 0 12px 0;
-      font-size: 16px;
-      color: #0f172a;
-    }
-
-    @media (max-width: 767px) {
-      .form-cliente { padding: 14px; }
-      .form-cliente h3 { font-size: 15px; }
-    }
-
-    .btn-enviar {
-      margin-top: 8px;
-      background: linear-gradient(135deg, #dc2626, #b91c1c);
-      color: #fff;
-      border: none;
-      padding: 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 700;
-      font-size: 14px;
-      width: 100%;
-      transition: all 0.25s ease;
-    }
-    .btn-enviar:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(220, 38, 38, 0.3);
-    }
-    .btn-enviar:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .mensaje-exito {
-      margin-top: 12px;
-      color: #16a34a;
-      font-weight: 600;
-      text-align: center;
-      animation: fadeIn 0.4s ease;
-    }
-
-    /* ============================================================ */
-    /* CARRUSEL DE MODELOS */
-    /* ============================================================ */
-    .modelos-carrusel {
-      background: #f0f9ff;
-      border: 1px solid #bae6fd;
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 4px 16px rgba(56, 189, 248, 0.08);
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    .modelos-carrusel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .modelos-carrusel-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: #0c4a6e;
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .title-icon {
-      font-size: 18px;
-      animation: floatIcon 3s ease-in-out infinite;
-    }
-    @keyframes floatIcon {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-4px); }
-    }
-
-    .title-badge {
-      font-size: 9px;
-      background: #0ea5e9;
-      color: #fff;
-      padding: 2px 10px;
-      border-radius: 999px;
-      font-weight: 600;
-      animation: pulseBadge 2s ease-in-out infinite;
-    }
-    @keyframes pulseBadge {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-    }
-
-    @media (max-width: 767px) {
-      .modelos-carrusel-title { font-size: 13px; }
-    }
-
-    .carrusel-controls {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .carrusel-btn {
-      background: #fff;
-      border: 1px solid #bae6fd;
-      border-radius: 50%;
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 11px;
-      transition: all 0.25s ease;
-      color: #0c4a6e;
-      font-weight: 700;
-    }
-    .carrusel-btn:hover {
-      background: #38bdf8;
-      color: #fff;
-      transform: scale(1.1);
-      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
-    }
-
-    .carrusel-indicador {
-      font-size: 12px;
-      font-weight: 600;
-      color: #0c4a6e;
-      min-width: 44px;
-      text-align: center;
-    }
-
-    @media (max-width: 767px) {
-      .carrusel-btn { width: 26px; height: 26px; font-size: 10px; }
-      .carrusel-indicador { font-size: 11px; min-width: 36px; }
-    }
-
-    .modelos-carrusel-container {
-      overflow: hidden;
-      position: relative;
-      width: 100%;
-    }
-
-    .modelos-carrusel-scroll {
-      scroll-behavior: smooth;
-      overflow-x: auto;
-      display: flex;
-      gap: 12px;
-      padding: 8px 4px 12px 4px;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: thin;
-      scrollbar-color: #38bdf8 #e0f2fe;
-      scroll-snap-type: x mandatory;
-    }
-    .modelos-carrusel-scroll::-webkit-scrollbar {
-      height: 5px;
-    }
-    .modelos-carrusel-scroll::-webkit-scrollbar-track {
-      background: #e0f2fe;
-      border-radius: 10px;
-    }
-    .modelos-carrusel-scroll::-webkit-scrollbar-thumb {
-      background: #38bdf8;
-      border-radius: 10px;
-    }
-
-    .modelo-carrusel-item {
-      min-width: 130px;
-      max-width: 160px;
-      flex-shrink: 0;
-      scroll-snap-align: start;
-      background: #fff;
-      border-radius: 14px;
-      padding: 12px;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      border: 2px solid transparent;
-      text-align: center;
-      position: relative;
-    }
-    .modelo-carrusel-item:hover {
-      transform: translateY(-4px) scale(1.02);
-      box-shadow: 0 8px 24px rgba(56, 189, 248, 0.2);
-    }
-    .modelo-carrusel-item.active {
-      border-color: #0ea5e9;
-      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2), 0 12px 28px rgba(14, 165, 233, 0.2);
-      background: #f0f9ff;
-      transform: translateY(-4px) scale(1.04);
-    }
-
-    .modelo-selected-badge {
-      position: absolute;
-      top: 6px;
-      left: 6px;
-      background: #0ea5e9;
-      color: #fff;
-      font-size: 8px;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 999px;
-      animation: fadeIn 0.3s ease;
-      z-index: 2;
-    }
-
-    .modelo-carrusel-img {
-      width: 100%;
-      height: 90px;
-      object-fit: contain;
-      border-radius: 8px;
-      background: #fafafa;
-      padding: 4px;
-      transition: transform 0.3s ease;
-    }
-    .modelo-carrusel-item:hover .modelo-carrusel-img {
-      transform: scale(1.05);
-    }
-
-    .modelo-carrusel-info {
-      margin-top: 6px;
-    }
-    .modelo-carrusel-nombre {
-      font-size: 11px;
-      font-weight: 600;
-      color: #0c4a6e;
-      margin: 0;
-      line-height: 1.2;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      height: 26px;
-    }
-    .modelo-carrusel-precio {
-      font-size: 13px;
-      font-weight: 700;
-      color: #16a34a;
-      margin: 3px 0 0 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-    }
-    .oferta-tag {
-      font-size: 8px;
-      background: #dc2626;
-      color: #fff;
-      padding: 1px 6px;
-      border-radius: 999px;
-      font-weight: 600;
-    }
-    .stock-badge {
-      font-size: 9px;
-      background: #f59e0b;
-      color: #fff;
-      padding: 2px 8px;
-      border-radius: 999px;
-      display: inline-block;
-      margin-top: 3px;
-      font-weight: 600;
-      animation: pulseBadge 2s ease-in-out infinite;
-    }
-
-    @media (min-width: 1024px) {
-      .modelo-carrusel-item { min-width: 160px; max-width: 190px; }
-      .modelo-carrusel-img { height: 120px; }
-    }
-
-    @media (min-width: 1440px) {
-      .modelo-carrusel-item { min-width: 180px; max-width: 210px; }
-      .modelo-carrusel-img { height: 130px; }
-    }
-
-    @media (max-width: 767px) {
-      .modelo-carrusel-item { min-width: 110px; max-width: 135px; padding: 10px; }
-      .modelo-carrusel-img { height: 75px; }
-      .modelo-carrusel-nombre { font-size: 10px; height: 22px; }
-      .modelo-carrusel-precio { font-size: 12px; }
-    }
-
-    @media (max-width: 400px) {
-      .modelo-carrusel-item { min-width: 90px; max-width: 110px; padding: 8px; }
-      .modelo-carrusel-img { height: 60px; }
-    }
-
-    .carrusel-progress {
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      margin-top: 10px;
-    }
-    .carrusel-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #e2e8f0;
-      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-      cursor: pointer;
-    }
-    .carrusel-dot.active {
-      width: 28px;
-      background: #0ea5e9;
-      box-shadow: 0 0 16px rgba(14, 165, 233, 0.3);
-    }
-    .carrusel-dot:hover {
-      transform: scale(1.2);
-    }
-
-    .btn-ver-todos {
-      width: 100%;
-      margin-top: 12px;
-      background: #0ea5e9;
-      color: #fff;
-      border: none;
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.25s ease;
-      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
-    }
-    .btn-ver-todos:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(14, 165, 233, 0.35);
-      background: #0284c7;
-    }
-
-    @media (max-width: 767px) {
-      .btn-ver-todos { font-size: 12px; padding: 8px 12px; }
-    }
-
-    /* ============================================================ */
-    /* PRODUCTOS RELACIONADOS */
-    /* ============================================================ */
-    .full-width-related-wrapper {
-      width: 100%;
-      max-width: 100vw;
-      overflow-x: hidden;
-      padding: 0 16px;
-      box-sizing: border-box;
-      margin: 0 auto;
-    }
-
-    .full-width-related-section {
-      max-width: 1400px;
-      margin: 32px auto 0 auto;
-      padding: 0 4px;
-      box-sizing: border-box;
-      width: 100%;
-    }
-
-    .related-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 14px;
-      width: 100%;
-    }
-
-    .section-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 0;
-    }
-
-    .related-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding: 0 2px;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .related-count {
-      font-size: 13px;
-      font-weight: 600;
-      color: #64748b;
-      background: #f1f5f9;
-      padding: 4px 14px;
-      border-radius: 999px;
-    }
-
-    .highlight {
-      color: #3b82f6;
-    }
-
-    .related-card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 12px;
-      text-align: center;
-      cursor: pointer;
-      position: relative;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-      transition: all 0.3s ease;
-    }
-    .related-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.1);
-    }
-
-    .sugerido-card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 12px;
-      position: relative;
-      cursor: pointer;
-      overflow: hidden;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-      transition: all 0.3s ease;
-      text-align: center;
-    }
-    .sugerido-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.1);
-    }
-
-    .sugerido-badge {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: #0f172a;
-      color: #fff;
-      font-size: 9px;
-      padding: 3px 10px;
-      border-radius: 999px;
-      font-weight: 700;
-      z-index: 5;
-    }
-
-    .related-image {
-      width: 100%;
-      height: 110px;
-      object-fit: contain;
-      border-radius: 10px;
-      margin-bottom: 8px;
-      background: #fafafa;
-    }
-
-    .related-card h4, .sugerido-card h4 {
-      font-size: 13px;
-      margin: 6px 0 4px 0;
-      color: #0f172a;
-      line-height: 1.2;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      height: 32px;
-    }
-
-    .related-sub {
-      font-size: 11px;
-      color: #64748b;
-      margin: 0 0 4px 0;
-    }
-
-    .related-price {
-      color: #16a34a;
-      font-weight: 700;
-      font-size: 15px;
-      margin: 4px 0 0 0;
-    }
-
-    .precio-ant {
-      text-decoration: line-through;
-      color: #94a3b8;
-      font-size: 13px;
-      display: block;
-    }
-    .precio-of {
-      color: #dc2626;
-      font-weight: 700;
-      font-size: 16px;
-      margin: 0;
-    }
-
-    .fav-btn-small {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      border: none;
-      font-size: 15px;
-      cursor: pointer;
-      z-index: 5;
-      transition: all 0.25s ease;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      background: rgba(255,255,255,0.95);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .fav-btn-small:hover {
-      transform: scale(1.1);
-    }
-
-    @media (max-width: 400px) {
-      .fav-btn-small { width: 28px; height: 28px; font-size: 12px; }
-    }
-
-    .tipo-grupo {
-      margin-bottom: 24px;
-    }
-    .tipo-grupo:last-child { margin-bottom: 0; }
-
-    .tipo-grupo-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 16px;
-      background: #f8fafc;
-      border-radius: 12px;
-      border-left: 4px solid #3b82f6;
-      margin-bottom: 14px;
-    }
-    .tipo-grupo-icon { font-size: 18px; }
-    .tipo-grupo-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 0;
-      flex: 1;
-    }
-    .tipo-grupo-count {
-      font-size: 11px;
-      font-weight: 600;
-      color: #64748b;
-      background: #fff;
-      padding: 2px 12px;
-      border-radius: 999px;
-      border: 1px solid #e2e8f0;
-    }
-
-    @media (max-width: 767px) {
-      .tipo-grupo-header { flex-wrap: wrap; padding: 8px 12px; }
-      .tipo-grupo-title { font-size: 13px; }
-    }
-
-    .sugeridos-banner {
-      background: #f8fafc;
-      border-left: 5px solid #0f172a;
-      padding: 16px 20px;
-      border-radius: 14px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .sugeridos-label {
-      display: inline-block;
-      background: #0f172a;
-      color: #fff;
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 1.2px;
-      padding: 4px 14px;
-      border-radius: 999px;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-    .sugeridos-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 6px 0 8px 0;
-      line-height: 1.2;
-    }
-    .sugeridos-subtitle {
-      font-size: 14px;
-      color: #475569;
-      margin: 0;
-    }
-
-    @media (min-width: 1440px) {
-      .sugeridos-title { font-size: 26px; }
-      .sugeridos-banner { padding: 20px 28px; }
-    }
-
-    @media (max-width: 767px) {
-      .sugeridos-title { font-size: 17px; }
-      .sugeridos-subtitle { font-size: 13px; }
-      .sugeridos-banner { padding: 12px 14px; }
-    }
-
-    @media (min-width: 1024px) {
-      .related-grid { grid-template-columns: repeat(5, 1fr); gap: 20px; }
-      .related-image { height: 150px; }
-      .full-width-related-wrapper { padding: 0 36px; }
-    }
-
-    @media (min-width: 1440px) {
-      .related-grid { gap: 24px; }
-      .related-image { height: 180px; }
-      .full-width-related-wrapper { padding: 0 56px; }
-      .full-width-related-section { max-width: 1600px; }
-    }
-
-    @media (max-width: 767px) {
-      .full-width-related-wrapper { padding: 0 10px; }
-      .full-width-related-section { padding: 0 2px; }
-      .related-grid { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
-      .related-image { height: 90px; }
-      .related-card h4, .sugerido-card h4 { font-size: 12px; height: 28px; }
-    }
-
-    @media (max-width: 400px) {
-      .related-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-      .related-image { height: 70px; }
-    }
-
-    /* ============================================================ */
-    /* MODALES ZOOM */
-    /* ============================================================ */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0,0,0,0.85);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      cursor: zoom-out;
-      animation: fadeIn 0.25s ease;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-    .modal-image {
-      max-width: 90%;
-      max-height: 90%;
-      border-radius: 8px;
-      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
-      animation: zoomIn 0.25s ease;
-      object-fit: contain;
-    }
-    @keyframes zoomIn {
-      from { transform: scale(0.9); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
     }
   `;
-  document.head.appendChild(styleSheet);
+  document.head.appendChild(extraStyles);
 }
