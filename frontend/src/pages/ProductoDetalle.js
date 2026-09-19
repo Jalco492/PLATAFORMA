@@ -7,12 +7,23 @@ import Footer from "./Footer";
 import Navbar from "./Navbar";
 
 // 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
+const BACKEND_URL = "https://backend-zuib.onrender.com";
+
 const getImageUrl = (imagen) => {
   if (!imagen) return "https://via.placeholder.com/200";
+  if (typeof imagen !== "string") return "https://via.placeholder.com/200";
+  
+  // Ya es una URL absoluta
   if (imagen.startsWith("http://") || imagen.startsWith("https://")) return imagen;
-  if (imagen.startsWith("/")) return `http://localhost:5000${imagen}`;
-  return `http://localhost:5000/${imagen}`;
+  // Previsualizaciones locales
+  if (imagen.startsWith("blob:")) return imagen;
+  if (imagen.startsWith("data:")) return imagen;
+  // Rutas absolutas del backend
+  if (imagen.startsWith("/")) return `${BACKEND_URL}${imagen}`;
+  // Rutas relativas
+  return `${BACKEND_URL}/${imagen}`;
 };
+
 
 export default function ProductoDetalle() {
   const { id } = useParams();
