@@ -1,34 +1,39 @@
 const mysql = require("mysql2/promise");
 
 const connection = mysql.createPool({
-  host: "altaria.proxy.rlwy.net",
-  port: 42847,
+  host: "iriguchi.proxy.rlwy.net",
+  port: 53770,
   user: "root",
-  password: "OZsiloqsOtiTdSpxnePyuRttDTFnUGKi",
+  password: "ZXisDQVLLRKECsoMFHDEzVDLhxgSylCk",
   database: "railway",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
 
-console.log("✅ Configuración MySQL cargada");
-
 async function probarConexion() {
   try {
+    console.log("🔄 Probando conexión...");
+
+    const [resultado] = await connection.query("SELECT 1");
+
+    console.log("✅ CONEXIÓN A MYSQL CORRECTA");
+    console.log(resultado);
+
     const [productos] = await connection.query(
       "SELECT * FROM productos LIMIT 10"
     );
 
-    console.log("=================================");
-    console.log("✅ MYSQL RAILWAY CONECTADO");
-    console.log("📦 PRODUCTOS:", productos.length);
+    console.log("✅ TABLA PRODUCTOS CORRECTA");
+    console.log("📦 Productos encontrados:", productos.length);
     console.log(productos);
-    console.log("=================================");
 
   } catch (error) {
-    console.error("❌ ERROR AL CONSULTAR PRODUCTOS:");
+    console.error("❌ ERROR MYSQL:");
     console.error(error);
   }
 }
 
 probarConexion();
+
+module.exports = connection;

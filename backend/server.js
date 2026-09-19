@@ -45,12 +45,97 @@ const upload = multer({ storage });
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // =================================================
+// 🔥 FUNCIÓN AUXILIAR: OBTENER UNIDAD LEGIBLE SEGÚN TIPO DE VENTA
+// =================================================
+const obtenerUnidadLegible = (tipoVenta) => {
+  if (!tipoVenta) return "Unidad";
+  const tipos = {
+    'caja': 'Caja',
+    'pieza': 'Pz',
+    'paquete': 'Paquete',
+    'metro_cuadrado': 'm²',
+    'metro_lineal': 'ml',
+    'presentacion': 'Presentación',
+    'unidad': 'Unidad',
+    'tramo': 'Tramo',
+    'rollo': 'Rollo',
+    'otros': 'Otros'
+  };
+  return tipos[tipoVenta] || tipoVenta;
+};
+
+// =================================================
+// 🔥 FUNCIÓN AUXILIAR: FORMATEAR FECHA Y HORA
+// ✅ CORREGIDA para aceptar Date, string ISO y string formateado
+// =================================================
+const formatearFecha = (fechaISO) => {
+  if (!fechaISO) return '';
+  
+  try {
+    // 🔥 Si ya viene formateada con "/" (ej: "Lunes 15/04/2025"), regresarla tal cual
+    if (typeof fechaISO === 'string' && fechaISO.includes('/')) {
+      return fechaISO;
+    }
+    
+    // 🔥 Convertir a Date si es un objeto Date o string
+    const fecha = fechaISO instanceof Date ? fechaISO : new Date(fechaISO);
+    
+    // Validar que sea una fecha válida
+    if (isNaN(fecha.getTime())) {
+      return String(fechaISO);
+    }
+    
+    const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const año = fecha.getFullYear();
+    return `${dias[fecha.getDay()]} ${dia}/${mes}/${año}`;
+  } catch (error) {
+    console.error("Error formateando fecha:", error);
+    return String(fechaISO || '');
+  }
+};
+
+const formatearHora = (hora24) => {
+  if (!hora24) return '';
+  
+  try {
+    // 🔥 Si ya viene con AM/PM, regresarla tal cual
+    if (typeof hora24 === 'string' && (hora24.toUpperCase().includes('AM') || hora24.toUpperCase().includes('PM'))) {
+      return hora24;
+    }
+    
+    // 🔥 Convertir a string si no lo es
+    const horaStr = String(hora24);
+    
+    // Parsear "HH:MM" o "HH:MM:SS"
+    const partes = horaStr.split(':');
+    if (partes.length < 2) {
+      return horaStr;
+    }
+    
+    const h = parseInt(partes[0]);
+    const m = partes[1];
+    
+    if (isNaN(h)) {
+      return horaStr;
+    }
+    
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const hora12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+    return `${hora12}:${m} ${ampm}`;
+  } catch (error) {
+    console.error("Error formateando hora:", error);
+    return String(hora24 || '');
+  }
+};
+
+// =================================================
 // 📤 SUBIR IMÁGENES DE PRODUCTOS
 // =================================================
 app.post("/upload-productos", upload.array("imagenes", 20), async (req, res) => {
   const imagenes = req.files.map(file =>
-  `/uploads/productos/${file.filename}`
-
+    `/uploads/productos/${file.filename}`
   );
   res.json(imagenes);
 });
@@ -59,8 +144,8 @@ app.post("/upload-productos", upload.array("imagenes", 20), async (req, res) => 
 // 📤 SUBIR BANNER
 // =================================================
 app.post("/upload-banner", upload.single("imagen"), (req, res) => {
- const imagen =
-`/uploads/productos/${req.file.filename}`;
+  const imagen = `/uploads/productos/${req.file.filename}`;
+  res.json({ imagen });
 });
 
 // =================================================
@@ -71,7 +156,6 @@ app.post("/enviar-cotizacion", async (req, res) => {
     const { nombre, correo, celular, producto, total, pdf } = req.body;
     const pdfBuffer = Buffer.from(pdf.split("base64,")[1], "base64");
 
-    // Convertir buffer a base64 para Resend
     const pdfBase64 = pdfBuffer.toString('base64');
 
     await resend.emails.send({
@@ -102,9 +186,6 @@ app.post("/enviar-cotizacion", async (req, res) => {
 // =================================================
 // 📋 PEDIDOS - GENERAR NÚMERO DE PEDIDO ÚNICO
 // =================================================
-
-// Función para generar número de pedido único
-// Formato: PED-YYYYMMDD-XXXX (ej: PED-20250127-0001)
 const generarNumeroPedido = async () => {
   const fecha = new Date();
   const año = fecha.getFullYear();
@@ -112,7 +193,6 @@ const generarNumeroPedido = async () => {
   const dia = String(fecha.getDate()).padStart(2, '0');
   const fechaStr = `${año}${mes}${dia}`;
   
-  // Buscar el último pedido del día
   const [rows] = await db.query(
     "SELECT numero_pedido FROM pedidos WHERE numero_pedido LIKE ? ORDER BY id DESC LIMIT 1",
     [`PED-${fechaStr}-%`]
@@ -130,12 +210,13 @@ const generarNumeroPedido = async () => {
   return `PED-${fechaStr}-${String(consecutivo).padStart(4, '0')}`;
 };
 
+// =================================================
 // 📋 CREAR PEDIDO
+// =================================================
 app.post("/pedidos", async (req, res) => {
   try {
     const { cliente, productos, total } = req.body;
     
-    // Validar datos
     if (!cliente || !cliente.nombre || !cliente.email || !cliente.celular) {
       return res.status(400).json({ error: "Datos del cliente incompletos" });
     }
@@ -144,10 +225,8 @@ app.post("/pedidos", async (req, res) => {
       return res.status(400).json({ error: "No hay productos en el pedido" });
     }
     
-    // Generar número de pedido único
     const numeroPedido = await generarNumeroPedido();
     
-    // Insertar pedido
     const sqlPedido = `
       INSERT INTO pedidos (
         numero_pedido,
@@ -155,10 +234,12 @@ app.post("/pedidos", async (req, res) => {
         cliente_email,
         cliente_celular,
         cliente_comentarios,
+        dia_entrega,
+        hora_entrega,
         total,
         estado,
         fecha_pedido
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `;
     
     const [resultPedido] = await db.query(sqlPedido, [
@@ -167,24 +248,27 @@ app.post("/pedidos", async (req, res) => {
       cliente.email,
       cliente.celular,
       cliente.comentarios || null,
+      cliente.diaEntrega || null,
+      cliente.horaEntrega || null,
       total,
       'pendiente'
     ]);
     
     const pedidoId = resultPedido.insertId;
     
-    // Insertar productos del pedido (incluyendo imagen)
     const sqlProducto = `
       INSERT INTO pedido_productos (
         pedido_id,
         producto_id,
         nombre,
         sku,
+        tipo_venta,
+        unidad_medida,
         cantidad,
         precio,
         subtotal,
         imagen
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     for (const item of productos) {
@@ -193,6 +277,8 @@ app.post("/pedidos", async (req, res) => {
         item.id || null,
         item.nombre,
         item.sku || null,
+        item.tipoVenta || null,
+        item.unidadMostrar || item.unidadMedida || null,
         item.cantidad,
         item.precio,
         item.subtotal,
@@ -200,12 +286,10 @@ app.post("/pedidos", async (req, res) => {
       ]);
     }
     
-    // Enviar correo de confirmación
     try {
       await enviarCorreoPedido(cliente, numeroPedido, productos, total);
     } catch (emailError) {
       console.error("Error al enviar correo:", emailError);
-      // No falla el pedido si el correo falla
     }
     
     res.status(201).json({
@@ -224,7 +308,9 @@ app.post("/pedidos", async (req, res) => {
   }
 });
 
+// =================================================
 // 📋 OBTENER PEDIDOS (ADMIN)
+// =================================================
 app.get("/pedidos", async (req, res) => {
   try {
     const sql = `
@@ -244,7 +330,9 @@ app.get("/pedidos", async (req, res) => {
   }
 });
 
+// =================================================
 // 📋 OBTENER PEDIDO POR ID
+// =================================================
 app.get("/pedidos/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -269,7 +357,9 @@ app.get("/pedidos/:id", async (req, res) => {
   }
 });
 
+// =================================================
 // 📋 OBTENER PEDIDO POR NÚMERO DE PEDIDO
+// =================================================
 app.get("/pedidos/numero/:numero", async (req, res) => {
   try {
     const { numero } = req.params;
@@ -298,8 +388,20 @@ app.get("/pedidos/numero/:numero", async (req, res) => {
   }
 });
 
+// =================================================
 // 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO (con Resend)
+// =================================================
 const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => {
+  console.log("=================================================");
+  console.log("📧 INICIANDO ENVÍO DE CORREO DE ACTUALIZACIÓN");
+  console.log("   Pedido:", pedido.numero_pedido);
+  console.log("   Email:", pedido.cliente_email);
+  console.log("   Estado anterior:", estadoAnterior);
+  console.log("   Estado nuevo:", estadoNuevo);
+  console.log("   Día entrega:", pedido.dia_entrega);
+  console.log("   Hora entrega:", pedido.hora_entrega);
+  console.log("=================================================");
+
   const estadoLabels = {
     pendiente: '⏳ Pendiente',
     confirmado: '✅ Confirmado',
@@ -318,28 +420,58 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
     pendiente: 'Tu pedido está pendiente de revisión.'
   };
 
-  // Obtener productos del pedido para mostrarlos en el correo
   const [productos] = await db.query(
     "SELECT * FROM pedido_productos WHERE pedido_id = ?",
     [pedido.id]
   );
 
-  const productosHtml = productos.map(p => `
-    <tr>
-      <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${p.nombre}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${p.cantidad}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">$${p.precio}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">$${p.subtotal}</td>
-    </tr>
-  `).join('');
+  console.log(`   Productos encontrados: ${productos.length}`);
+
+  // 🔥 Filas con COLUMNA UNIDAD - SIN ENCIMADO
+  const productosHtml = productos.map(p => {
+    const unidad = p.unidad_medida || obtenerUnidadLegible(p.tipo_venta);
+    const skuCorto = (p.sku || 'N/A').substring(0, 18);
+    return `
+      <tr>
+        <td style="padding: 14px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; word-break: break-word; overflow-wrap: break-word;">
+          <div style="font-weight: 600; color: #1e293b; font-size: 13px; line-height: 1.4;">
+            ${p.nombre}
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
+            SKU: ${skuCorto}
+          </div>
+        </td>
+        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-weight: 700; color: #1d4ed8; font-size: 11px; white-space: nowrap;">
+          ${unidad}
+        </td>
+        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-size: 13px; white-space: nowrap; font-weight: 600; color: #334155;">
+          ${p.cantidad}
+        </td>
+        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; vertical-align: middle; font-size: 12px; white-space: nowrap; color: #475569;">
+          $${p.precio}
+        </td>
+        <td style="padding: 14px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; vertical-align: middle; font-weight: 700; font-size: 12px; white-space: nowrap; color: #1d4ed8;">
+          $${p.subtotal}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const fechaEntrega = pedido.dia_entrega ? formatearFecha(pedido.dia_entrega) : null;
+  const horaEntrega = pedido.hora_entrega ? formatearHora(pedido.hora_entrega) : null;
+
+  console.log(`   Fecha formateada: ${fechaEntrega || 'N/A'}`);
+  console.log(`   Hora formateada: ${horaEntrega || 'N/A'}`);
 
   const html = `
     <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        body { font-family: Arial, sans-serif; background: #f8fafc; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        body { font-family: Arial, sans-serif; background: #f8fafc; padding: 20px; margin: 0; }
+        .container { max-width: 720px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
         .header { text-align: center; padding-bottom: 20px; border-bottom: 2px solid #3b82f6; }
         .header h1 { color: #1e293b; margin: 0; }
         .status-box { background: #f1f5f9; padding: 20px; border-radius: 12px; margin: 20px 0; text-align: center; }
@@ -349,13 +481,46 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
         .message { background: #eef2ff; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #3b82f6; }
         .pedido-info { background: #f8fafc; padding: 15px; border-radius: 8px; margin: 16px 0; }
         .pedido-info p { margin: 5px 0; }
-        table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-        th { background: #3b82f6; color: #fff; padding: 10px; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+        .entrega-info { background: #fffbeb; padding: 15px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b; }
+        .entrega-info p { margin: 5px 0; color: #92400e; }
+        
+        /* 🔥 TABLA SIN ENCIMADO */
+        .tabla-productos {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+          margin: 16px 0;
+          font-size: 12px;
+        }
+        .tabla-productos thead th {
+          background: #3b82f6;
+          color: #fff;
+          padding: 12px 6px;
+          text-align: left;
+          font-size: 11px;
+          font-weight: 700;
+          white-space: nowrap;
+          letter-spacing: 0.3px;
+        }
+        .tabla-productos thead th.th-unidad,
+        .tabla-productos thead th.th-cantidad {
+          text-align: center;
+        }
+        .tabla-productos thead th.th-precio,
+        .tabla-productos thead th.th-subtotal {
+          text-align: right;
+        }
+        
         .total { text-align: right; font-size: 18px; font-weight: bold; color: #3b82f6; padding-top: 15px; border-top: 2px solid #e2e8f0; }
         .footer { text-align: center; margin-top: 30px; color: #94a3b8; font-size: 14px; }
         .importante { margin-top: 16px; padding: 15px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b; }
         .importante p { margin: 0; color: #92400e; }
+        
+        @media only screen and (max-width: 600px) {
+          .container { padding: 15px !important; }
+          .tabla-productos { font-size: 11px !important; }
+          .tabla-productos thead th { font-size: 10px !important; padding: 10px 4px !important; }
+        }
       </style>
     </head>
     <body>
@@ -382,15 +547,32 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
           <p><strong>📧 Email:</strong> ${pedido.cliente_email}</p>
           <p><strong>📱 Celular:</strong> ${pedido.cliente_celular}</p>
         </div>
+
+        ${fechaEntrega || horaEntrega ? `
+          <div class="entrega-info">
+            <p><strong>📅 Día de entrega:</strong> ${fechaEntrega || 'No especificado'}</p>
+            <p><strong>🕒 Hora de entrega:</strong> ${horaEntrega || 'No especificado'}</p>
+          </div>
+        ` : ''}
         
-        <h3>🛒 Productos</h3>
-        <table>
+        <h3 style="color: #1e40af;">🛒 Productos</h3>
+        
+        <!-- 🔥 TABLA CON ANCHOS GENEROSOS -->
+        <table class="tabla-productos" width="100%" cellpadding="0" cellspacing="0">
+          <colgroup>
+            <col style="width: 36%;">
+            <col style="width: 16%;">
+            <col style="width: 14%;">
+            <col style="width: 16%;">
+            <col style="width: 18%;">
+          </colgroup>
           <thead>
             <tr>
               <th>Producto</th>
-              <th style="text-align: center;">Cantidad</th>
-              <th style="text-align: right;">Precio</th>
-              <th style="text-align: right;">Subtotal</th>
+              <th class="th-unidad">Unidad</th>
+              <th class="th-cantidad">Cant.</th>
+              <th class="th-precio">Precio</th>
+              <th class="th-subtotal">Subtotal</th>
             </tr>
           </thead>
           <tbody>
@@ -417,62 +599,93 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
   `;
 
   try {
-    await resend.emails.send({
+    console.log("📤 Enviando correo con Resend...");
+    const resultado = await resend.emails.send({
       from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
       to: pedido.cliente_email,
       subject: `📦 Actualización de tu pedido #${pedido.numero_pedido}`,
       html: html
     });
+    console.log("✅ RESULTADO RESEND:", JSON.stringify(resultado, null, 2));
     console.log(`✅ Correo de actualización enviado a ${pedido.cliente_email}`);
+    return resultado;
   } catch (error) {
-    console.error("Error enviando correo de actualización:", error);
+    console.error("❌ ERROR AL ENVIAR CORREO:");
+    console.error("   Mensaje:", error.message);
+    console.error("   Stack:", error.stack);
     throw error;
   }
 };
 
+// =================================================
 // 📋 ACTUALIZAR ESTADO DE PEDIDO (con envío de correo)
+// =================================================
 app.put("/pedidos/:id/estado", async (req, res) => {
   try {
     const { id } = req.params;
     const { estado } = req.body;
     
+    console.log("=================================================");
+    console.log("🔄 ACTUALIZANDO ESTADO DE PEDIDO");
+    console.log("   ID pedido:", id);
+    console.log("   Nuevo estado:", estado);
+    console.log("=================================================");
+    
     const estadosValidos = ['pendiente', 'confirmado', 'en_preparacion', 'listo', 'entregado', 'cancelado'];
     if (!estadosValidos.includes(estado)) {
+      console.log("❌ Estado no válido:", estado);
       return res.status(400).json({ error: "Estado no válido" });
     }
     
-    // Obtener el pedido actual para saber el estado anterior
     const [pedidoActual] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedidoActual.length === 0) {
+      console.log("❌ Pedido no encontrado:", id);
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
     
     const estadoAnterior = pedidoActual[0].estado;
+    console.log("   Estado anterior:", estadoAnterior);
     
-    // Actualizar el estado
+    if (estadoAnterior === estado) {
+      console.log("⚠️ El estado es el mismo, no se envía correo");
+      return res.json({ 
+        success: true, 
+        mensaje: "El estado ya era el mismo",
+        estado_anterior: estadoAnterior,
+        estado_nuevo: estado,
+        correo_enviado: false
+      });
+    }
+    
+    // Actualizar en BD
     await db.query(
       "UPDATE pedidos SET estado = ? WHERE id = ?",
       [estado, id]
     );
+    console.log("✅ Estado actualizado en BD");
     
-    // Obtener el pedido actualizado
     const [pedidoActualizado] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     
-    // Enviar correo de actualización (solo si el estado cambió)
-    if (estadoAnterior !== estado) {
-      try {
-        await enviarCorreoEstadoPedido(pedidoActualizado[0], estadoAnterior, estado);
-      } catch (emailError) {
-        console.error("Error enviando correo:", emailError);
-        // No falla la actualización si el correo falla
-      }
+    // Enviar correo
+    let correoEnviado = false;
+    let errorCorreo = null;
+    
+    try {
+      await enviarCorreoEstadoPedido(pedidoActualizado[0], estadoAnterior, estado);
+      correoEnviado = true;
+      console.log("✅ CORREO ENVIADO CORRECTAMENTE");
+    } catch (emailError) {
+      errorCorreo = emailError.message;
+      console.error("❌ ERROR AL ENVIAR CORREO:", emailError.message);
     }
     
     res.json({ 
       success: true, 
       mensaje: "Estado actualizado",
       estado_anterior: estadoAnterior,
-      estado_nuevo: estado
+      estado_nuevo: estado,
+      correo_enviado: correoEnviado,
+      error_correo: errorCorreo
     });
   } catch (error) {
     console.error("Error al actualizar estado:", error);
@@ -480,37 +693,98 @@ app.put("/pedidos/:id/estado", async (req, res) => {
   }
 });
 
+// =================================================
 // 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO) con Resend
+// =================================================
 const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
-  const productosHtml = productos.map(p => `
-    <tr>
-      <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${p.nombre}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${p.cantidad}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">$${p.precio}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">$${p.subtotal}</td>
-    </tr>
-  `).join('');
+  // 🔥 Filas con COLUMNA UNIDAD - SIN ENCIMADO
+  const productosHtml = productos.map(p => {
+    const unidad = p.unidadMostrar || p.unidadMedida || obtenerUnidadLegible(p.tipoVenta);
+    const skuCorto = (p.sku || 'N/A').substring(0, 18);
+    return `
+      <tr>
+        <td style="padding: 14px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; word-break: break-word; overflow-wrap: break-word;">
+          <div style="font-weight: 600; color: #1e293b; font-size: 13px; line-height: 1.4;">
+            ${p.nombre}
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
+            SKU: ${skuCorto}
+          </div>
+        </td>
+        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-weight: 700; color: #1d4ed8; font-size: 11px; white-space: nowrap;">
+          ${unidad}
+        </td>
+        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-size: 13px; white-space: nowrap; font-weight: 600; color: #334155;">
+          ${p.cantidad}
+        </td>
+        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; vertical-align: middle; font-size: 12px; white-space: nowrap; color: #475569;">
+          $${p.precio}
+        </td>
+        <td style="padding: 14px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; vertical-align: middle; font-weight: 700; font-size: 12px; white-space: nowrap; color: #1d4ed8;">
+          $${p.subtotal}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const fechaEntrega = cliente.fechaEntregaFormateada || (cliente.diaEntrega ? formatearFecha(cliente.diaEntrega) : null);
+  const horaEntrega = cliente.horaEntregaFormateada || (cliente.horaEntrega ? formatearHora(cliente.horaEntrega) : null);
 
   const html = `
     <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        body { font-family: Arial, sans-serif; background: #f8fafc; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        body { font-family: Arial, sans-serif; background: #f8fafc; padding: 20px; margin: 0; }
+        .container { max-width: 720px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
         .header { text-align: center; padding-bottom: 20px; border-bottom: 2px solid #3b82f6; }
         .header h1 { color: #1e293b; margin: 0; }
         .header .numero { color: #3b82f6; font-size: 20px; font-weight: bold; }
         .cliente-info { background: #f1f5f9; padding: 15px; border-radius: 8px; margin: 20px 0; }
         .cliente-info p { margin: 5px 0; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th { background: #3b82f6; color: #fff; padding: 10px; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+        .entrega-info { background: #fffbeb; padding: 15px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b; }
+        .entrega-info p { margin: 5px 0; color: #92400e; }
+        
+        /* 🔥 TABLA SIN ENCIMADO */
+        .tabla-productos {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+          margin: 20px 0;
+          font-size: 12px;
+        }
+        .tabla-productos thead th {
+          background: #3b82f6;
+          color: #fff;
+          padding: 12px 6px;
+          text-align: left;
+          font-size: 11px;
+          font-weight: 700;
+          white-space: nowrap;
+          letter-spacing: 0.3px;
+        }
+        .tabla-productos thead th.th-unidad,
+        .tabla-productos thead th.th-cantidad {
+          text-align: center;
+        }
+        .tabla-productos thead th.th-precio,
+        .tabla-productos thead th.th-subtotal {
+          text-align: right;
+        }
+        
         .total { text-align: right; font-size: 20px; font-weight: bold; color: #3b82f6; padding-top: 15px; border-top: 2px solid #e2e8f0; }
         .footer { text-align: center; margin-top: 30px; color: #94a3b8; font-size: 14px; }
         .estado { display: inline-block; background: #f59e0b; color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 14px; }
         .importante { margin-top: 20px; padding: 15px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b; }
         .importante p { margin: 0; color: #92400e; }
+        
+        @media only screen and (max-width: 600px) {
+          .container { padding: 15px !important; }
+          .tabla-productos { font-size: 11px !important; }
+          .tabla-productos thead th { font-size: 10px !important; padding: 10px 4px !important; }
+        }
       </style>
     </head>
     <body>
@@ -527,15 +801,32 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
           <p><strong>📱 Celular:</strong> ${cliente.celular}</p>
           ${cliente.comentarios ? `<p><strong>💬 Comentarios:</strong> ${cliente.comentarios}</p>` : ''}
         </div>
+
+        ${fechaEntrega || horaEntrega ? `
+          <div class="entrega-info">
+            <p><strong>📅 Día de entrega:</strong> ${fechaEntrega || 'No especificado'}</p>
+            <p><strong>🕒 Hora de entrega:</strong> ${horaEntrega || 'No especificado'}</p>
+          </div>
+        ` : ''}
         
-        <h3>🛒 Productos</h3>
-        <table>
+        <h3 style="color: #1e40af;">🛒 Productos</h3>
+        
+        <!-- 🔥 TABLA CON ANCHOS GENEROSOS -->
+        <table class="tabla-productos" width="100%" cellpadding="0" cellspacing="0">
+          <colgroup>
+            <col style="width: 36%;">
+            <col style="width: 16%;">
+            <col style="width: 14%;">
+            <col style="width: 16%;">
+            <col style="width: 18%;">
+          </colgroup>
           <thead>
             <tr>
               <th>Producto</th>
-              <th style="text-align: center;">Cantidad</th>
-              <th style="text-align: right;">Precio</th>
-              <th style="text-align: right;">Subtotal</th>
+              <th class="th-unidad">Unidad</th>
+              <th class="th-cantidad">Cant.</th>
+              <th class="th-precio">Precio</th>
+              <th class="th-subtotal">Subtotal</th>
             </tr>
           </thead>
           <tbody>
@@ -576,7 +867,7 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
 };
 
 // =================================================
-// 📋 OBTENER TODOS LOS PRODUCTOS (PÚBLICO) - ACTUALIZADO
+// 📋 OBTENER TODOS LOS PRODUCTOS (PÚBLICO)
 // =================================================
 app.get("/productos", async (req, res) => {
   try {
@@ -991,7 +1282,7 @@ app.get("/productos/:id", async (req, res) => {
 });
 
 // =================================================
-// ➕ CREAR PRODUCTO - CON mostrarCobertura
+// ➕ CREAR PRODUCTO
 // =================================================
 app.post("/productos", async (req, res) => {
   try {
@@ -1025,6 +1316,7 @@ app.post("/productos", async (req, res) => {
       tipoCobertura,
       especificaciones,
       informacionAdicional,
+      colores_ids,
       variante,
       uso,
       aplicacion,
@@ -1034,27 +1326,16 @@ app.post("/productos", async (req, res) => {
       tipo_instalacion,
       espesor_capa_desgaste,
       unidadGrueso,
-      unidadAncho,
-      unidadAlto,
-      unidadMetroLineal,
-      metrosPorRollo,
+      mostrarCobertura,
       anchoProducto,
+      metrosPorRollo,
       precioPorMetroCuadrado,
       metrosCuadrados,
-      mostrarCobertura  // 🔥 NUEVO CAMPO
+      unidadAncho,
+      unidadAlto,
+      unidadMetroLineal
     } = req.body;
 
-    // Calcular metros cuadrados si es metro lineal
-    let metrosCuadradosFinal = metrosCuadrados || null;
-    if (tipoVenta === 'metro_lineal' && anchoProducto && metrosPorRollo) {
-      const anchoMetros = parseFloat(anchoProducto);
-      const metrosLineales = parseFloat(metrosPorRollo);
-      if (!isNaN(anchoMetros) && !isNaN(metrosLineales)) {
-        metrosCuadradosFinal = anchoMetros * metrosLineales;
-      }
-    }
-
-    // EL SQL CORRECTO - Con mostrarCobertura
     const sql = `
       INSERT INTO productos SET
         nombre = ?,
@@ -1079,11 +1360,12 @@ app.post("/productos", async (req, res) => {
         alto = ?,
         grueso = ?,
         cobertura = ?,
-        piezasCaja = ?,
         tipoVenta = ?,
+        piezasCaja = ?,
         tipoCobertura = ?,
         especificaciones = ?,
         informacionAdicional = ?,
+        colores_ids = ?,
         variante = ?,
         uso = ?,
         aplicacion = ?,
@@ -1093,24 +1375,23 @@ app.post("/productos", async (req, res) => {
         tipo_instalacion = ?,
         espesor_capa_desgaste = ?,
         unidadGrueso = ?,
-        unidadAncho = ?,
-        unidadAlto = ?,
-        unidadMetroLineal = ?,
-        metrosPorRollo = ?,
+        mostrarCobertura = ?,
         anchoProducto = ?,
+        metrosPorRollo = ?,
         precioPorMetroCuadrado = ?,
         metrosCuadrados = ?,
-        mostrarCobertura = ?
+        unidadAncho = ?,
+        unidadAlto = ?,
+        unidadMetroLineal = ?
     `;
 
-    // VALORES: 44 valores
     const values = [
       nombre || null,
       descripcion || null,
       precio || null,
       precioOferta || null,
       oferta ? 1 : 0,
-      rebaja ? 1 : 0,
+      rebaja || 0,
       stock || 0,
       imagenes || null,
       categoria_id || null,
@@ -1127,11 +1408,12 @@ app.post("/productos", async (req, res) => {
       alto || null,
       grueso || null,
       cobertura || null,
-      piezasCaja || null,
       tipoVenta || 'pieza',
+      piezasCaja || null,
       tipoCobertura || 'm2',
       especificaciones || null,
       informacionAdicional || null,
+      colores_ids || null,
       variante || null,
       uso || null,
       aplicacion || null,
@@ -1141,18 +1423,17 @@ app.post("/productos", async (req, res) => {
       tipo_instalacion || null,
       espesor_capa_desgaste || null,
       unidadGrueso || 'mm',
+      mostrarCobertura !== undefined ? (mostrarCobertura ? 1 : 0) : 1,
+      anchoProducto || null,
+      metrosPorRollo || null,
+      precioPorMetroCuadrado || null,
+      metrosCuadrados || null,
       unidadAncho || 'cm',
       unidadAlto || 'cm',
-      unidadMetroLineal || 'm',
-      metrosPorRollo || null,
-      anchoProducto || null,
-      precioPorMetroCuadrado || null,
-      metrosCuadradosFinal,
-      mostrarCobertura !== undefined ? (mostrarCobertura ? 1 : 0) : 1  // 🔥 Por defecto 1
+      unidadMetroLineal || 'm'
     ];
 
     console.log(`📝 Valores a insertar: ${values.length}`);
-    console.log(`📝 mostrarCobertura: ${values[values.length - 1]}`);
     
     const [result] = await db.query(sql, values);
     console.log("✅ Producto creado con ID:", result.insertId);
@@ -1161,7 +1442,6 @@ app.post("/productos", async (req, res) => {
   } catch (err) {
     console.error("❌ Error al crear producto:", err.message);
     console.error("❌ SQL:", err.sql);
-    console.error("❌ Detalles:", err);
     res.status(500).json({ 
       error: "Error al crear producto", 
       message: err.message,
@@ -1171,7 +1451,7 @@ app.post("/productos", async (req, res) => {
 });
 
 // =================================================
-// ✏️ ACTUALIZAR PRODUCTO - CON mostrarCobertura
+// ✏️ ACTUALIZAR PRODUCTO
 // =================================================
 app.put("/productos/:id", async (req, res) => {
   try {
@@ -1179,34 +1459,57 @@ app.put("/productos/:id", async (req, res) => {
     console.log(`📦 Actualizando producto ID: ${id}`);
     
     const {
-      nombre, descripcion, precio, precioOferta, oferta, rebaja,
-      stock, imagenes, categoria_id, subcategoria_id, tipo_id,
-      destacado, nuevo, sugerencias, fichaTecnica, sku,
-      tipoProducto, presentacion, ancho, alto, grueso,
-      cobertura, piezasCaja, tipoVenta, tipoCobertura,
-      especificaciones, informacionAdicional, variante,
-      uso, aplicacion, tipo_diseno, material, acabado,
-      tipo_instalacion, espesor_capa_desgaste,
-      unidadGrueso, unidadAncho, unidadAlto,
-      unidadMetroLineal, metrosPorRollo, anchoProducto,
-      precioPorMetroCuadrado, metrosCuadrados,
-      mostrarCobertura  // 🔥 NUEVO CAMPO
+      nombre,
+      descripcion,
+      precio,
+      precioOferta,
+      oferta,
+      rebaja,
+      stock,
+      imagenes,
+      categoria_id,
+      subcategoria_id,
+      tipo_id,
+      destacado,
+      nuevo,
+      sugerencias,
+      fichaTecnica,
+      sku,
+      tipoProducto,
+      presentacion,
+      ancho,
+      alto,
+      grueso,
+      cobertura,
+      tipoVenta,
+      piezasCaja,
+      tipoCobertura,
+      especificaciones,
+      informacionAdicional,
+      colores_ids,
+      variante,
+      uso,
+      aplicacion,
+      tipo_diseno,
+      material,
+      acabado,
+      tipo_instalacion,
+      espesor_capa_desgaste,
+      unidadGrueso,
+      mostrarCobertura,
+      anchoProducto,
+      metrosPorRollo,
+      precioPorMetroCuadrado,
+      metrosCuadrados,
+      unidadAncho,
+      unidadAlto,
+      unidadMetroLineal
     } = req.body;
-
-    // Calcular metros cuadrados si es metro lineal
-    let metrosCuadradosFinal = metrosCuadrados || null;
-    if (tipoVenta === 'metro_lineal' && anchoProducto && metrosPorRollo) {
-      const anchoMetros = parseFloat(anchoProducto);
-      const metrosLineales = parseFloat(metrosPorRollo);
-      if (!isNaN(anchoMetros) && !isNaN(metrosLineales)) {
-        metrosCuadradosFinal = anchoMetros * metrosLineales;
-      }
-    }
 
     let imagenesFinal = imagenes;
     if (imagenesFinal === undefined || imagenesFinal === null) {
       const [rows] = await db.query("SELECT imagenes FROM productos WHERE id = ?", [id]);
-      imagenesFinal = rows[0]?.imagenes || '';
+      imagenesFinal = rows[0]?.imagenes || null;
     } else if (Array.isArray(imagenesFinal)) {
       imagenesFinal = imagenesFinal.join(",");
     } else if (typeof imagenesFinal === 'string') {
@@ -1221,7 +1524,6 @@ app.put("/productos/:id", async (req, res) => {
       }
     }
 
-    // UPDATE CORRECTO - Con mostrarCobertura
     const sql = `
       UPDATE productos SET
         nombre = ?,
@@ -1246,11 +1548,12 @@ app.put("/productos/:id", async (req, res) => {
         alto = ?,
         grueso = ?,
         cobertura = ?,
-        piezasCaja = ?,
         tipoVenta = ?,
+        piezasCaja = ?,
         tipoCobertura = ?,
         especificaciones = ?,
         informacionAdicional = ?,
+        colores_ids = ?,
         variante = ?,
         uso = ?,
         aplicacion = ?,
@@ -1260,14 +1563,14 @@ app.put("/productos/:id", async (req, res) => {
         tipo_instalacion = ?,
         espesor_capa_desgaste = ?,
         unidadGrueso = ?,
-        unidadAncho = ?,
-        unidadAlto = ?,
-        unidadMetroLineal = ?,
-        metrosPorRollo = ?,
+        mostrarCobertura = ?,
         anchoProducto = ?,
+        metrosPorRollo = ?,
         precioPorMetroCuadrado = ?,
         metrosCuadrados = ?,
-        mostrarCobertura = ?
+        unidadAncho = ?,
+        unidadAlto = ?,
+        unidadMetroLineal = ?
       WHERE id = ?
     `;
 
@@ -1277,7 +1580,7 @@ app.put("/productos/:id", async (req, res) => {
       precio || null,
       precioOferta || null,
       oferta ? 1 : 0,
-      rebaja ? 1 : 0,
+      rebaja || 0,
       stock || 0,
       imagenesFinal,
       categoria_id || null,
@@ -1294,11 +1597,12 @@ app.put("/productos/:id", async (req, res) => {
       alto || null,
       grueso || null,
       cobertura || null,
-      piezasCaja || null,
       tipoVenta || 'pieza',
+      piezasCaja || null,
       tipoCobertura || 'm2',
       especificaciones || null,
       informacionAdicional || null,
+      colores_ids || null,
       variante || null,
       uso || null,
       aplicacion || null,
@@ -1308,19 +1612,18 @@ app.put("/productos/:id", async (req, res) => {
       tipo_instalacion || null,
       espesor_capa_desgaste || null,
       unidadGrueso || 'mm',
+      mostrarCobertura !== undefined ? (mostrarCobertura ? 1 : 0) : 1,
+      anchoProducto || null,
+      metrosPorRollo || null,
+      precioPorMetroCuadrado || null,
+      metrosCuadrados || null,
       unidadAncho || 'cm',
       unidadAlto || 'cm',
       unidadMetroLineal || 'm',
-      metrosPorRollo || null,
-      anchoProducto || null,
-      precioPorMetroCuadrado || null,
-      metrosCuadradosFinal,
-      mostrarCobertura !== undefined ? (mostrarCobertura ? 1 : 0) : 1,  // 🔥 Por defecto 1
       id
     ];
 
     console.log(`📝 Valores a actualizar: ${values.length}`);
-    console.log(`📝 mostrarCobertura: ${values[values.length - 2]}`);
     
     const [result] = await db.query(sql, values);
     console.log("✅ Producto actualizado, filas afectadas:", result.affectedRows);
@@ -1620,8 +1923,7 @@ app.post("/upload-ficha", uploadFicha.single("ficha"), (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No se recibió archivo" });
     }
-  const url =
-`/uploads/fichas/${req.file.filename}`;
+    const url = `/uploads/fichas/${req.file.filename}`;
     res.json({ url });
   } catch (err) {
     console.error(err);
@@ -1664,22 +1966,19 @@ app.post("/productos/:id/duplicar", async (req, res) => {
         const newFilename = `${Date.now()}-${baseName}${ext}`;
         const destPath = path.join(uploadDir, newFilename);
         await fs.promises.copyFile(srcPath, destPath);
-        const newUrl =
-`/uploads/productos/${newFilename}`;
+        const newUrl = `/uploads/productos/${newFilename}`;
         nuevasImagenes.push(newUrl);
       }
     }
 
     const nuevasImagenesString = nuevasImagenes.join(",");
 
-    const nuevoProducto = {
-      ...original,
-      id: undefined,
-      imagenes: nuevasImagenesString,
-      nombre: original.nombre + " (copia)",
-    };
+    delete original.id;
+    delete original.created_at;
+    original.imagenes = nuevasImagenesString;
+    original.nombre = original.nombre + " (copia)";
 
-    const [result] = await db.query("INSERT INTO productos SET ?", [nuevoProducto]);
+    const [result] = await db.query("INSERT INTO productos SET ?", [original]);
     const nuevoId = result.insertId;
 
     const [newRows] = await db.query(`
@@ -1911,8 +2210,7 @@ app.post("/upload-banner-oferta", uploadBannerOferta.single("imagen"), (req, res
     if (!req.file) {
       return res.status(400).json({ error: 'No se recibió ninguna imagen' });
     }
-  const imagen =
-`/uploads/banners-ofertas/${req.file.filename}`;
+    const imagen = `/uploads/banners-ofertas/${req.file.filename}`;
     res.json({ imagen });
   } catch (err) {
     console.error('Error al subir imagen:', err);
@@ -2011,13 +2309,11 @@ app.delete("/pedidos/:id", async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Verificar si el pedido existe
     const [pedido] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedido.length === 0) {
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
     
-    // Eliminar el pedido (los productos se eliminan en cascada por la FK)
     await db.query("DELETE FROM pedidos WHERE id = ?", [id]);
     
     res.json({ 
