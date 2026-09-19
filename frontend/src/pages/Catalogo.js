@@ -127,18 +127,71 @@ export default function Catalogo() {
       p.rebaja === true
   );
 
+  // 🔥 FECHA DE OFERTA - Estado inicial con valor por defecto
   const [fechaFinalOferta, setFechaFinalOferta] = useState(
     new Date("2026-12-31T23:59:59")
   );
 
+  // 🔥 CARGAR FECHA DESDE EL BACKEND (sincronizada entre dispositivos)
   useEffect(() => {
-    const guardada = localStorage.getItem("fechaOferta");
-    if (guardada) {
-      const fecha = new Date(guardada);
-      if (!isNaN(fecha.getTime())) {
-        setFechaFinalOferta(fecha);
+    const cargarFechaOferta = async () => {
+      try {
+        const res = await api.get("/configuracion/fechaOferta");
+        if (res.data?.valor) {
+          const fecha = new Date(res.data.valor);
+          if (!isNaN(fecha.getTime())) {
+            setFechaFinalOferta(fecha);
+            // Guardar en localStorage como caché
+            localStorage.setItem("fechaOferta", res.data.valor);
+            // Si la fecha ya pasó, ocultar ofertas
+            if (fecha.getTime() < Date.now()) {
+              setMostrarOfertas(false);
+            } else {
+              setMostrarOfertas(true);
+            }
+          }
+        }
+      } catch (err) {
+        console.log("No hay fecha de oferta en el backend, usando localStorage");
+        // Fallback: usar localStorage si el backend falla
+        const guardada = localStorage.getItem("fechaOferta");
+        if (guardada) {
+          const fecha = new Date(guardada);
+          if (!isNaN(fecha.getTime())) {
+            setFechaFinalOferta(fecha);
+            if (fecha.getTime() < Date.now()) {
+              setMostrarOfertas(false);
+            }
+          }
+        }
       }
-    }
+    };
+
+    cargarFechaOferta();
+  }, []);
+
+  // 🔄 AUTO-REFRESH: consultar la fecha cada 60 segundos
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get("/configuracion/fechaOferta");
+        if (res.data?.valor) {
+          const fecha = new Date(res.data.valor);
+          if (!isNaN(fecha.getTime())) {
+            setFechaFinalOferta(fecha);
+            localStorage.setItem("fechaOferta", res.data.valor);
+            // Si la fecha cambió y aún no ha pasado, mostrar ofertas
+            if (fecha.getTime() > Date.now()) {
+              setMostrarOfertas(true);
+            }
+          }
+        }
+      } catch (err) {
+        // silencioso
+      }
+    }, 60000); // cada 60 segundos
+
+    return () => clearInterval(interval);
   }, []);
 
   const [tiempoRestante, setTiempoRestante] = useState({
@@ -148,9 +201,15 @@ export default function Catalogo() {
     segundos: 0,
   });
 
+  // 🔥 TIMER - Se reinicia cuando cambia fechaFinalOferta
   useEffect(() => {
     if (!fechaFinalOferta) return;
-    
+
+    // Resetear estado al cambiar la fecha
+    if (fechaFinalOferta.getTime() > Date.now()) {
+      setMostrarOfertas(true);
+    }
+
     const interval = setInterval(() => {
       const ahora = new Date().getTime();
       const distancia = fechaFinalOferta.getTime() - ahora;
