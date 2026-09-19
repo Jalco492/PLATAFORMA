@@ -14,6 +14,7 @@ const { Resend } = require('resend');
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 console.log("RESEND_API_KEY:", process.env.RESEND_API_KEY ? "Cargada" : "No cargada");
+console.log("GEMINI_API_KEY:", process.env.GEMINI_API_KEY ? "Cargada" : "❌ NO CARGADA");
 
 const app = express();
 
@@ -66,7 +67,6 @@ const obtenerUnidadLegible = (tipoVenta) => {
 
 // =================================================
 // 🔥 FUNCIÓN AUXILIAR: FORMATEAR FECHA Y HORA
-// ✅ CORREGIDA para aceptar Date, string ISO y string formateado
 // =================================================
 const formatearFecha = (fechaISO) => {
   if (!fechaISO) return '';
@@ -142,8 +142,7 @@ app.post("/upload-banner", upload.single("imagen"), (req, res) => {
 });
 
 // =================================================
-// ⚙️ CONFIGURACIÓN GLOBAL (fecha de ofertas, etc.)
-// 🔥 NUEVO: sincroniza la fecha de oferta entre dispositivos
+// ⚙️ CONFIGURACIÓN GLOBAL
 // =================================================
 app.get("/configuracion/:clave", async (req, res) => {
   try {
@@ -188,6 +187,149 @@ app.put("/configuracion/:clave", async (req, res) => {
     res.status(500).json({ error: "Error al guardar configuración" });
   }
 });
+
+// =================================================
+// ✨ GENERAR ESPACIO CON IA (GEMINI)
+// =================================================
+const uploadIA = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10 MB por archivo
+});
+
+app.post(
+  "/ai/generar-espacio",
+  uploadIA.fields([
+    { name: "fotoEspacio", maxCount: 1 },
+    { name: "fotoProducto", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      console.log("=================================================");
+      console.log("🎨 GENERANDO IMAGEN CON IA");
+      console.log("=================================================");
+
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({
+          error: "La API Key de Gemini no está configurada en el servidor"
+        });
+      }
+
+      const { ambiente } = req.body;
+      const fotoEspacio = req.files?.fotoEspacio?.[0];
+      const fotoProducto = req.files?.fotoProducto?.[0];
+
+      if (!fotoEspacio) {
+        return res.status(400).json({ error: "Falta la foto del espacio" });
+      }
+
+      console.log("   Ambiente:", ambiente);
+      console.log("   Foto espacio:", fotoEspacio.originalname, fotoEspacio.size, "bytes");
+      console.log("   Foto producto:", fotoProducto ? `${fotoProducto.originalname} (${fotoProducto.size} bytes)` : "no enviada");
+
+      // Convertir a base64
+      const espacioBase64 = fotoEspacio.buffer.toString("base64");
+      const espacioMime = fotoEspacio.mimetype;
+
+      let productoBase64 = null;
+      let productoMime = null;
+      if (fotoProducto) {
+        productoBase64 = fotoProducto.buffer.toString("base64");
+        productoMime = fotoProducto.mimetype;
+      }
+
+      // Descripciones por ambiente
+      const promptsAmbiente = {
+        baño: "un baño moderno y elegante, con iluminación natural y acabados de primera calidad",
+        cocina: "una cocina moderna, luminosa y funcional, con acabados contemporáneos",
+        recamara: "una recámara acogedora y moderna, con decoración minimalista",
+        sala: "una sala de estar moderna y espaciosa, con decoración contemporánea",
+        comedor: "un comedor moderno y elegante, ideal para reuniones familiares",
+        oficina: "una oficina moderna y profesional, con mobiliario contemporáneo",
+        otro: "un espacio interior moderno y bien iluminado",
+      };
+
+      const descripcionAmbiente = promptsAmbiente[ambiente] || promptsAmbiente.otro;
+
+      const prompt = `Eres un experto en diseño de interiores y renderizado 3D fotorrealista.
+
+TAREA: Genera una imagen fotorrealista que muestre cómo se vería el producto instalado en ${descripcionAmbiente}.
+
+INSTRUCCIONES:
+1. Usa la primera imagen como referencia del espacio del usuario. Respeta su estructura, ventanas, paredes y perspectiva.
+2. Usa la segunda imagen como referencia del producto que se debe integrar en el espacio.
+3. Aplica el producto de forma realista en el ambiente, respetando proporciones, perspectiva e iluminación.
+4. Mantén los colores, texturas y materiales del producto original.
+5. El resultado debe verse natural, profesional y fotorrealista.
+6. NO añadas muebles o elementos que no estén en la foto original del usuario.
+7. Mantén la iluminación original del espacio, integrándola con el producto.
+
+Genera la imagen resultante.`;
+
+      // Construir partes
+      const parts = [
+        { text: prompt },
+        { inline_data: { mime_type: espacioMime, data: espacioBase64 } },
+      ];
+
+      if (productoBase64) {
+        parts.push({
+          inline_data: { mime_type: productoMime, data: productoBase64 },
+        });
+      }
+
+      console.log("   Llamando a Gemini API...");
+
+      // Llamar a Gemini (modelo de generación de imágenes)
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
+      const geminiResponse = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts }],
+        }),
+      });
+
+      if (!geminiResponse.ok) {
+        const errorText = await geminiResponse.text();
+        console.error("❌ Error de Gemini:", geminiResponse.status, errorText);
+        return res.status(geminiResponse.status).json({
+          error: "Error al llamar a Gemini API",
+          details: errorText,
+        });
+      }
+
+      const data = await geminiResponse.json();
+      console.log("   Respuesta de Gemini recibida");
+
+      // Extraer imagen generada
+      const candidate = data?.candidates?.[0];
+      const imagePart = candidate?.content?.parts?.find((p) => p.inline_data);
+
+      if (!imagePart) {
+        console.error("❌ No se encontró imagen en la respuesta:", JSON.stringify(data, null, 2));
+        return res.status(500).json({
+          error: "No se pudo generar la imagen. Intenta con otra foto o ambiente.",
+          details: candidate?.finishReason || "Sin imagen en respuesta",
+        });
+      }
+
+      const imagenGenerada = `data:${imagePart.inline_data.mime_type};base64,${imagePart.inline_data.data}`;
+
+      console.log("✅ Imagen generada exitosamente");
+      console.log("=================================================");
+
+      res.json({ success: true, imagen: imagenGenerada });
+
+    } catch (error) {
+      console.error("❌ Error generando imagen IA:", error);
+      res.status(500).json({
+        error: "Error al generar la imagen",
+        details: error.message
+      });
+    }
+  }
+);
 
 // =================================================
 // ✉️ ENVIAR COTIZACIÓN POR EMAIL (con Resend)
@@ -430,7 +572,7 @@ app.get("/pedidos/numero/:numero", async (req, res) => {
 });
 
 // =================================================
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO (con Resend)
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO
 // =================================================
 const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => {
   console.log("=================================================");
@@ -439,8 +581,6 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
   console.log("   Email:", pedido.cliente_email);
   console.log("   Estado anterior:", estadoAnterior);
   console.log("   Estado nuevo:", estadoNuevo);
-  console.log("   Día entrega:", pedido.dia_entrega);
-  console.log("   Hora entrega:", pedido.hora_entrega);
   console.log("=================================================");
 
   const estadoLabels = {
@@ -465,8 +605,6 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
     "SELECT * FROM pedido_productos WHERE pedido_id = ?",
     [pedido.id]
   );
-
-  console.log(`   Productos encontrados: ${productos.length}`);
 
   const productosHtml = productos.map(p => {
     const unidad = p.unidad_medida || obtenerUnidadLegible(p.tipo_venta);
@@ -499,9 +637,6 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
 
   const fechaEntrega = pedido.dia_entrega ? formatearFecha(pedido.dia_entrega) : null;
   const horaEntrega = pedido.hora_entrega ? formatearHora(pedido.hora_entrega) : null;
-
-  console.log(`   Fecha formateada: ${fechaEntrega || 'N/A'}`);
-  console.log(`   Hora formateada: ${horaEntrega || 'N/A'}`);
 
   const html = `
     <!DOCTYPE html>
@@ -637,55 +772,41 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
   `;
 
   try {
-    console.log("📤 Enviando correo con Resend...");
     const resultado = await resend.emails.send({
       from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
       to: pedido.cliente_email,
       subject: `📦 Actualización de tu pedido #${pedido.numero_pedido}`,
       html: html
     });
-    console.log("✅ RESULTADO RESEND:", JSON.stringify(resultado, null, 2));
-    console.log(`✅ Correo de actualización enviado a ${pedido.cliente_email}`);
+    console.log(`✅ Correo enviado a ${pedido.cliente_email}`);
     return resultado;
   } catch (error) {
-    console.error("❌ ERROR AL ENVIAR CORREO:");
-    console.error("   Mensaje:", error.message);
-    console.error("   Stack:", error.stack);
+    console.error("❌ Error al enviar correo:", error.message);
     throw error;
   }
 };
 
 // =================================================
-// 📋 ACTUALIZAR ESTADO DE PEDIDO (con envío de correo)
+// 📋 ACTUALIZAR ESTADO DE PEDIDO
 // =================================================
 app.put("/pedidos/:id/estado", async (req, res) => {
   try {
     const { id } = req.params;
     const { estado } = req.body;
     
-    console.log("=================================================");
-    console.log("🔄 ACTUALIZANDO ESTADO DE PEDIDO");
-    console.log("   ID pedido:", id);
-    console.log("   Nuevo estado:", estado);
-    console.log("=================================================");
-    
     const estadosValidos = ['pendiente', 'confirmado', 'en_preparacion', 'listo', 'entregado', 'cancelado'];
     if (!estadosValidos.includes(estado)) {
-      console.log("❌ Estado no válido:", estado);
       return res.status(400).json({ error: "Estado no válido" });
     }
     
     const [pedidoActual] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedidoActual.length === 0) {
-      console.log("❌ Pedido no encontrado:", id);
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
     
     const estadoAnterior = pedidoActual[0].estado;
-    console.log("   Estado anterior:", estadoAnterior);
     
     if (estadoAnterior === estado) {
-      console.log("⚠️ El estado es el mismo, no se envía correo");
       return res.json({ 
         success: true, 
         mensaje: "El estado ya era el mismo",
@@ -699,7 +820,6 @@ app.put("/pedidos/:id/estado", async (req, res) => {
       "UPDATE pedidos SET estado = ? WHERE id = ?",
       [estado, id]
     );
-    console.log("✅ Estado actualizado en BD");
     
     const [pedidoActualizado] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     
@@ -709,10 +829,8 @@ app.put("/pedidos/:id/estado", async (req, res) => {
     try {
       await enviarCorreoEstadoPedido(pedidoActualizado[0], estadoAnterior, estado);
       correoEnviado = true;
-      console.log("✅ CORREO ENVIADO CORRECTAMENTE");
     } catch (emailError) {
       errorCorreo = emailError.message;
-      console.error("❌ ERROR AL ENVIAR CORREO:", emailError.message);
     }
     
     res.json({ 
@@ -730,7 +848,7 @@ app.put("/pedidos/:id/estado", async (req, res) => {
 });
 
 // =================================================
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO) con Resend
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN
 // =================================================
 const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
   const productosHtml = productos.map(p => {
@@ -982,7 +1100,6 @@ app.get("/productos/destacados", async (req, res) => {
 app.get("/productos/categoria-id/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`🔍 Buscando productos para categoría ID: ${id}`);
     
     const [catCheck] = await db.query("SELECT id FROM categorias WHERE id = ?", [id]);
     if (catCheck.length === 0) {
@@ -1003,7 +1120,6 @@ app.get("/productos/categoria-id/:id", async (req, res) => {
       ORDER BY productos.nombre ASC
     `;
     const [result] = await db.query(sql, [id]);
-    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
   } catch (err) {
     console.error('❌ Error en /productos/categoria-id/:id:', err);
@@ -1071,7 +1187,6 @@ app.get("/productos/subcategoria/:nombre", async (req, res) => {
 app.get("/productos/subcategoria-id/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`🔍 Buscando productos para subcategoría ID: ${id}`);
     
     const [subCheck] = await db.query("SELECT id FROM subcategorias WHERE id = ?", [id]);
     if (subCheck.length === 0) {
@@ -1092,7 +1207,6 @@ app.get("/productos/subcategoria-id/:id", async (req, res) => {
       ORDER BY productos.nombre ASC
     `;
     const [rows] = await db.query(sql, [id]);
-    console.log(`✅ Encontrados ${rows.length} productos`);
     res.json(rows);
   } catch (error) {
     console.error('❌ Error en /productos/subcategoria-id/:id:', error);
@@ -1106,7 +1220,6 @@ app.get("/productos/subcategoria-id/:id", async (req, res) => {
 app.get("/productos/tipo/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`🔍 Buscando productos con tipo_id = ${id}`);
     
     const [tipoCheck] = await db.query("SELECT id FROM tipos WHERE id = ?", [id]);
     if (tipoCheck.length === 0) {
@@ -1128,7 +1241,6 @@ app.get("/productos/tipo/:id", async (req, res) => {
     `;
 
     const [result] = await db.query(sql, [id]);
-    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
   } catch (err) {
     console.error("❌ Error en /productos/tipo/:id", err);
@@ -1142,7 +1254,6 @@ app.get("/productos/tipo/:id", async (req, res) => {
 app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
   try {
     const { nombre } = req.params;
-    console.log(`🔍 Buscando productos con tipo: ${nombre}`);
     
     const sql = `
       SELECT 
@@ -1159,7 +1270,6 @@ app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
     `;
 
     const [result] = await db.query(sql, [nombre]);
-    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
   } catch (err) {
     console.error("❌ Error en /productos/tipo-nombre/:nombre", err);
@@ -1173,8 +1283,6 @@ app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
 app.get("/productos/filtro", async (req, res) => {
   try {
     const { categoria_id, subcategoria_id, tipo_id } = req.query;
-    
-    console.log(`🔍 Filtrando productos: categoria=${categoria_id}, subcategoria=${subcategoria_id}, tipo=${tipo_id}`);
     
     let sql = `
       SELECT 
@@ -1213,12 +1321,7 @@ app.get("/productos/filtro", async (req, res) => {
     
     sql += ' ORDER BY productos.nombre ASC';
     
-    console.log(`📝 SQL: ${sql}`);
-    console.log(`📊 Valores: ${valores}`);
-    
     const [result] = await db.query(sql, valores);
-    
-    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
     
   } catch (err) {
@@ -1263,7 +1366,6 @@ app.get("/tipos/:id", async (req, res) => {
 app.get("/subcategorias/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`🔍 Buscando subcategoría ID: ${id}`);
     
     const sql = `
       SELECT 
@@ -1276,11 +1378,9 @@ app.get("/subcategorias/:id", async (req, res) => {
     const [rows] = await db.query(sql, [id]);
     
     if (rows.length === 0) {
-      console.log(`❌ Subcategoría ID ${id} no encontrada`);
       return res.status(404).json({ error: "Subcategoría no encontrada" });
     }
     
-    console.log(`✅ Subcategoría encontrada: ${rows[0].nombre}`);
     res.json(rows[0]);
   } catch (error) {
     console.error('Error en /subcategorias/:id:', error);
@@ -1319,166 +1419,59 @@ app.get("/productos/:id", async (req, res) => {
 // =================================================
 app.post("/productos", async (req, res) => {
   try {
-    console.log("📦 Recibiendo producto:", req.body.nombre);
-    
     const {
-      nombre,
-      descripcion,
-      precio,
-      precioOferta,
-      oferta,
-      rebaja,
-      stock,
-      imagenes,
-      categoria_id,
-      subcategoria_id,
-      tipo_id,
-      destacado,
-      nuevo,
-      sugerencias,
-      fichaTecnica,
-      sku,
-      tipoProducto,
-      presentacion,
-      ancho,
-      alto,
-      grueso,
-      cobertura,
-      tipoVenta,
-      piezasCaja,
-      tipoCobertura,
-      especificaciones,
-      informacionAdicional,
-      colores_ids,
-      variante,
-      uso,
-      aplicacion,
-      tipo_diseno,
-      material,
-      acabado,
-      tipo_instalacion,
-      espesor_capa_desgaste,
-      unidadGrueso,
-      mostrarCobertura,
-      anchoProducto,
-      metrosPorRollo,
-      precioPorMetroCuadrado,
-      metrosCuadrados,
-      unidadAncho,
-      unidadAlto,
-      unidadMetroLineal
+      nombre, descripcion, precio, precioOferta, oferta, rebaja, stock, imagenes,
+      categoria_id, subcategoria_id, tipo_id, destacado, nuevo, sugerencias,
+      fichaTecnica, sku, tipoProducto, presentacion, ancho, alto, grueso, cobertura,
+      tipoVenta, piezasCaja, tipoCobertura, especificaciones, informacionAdicional,
+      colores_ids, variante, uso, aplicacion, tipo_diseno, material, acabado,
+      tipo_instalacion, espesor_capa_desgaste, unidadGrueso, mostrarCobertura,
+      anchoProducto, metrosPorRollo, precioPorMetroCuadrado, metrosCuadrados,
+      unidadAncho, unidadAlto, unidadMetroLineal
     } = req.body;
 
     const sql = `
       INSERT INTO productos SET
-        nombre = ?,
-        descripcion = ?,
-        precio = ?,
-        precioOferta = ?,
-        oferta = ?,
-        rebaja = ?,
-        stock = ?,
-        imagenes = ?,
-        categoria_id = ?,
-        subcategoria_id = ?,
-        tipo_id = ?,
-        destacado = ?,
-        nuevo = ?,
-        sugerencias = ?,
-        fichaTecnica = ?,
-        sku = ?,
-        tipoProducto = ?,
-        presentacion = ?,
-        ancho = ?,
-        alto = ?,
-        grueso = ?,
-        cobertura = ?,
-        tipoVenta = ?,
-        piezasCaja = ?,
-        tipoCobertura = ?,
-        especificaciones = ?,
-        informacionAdicional = ?,
-        colores_ids = ?,
-        variante = ?,
-        uso = ?,
-        aplicacion = ?,
-        tipo_diseno = ?,
-        material = ?,
-        acabado = ?,
-        tipo_instalacion = ?,
-        espesor_capa_desgaste = ?,
-        unidadGrueso = ?,
-        mostrarCobertura = ?,
-        anchoProducto = ?,
-        metrosPorRollo = ?,
-        precioPorMetroCuadrado = ?,
-        metrosCuadrados = ?,
-        unidadAncho = ?,
-        unidadAlto = ?,
-        unidadMetroLineal = ?
+        nombre = ?, descripcion = ?, precio = ?, precioOferta = ?, oferta = ?,
+        rebaja = ?, stock = ?, imagenes = ?, categoria_id = ?, subcategoria_id = ?,
+        tipo_id = ?, destacado = ?, nuevo = ?, sugerencias = ?, fichaTecnica = ?,
+        sku = ?, tipoProducto = ?, presentacion = ?, ancho = ?, alto = ?, grueso = ?,
+        cobertura = ?, tipoVenta = ?, piezasCaja = ?, tipoCobertura = ?,
+        especificaciones = ?, informacionAdicional = ?, colores_ids = ?, variante = ?,
+        uso = ?, aplicacion = ?, tipo_diseno = ?, material = ?, acabado = ?,
+        tipo_instalacion = ?, espesor_capa_desgaste = ?, unidadGrueso = ?,
+        mostrarCobertura = ?, anchoProducto = ?, metrosPorRollo = ?,
+        precioPorMetroCuadrado = ?, metrosCuadrados = ?, unidadAncho = ?,
+        unidadAlto = ?, unidadMetroLineal = ?
     `;
 
     const values = [
-      nombre || null,
-      descripcion || null,
-      precio || null,
-      precioOferta || null,
-      oferta ? 1 : 0,
-      rebaja || 0,
-      stock || 0,
-      imagenes || null,
-      categoria_id || null,
-      subcategoria_id || null,
-      tipo_id || null,
-      destacado ? 1 : 0,
-      nuevo ? 1 : 0,
+      nombre || null, descripcion || null, precio || null, precioOferta || null,
+      oferta ? 1 : 0, rebaja || 0, stock || 0, imagenes || null,
+      categoria_id || null, subcategoria_id || null, tipo_id || null,
+      destacado ? 1 : 0, nuevo ? 1 : 0,
       sugerencias ? JSON.stringify(sugerencias) : '[]',
-      fichaTecnica || null,
-      sku || null,
-      tipoProducto || null,
-      presentacion || null,
-      ancho || null,
-      alto || null,
-      grueso || null,
-      cobertura || null,
-      tipoVenta || 'pieza',
-      piezasCaja || null,
-      tipoCobertura || 'm2',
-      especificaciones || null,
-      informacionAdicional || null,
-      colores_ids || null,
-      variante || null,
-      uso || null,
-      aplicacion || null,
-      tipo_diseno || null,
-      material || null,
-      acabado || null,
-      tipo_instalacion || null,
-      espesor_capa_desgaste || null,
+      fichaTecnica || null, sku || null, tipoProducto || null,
+      presentacion || null, ancho || null, alto || null, grueso || null,
+      cobertura || null, tipoVenta || 'pieza', piezasCaja || null,
+      tipoCobertura || 'm2', especificaciones || null,
+      informacionAdicional || null, colores_ids || null, variante || null,
+      uso || null, aplicacion || null, tipo_diseno || null, material || null,
+      acabado || null, tipo_instalacion || null, espesor_capa_desgaste || null,
       unidadGrueso || 'mm',
       mostrarCobertura !== undefined ? (mostrarCobertura ? 1 : 0) : 1,
-      anchoProducto || null,
-      metrosPorRollo || null,
-      precioPorMetroCuadrado || null,
-      metrosCuadrados || null,
-      unidadAncho || 'cm',
-      unidadAlto || 'cm',
-      unidadMetroLineal || 'm'
+      anchoProducto || null, metrosPorRollo || null,
+      precioPorMetroCuadrado || null, metrosCuadrados || null,
+      unidadAncho || 'cm', unidadAlto || 'cm', unidadMetroLineal || 'm'
     ];
 
-    console.log(`📝 Valores a insertar: ${values.length}`);
-    
     const [result] = await db.query(sql, values);
-    console.log("✅ Producto creado con ID:", result.insertId);
-    
     res.json({ mensaje: "Producto creado", id: result.insertId });
   } catch (err) {
     console.error("❌ Error al crear producto:", err.message);
-    console.error("❌ SQL:", err.sql);
     res.status(500).json({ 
       error: "Error al crear producto", 
-      message: err.message,
-      sql: err.sql || null
+      message: err.message 
     });
   }
 });
@@ -1489,54 +1482,16 @@ app.post("/productos", async (req, res) => {
 app.put("/productos/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`📦 Actualizando producto ID: ${id}`);
     
     const {
-      nombre,
-      descripcion,
-      precio,
-      precioOferta,
-      oferta,
-      rebaja,
-      stock,
-      imagenes,
-      categoria_id,
-      subcategoria_id,
-      tipo_id,
-      destacado,
-      nuevo,
-      sugerencias,
-      fichaTecnica,
-      sku,
-      tipoProducto,
-      presentacion,
-      ancho,
-      alto,
-      grueso,
-      cobertura,
-      tipoVenta,
-      piezasCaja,
-      tipoCobertura,
-      especificaciones,
-      informacionAdicional,
-      colores_ids,
-      variante,
-      uso,
-      aplicacion,
-      tipo_diseno,
-      material,
-      acabado,
-      tipo_instalacion,
-      espesor_capa_desgaste,
-      unidadGrueso,
-      mostrarCobertura,
-      anchoProducto,
-      metrosPorRollo,
-      precioPorMetroCuadrado,
-      metrosCuadrados,
-      unidadAncho,
-      unidadAlto,
-      unidadMetroLineal
+      nombre, descripcion, precio, precioOferta, oferta, rebaja, stock, imagenes,
+      categoria_id, subcategoria_id, tipo_id, destacado, nuevo, sugerencias,
+      fichaTecnica, sku, tipoProducto, presentacion, ancho, alto, grueso, cobertura,
+      tipoVenta, piezasCaja, tipoCobertura, especificaciones, informacionAdicional,
+      colores_ids, variante, uso, aplicacion, tipo_diseno, material, acabado,
+      tipo_instalacion, espesor_capa_desgaste, unidadGrueso, mostrarCobertura,
+      anchoProducto, metrosPorRollo, precioPorMetroCuadrado, metrosCuadrados,
+      unidadAncho, unidadAlto, unidadMetroLineal
     } = req.body;
 
     let imagenesFinal = imagenes;
@@ -1545,130 +1500,52 @@ app.put("/productos/:id", async (req, res) => {
       imagenesFinal = rows[0]?.imagenes || null;
     } else if (Array.isArray(imagenesFinal)) {
       imagenesFinal = imagenesFinal.join(",");
-    } else if (typeof imagenesFinal === 'string') {
-      const trimmed = imagenesFinal.trim();
-      if (trimmed.startsWith('[')) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          if (Array.isArray(parsed)) {
-            imagenesFinal = parsed.join(",");
-          }
-        } catch (e) {}
-      }
     }
 
     const sql = `
       UPDATE productos SET
-        nombre = ?,
-        descripcion = ?,
-        precio = ?,
-        precioOferta = ?,
-        oferta = ?,
-        rebaja = ?,
-        stock = ?,
-        imagenes = ?,
-        categoria_id = ?,
-        subcategoria_id = ?,
-        tipo_id = ?,
-        destacado = ?,
-        nuevo = ?,
-        sugerencias = ?,
-        fichaTecnica = ?,
-        sku = ?,
-        tipoProducto = ?,
-        presentacion = ?,
-        ancho = ?,
-        alto = ?,
-        grueso = ?,
-        cobertura = ?,
-        tipoVenta = ?,
-        piezasCaja = ?,
-        tipoCobertura = ?,
-        especificaciones = ?,
-        informacionAdicional = ?,
-        colores_ids = ?,
-        variante = ?,
-        uso = ?,
-        aplicacion = ?,
-        tipo_diseno = ?,
-        material = ?,
-        acabado = ?,
-        tipo_instalacion = ?,
-        espesor_capa_desgaste = ?,
-        unidadGrueso = ?,
-        mostrarCobertura = ?,
-        anchoProducto = ?,
-        metrosPorRollo = ?,
-        precioPorMetroCuadrado = ?,
-        metrosCuadrados = ?,
-        unidadAncho = ?,
-        unidadAlto = ?,
-        unidadMetroLineal = ?
+        nombre = ?, descripcion = ?, precio = ?, precioOferta = ?, oferta = ?,
+        rebaja = ?, stock = ?, imagenes = ?, categoria_id = ?, subcategoria_id = ?,
+        tipo_id = ?, destacado = ?, nuevo = ?, sugerencias = ?, fichaTecnica = ?,
+        sku = ?, tipoProducto = ?, presentacion = ?, ancho = ?, alto = ?, grueso = ?,
+        cobertura = ?, tipoVenta = ?, piezasCaja = ?, tipoCobertura = ?,
+        especificaciones = ?, informacionAdicional = ?, colores_ids = ?, variante = ?,
+        uso = ?, aplicacion = ?, tipo_diseno = ?, material = ?, acabado = ?,
+        tipo_instalacion = ?, espesor_capa_desgaste = ?, unidadGrueso = ?,
+        mostrarCobertura = ?, anchoProducto = ?, metrosPorRollo = ?,
+        precioPorMetroCuadrado = ?, metrosCuadrados = ?, unidadAncho = ?,
+        unidadAlto = ?, unidadMetroLineal = ?
       WHERE id = ?
     `;
 
     const values = [
-      nombre || null,
-      descripcion || null,
-      precio || null,
-      precioOferta || null,
-      oferta ? 1 : 0,
-      rebaja || 0,
-      stock || 0,
-      imagenesFinal,
-      categoria_id || null,
-      subcategoria_id || null,
-      tipo_id || null,
-      destacado ? 1 : 0,
-      nuevo ? 1 : 0,
+      nombre || null, descripcion || null, precio || null, precioOferta || null,
+      oferta ? 1 : 0, rebaja || 0, stock || 0, imagenesFinal,
+      categoria_id || null, subcategoria_id || null, tipo_id || null,
+      destacado ? 1 : 0, nuevo ? 1 : 0,
       sugerencias ? JSON.stringify(sugerencias) : '[]',
-      fichaTecnica || null,
-      sku || null,
-      tipoProducto || null,
-      presentacion || null,
-      ancho || null,
-      alto || null,
-      grueso || null,
-      cobertura || null,
-      tipoVenta || 'pieza',
-      piezasCaja || null,
-      tipoCobertura || 'm2',
-      especificaciones || null,
-      informacionAdicional || null,
-      colores_ids || null,
-      variante || null,
-      uso || null,
-      aplicacion || null,
-      tipo_diseno || null,
-      material || null,
-      acabado || null,
-      tipo_instalacion || null,
-      espesor_capa_desgaste || null,
+      fichaTecnica || null, sku || null, tipoProducto || null,
+      presentacion || null, ancho || null, alto || null, grueso || null,
+      cobertura || null, tipoVenta || 'pieza', piezasCaja || null,
+      tipoCobertura || 'm2', especificaciones || null,
+      informacionAdicional || null, colores_ids || null, variante || null,
+      uso || null, aplicacion || null, tipo_diseno || null, material || null,
+      acabado || null, tipo_instalacion || null, espesor_capa_desgaste || null,
       unidadGrueso || 'mm',
       mostrarCobertura !== undefined ? (mostrarCobertura ? 1 : 0) : 1,
-      anchoProducto || null,
-      metrosPorRollo || null,
-      precioPorMetroCuadrado || null,
-      metrosCuadrados || null,
-      unidadAncho || 'cm',
-      unidadAlto || 'cm',
-      unidadMetroLineal || 'm',
+      anchoProducto || null, metrosPorRollo || null,
+      precioPorMetroCuadrado || null, metrosCuadrados || null,
+      unidadAncho || 'cm', unidadAlto || 'cm', unidadMetroLineal || 'm',
       id
     ];
 
-    console.log(`📝 Valores a actualizar: ${values.length}`);
-    
     const [result] = await db.query(sql, values);
-    console.log("✅ Producto actualizado, filas afectadas:", result.affectedRows);
-    
     res.json({ mensaje: "Producto actualizado", affectedRows: result.affectedRows });
   } catch (err) {
     console.error("❌ Error al actualizar:", err.message);
-    console.error("❌ SQL:", err.sql);
     res.status(500).json({ 
       error: "Error al actualizar", 
-      message: err.message,
-      sql: err.sql || null
+      message: err.message 
     });
   }
 });
@@ -1991,7 +1868,6 @@ app.post("/productos/:id/duplicar", async (req, res) => {
         try {
           await fs.promises.access(srcPath);
         } catch {
-          console.warn(`Archivo no encontrado: ${srcPath}`);
           continue;
         }
         const ext = path.extname(filename);
@@ -2113,17 +1989,9 @@ app.get("/banners-ofertas/:id", async (req, res) => {
 app.post("/banners-ofertas", async (req, res) => {
   try {
     const {
-      titulo,
-      descripcion,
-      imagen,
-      porcentaje,
-      enlace_tipo,
-      categoria_id,
-      subcategoria_id,
-      tipo_id,
-      producto_id,
-      url_externa,
-      orden
+      titulo, descripcion, imagen, porcentaje, enlace_tipo,
+      categoria_id, subcategoria_id, tipo_id, producto_id,
+      url_externa, orden
     } = req.body;
 
     if (!titulo || !imagen) {
@@ -2139,17 +2007,10 @@ app.post("/banners-ofertas", async (req, res) => {
     `;
 
     const [result] = await db.query(sql, [
-      titulo,
-      descripcion || null,
-      imagen,
-      porcentaje || null,
-      enlace_tipo || 'categoria',
-      categoria_id || null,
-      subcategoria_id || null,
-      tipo_id || null,
-      producto_id || null,
-      url_externa || null,
-      orden || 1
+      titulo, descripcion || null, imagen, porcentaje || null,
+      enlace_tipo || 'categoria', categoria_id || null,
+      subcategoria_id || null, tipo_id || null, producto_id || null,
+      url_externa || null, orden || 1
     ]);
 
     const [newBanner] = await db.query('SELECT * FROM banners_ofertas WHERE id = ?', [result.insertId]);
@@ -2163,18 +2024,9 @@ app.post("/banners-ofertas", async (req, res) => {
 app.put("/banners-ofertas/:id", async (req, res) => {
   try {
     const {
-      titulo,
-      descripcion,
-      imagen,
-      porcentaje,
-      enlace_tipo,
-      categoria_id,
-      subcategoria_id,
-      tipo_id,
-      producto_id,
-      url_externa,
-      orden,
-      activo
+      titulo, descripcion, imagen, porcentaje, enlace_tipo,
+      categoria_id, subcategoria_id, tipo_id, producto_id,
+      url_externa, orden, activo
     } = req.body;
 
     const [existing] = await db.query('SELECT * FROM banners_ofertas WHERE id = ?', [req.params.id]);
@@ -2184,18 +2036,9 @@ app.put("/banners-ofertas/:id", async (req, res) => {
 
     const sql = `
       UPDATE banners_ofertas SET
-        titulo = ?,
-        descripcion = ?,
-        imagen = ?,
-        porcentaje = ?,
-        enlace_tipo = ?,
-        categoria_id = ?,
-        subcategoria_id = ?,
-        tipo_id = ?,
-        producto_id = ?,
-        url_externa = ?,
-        orden = ?,
-        activo = ?
+        titulo = ?, descripcion = ?, imagen = ?, porcentaje = ?,
+        enlace_tipo = ?, categoria_id = ?, subcategoria_id = ?,
+        tipo_id = ?, producto_id = ?, url_externa = ?, orden = ?, activo = ?
       WHERE id = ?
     `;
 
@@ -2385,8 +2228,9 @@ app.listen(5000, () => {
   console.log("  - GET  /subcategorias");
   console.log("  - GET  /tipos");
   console.log("  - GET  /banners-ofertas");
-  console.log("  - GET  /configuracion/:clave ⚙️ NUEVO");
-  console.log("  - PUT  /configuracion/:clave ⚙️ NUEVO");
+  console.log("  - GET  /configuracion/:clave");
+  console.log("  - PUT  /configuracion/:clave");
+  console.log("  - POST /ai/generar-espacio ✨ NUEVO");
   console.log("  - POST /pedidos");
   console.log("  - GET  /pedidos");
   console.log("  - PUT  /pedidos/:id/estado (con envío de correo)");
