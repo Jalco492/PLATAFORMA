@@ -62,10 +62,17 @@ export default function ProductoDetalle() {
   const [mostrarNotificacion, setMostrarNotificacion] = useState(false);
   const [notificacionMensaje, setNotificacionMensaje] = useState("");
 
+  // ✅ ESTADO PARA EL ACORDEÓN
+  const [acordeonAbierto, setAcordeonAbierto] = useState("descripcion");
+
   const cotizadorRef = useRef();
   const imagenPDFRef = useRef();
   const carruselIntervalRef = useRef(null);
   const carruselScrollRef = useRef(null);
+
+  const toggleAcordeon = (seccion) => {
+    setAcordeonAbierto(prev => prev === seccion ? null : seccion);
+  };
 
   // ========== EFECTOS ==========
   useEffect(() => {
@@ -721,6 +728,7 @@ export default function ProductoDetalle() {
   const mostrarSelectorModo = () => esProductoTipoRollo();
   const mostrarDesperdicio = () => esProductoTipoRollo();
 
+  // ✅ VALIDACIONES PARA EL ACORDEÓN
   const tieneDetallesAdicionales = () => (
     (producto.uso && producto.uso.trim() !== "") ||
     (producto.aplicacion && producto.aplicacion.trim() !== "") ||
@@ -731,6 +739,10 @@ export default function ProductoDetalle() {
     (producto.espesor_capa_desgaste && producto.espesor_capa_desgaste.trim() !== "") ||
     (producto.variante && producto.variante.trim() !== "")
   );
+
+  const tieneDescripcion = () => producto.descripcion && producto.descripcion.trim() !== "";
+  const tieneEspecificaciones = () => producto.especificaciones && producto.especificaciones.trim() !== "";
+  const tieneInfoAdicional = () => producto.informacionAdicional && producto.informacionAdicional.trim() !== "";
 
   const getTextoExplicativoProducto = () => {
     const t = (producto?.tipoVenta || '').toLowerCase();
@@ -1571,40 +1583,109 @@ export default function ProductoDetalle() {
             </div>
           </div>
 
-          {tieneDetallesAdicionales() && (
-            <div className="box-modern" style={{ background: '#f0f9ff', border: '1px solid #7dd3fc' }}>
-              <h3 className="box-title">📋 Detalles adicionales</h3>
-              <div className="detalles-adicionales-grid">
-                {producto.variante && <p className="detalle-adicional"><strong>🔖 Variante:</strong> {producto.variante}</p>}
-                {producto.uso && <p className="detalle-adicional"><strong>🏠 Uso:</strong> {producto.uso}</p>}
-                {producto.aplicacion && <p className="detalle-adicional"><strong>📋 Aplicación:</strong> {producto.aplicacion}</p>}
-                {producto.tipo_diseno && <p className="detalle-adicional"><strong>🎨 Diseño:</strong> {producto.tipo_diseno}</p>}
-                {producto.material && <p className="detalle-adicional"><strong>🧱 Material:</strong> {producto.material}</p>}
-                {producto.acabado && <p className="detalle-adicional"><strong>✨ Acabado:</strong> {producto.acabado}</p>}
-                {producto.tipo_instalacion && <p className="detalle-adicional"><strong>🔧 Instalación:</strong> {producto.tipo_instalacion}</p>}
-                {producto.espesor_capa_desgaste && <p className="detalle-adicional"><strong>📏 Espesor capa desgaste:</strong> {producto.espesor_capa_desgaste} mm</p>}
+          {/* ✅ ============ ACORDEÓN DE INFORMACIÓN ============ */}
+          <div className="acordeon-container">
+            {tieneDescripcion() && (
+              <div className={`acordeon-item ${acordeonAbierto === "descripcion" ? "abierto" : ""}`}>
+                <button
+                  className="acordeon-header"
+                  onClick={() => toggleAcordeon("descripcion")}
+                  aria-expanded={acordeonAbierto === "descripcion"}
+                >
+                  <span className="acordeon-header-icon">📝</span>
+                  <span className="acordeon-header-title">Descripción</span>
+                  <span className="acordeon-header-arrow">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </span>
+                </button>
+                <div className="acordeon-content">
+                  <div className="acordeon-content-inner">
+                    <p className="description">{producto.descripcion}</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="box-modern">
-            <h3 className="box-title">📝 Descripción</h3>
-            <p className="description">{producto.descripcion}</p>
+            {tieneEspecificaciones() && (
+              <div className={`acordeon-item ${acordeonAbierto === "especificaciones" ? "abierto" : ""}`}>
+                <button
+                  className="acordeon-header"
+                  onClick={() => toggleAcordeon("especificaciones")}
+                  aria-expanded={acordeonAbierto === "especificaciones"}
+                >
+                  <span className="acordeon-header-icon">⚙️</span>
+                  <span className="acordeon-header-title">Especificaciones</span>
+                  <span className="acordeon-header-arrow">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </span>
+                </button>
+                <div className="acordeon-content">
+                  <div className="acordeon-content-inner">
+                    <p className="description" style={{ whiteSpace: "pre-wrap" }}>{producto.especificaciones}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {tieneInfoAdicional() && (
+              <div className={`acordeon-item ${acordeonAbierto === "infoAdicional" ? "abierto" : ""}`}>
+                <button
+                  className="acordeon-header"
+                  onClick={() => toggleAcordeon("infoAdicional")}
+                  aria-expanded={acordeonAbierto === "infoAdicional"}
+                >
+                  <span className="acordeon-header-icon">📋</span>
+                  <span className="acordeon-header-title">Información adicional</span>
+                  <span className="acordeon-header-arrow">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </span>
+                </button>
+                <div className="acordeon-content">
+                  <div className="acordeon-content-inner">
+                    <p className="description" style={{ whiteSpace: "pre-wrap" }}>{producto.informacionAdicional}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {tieneDetallesAdicionales() && (
+              <div className={`acordeon-item ${acordeonAbierto === "detalles" ? "abierto" : ""}`}>
+                <button
+                  className="acordeon-header"
+                  onClick={() => toggleAcordeon("detalles")}
+                  aria-expanded={acordeonAbierto === "detalles"}
+                >
+                  <span className="acordeon-header-icon">🔍</span>
+                  <span className="acordeon-header-title">Detalles adicionales</span>
+                  <span className="acordeon-header-arrow">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </span>
+                </button>
+                <div className="acordeon-content">
+                  <div className="acordeon-content-inner">
+                    <div className="detalles-adicionales-grid">
+                      {producto.variante && <p className="detalle-adicional"><strong>🔖 Variante:</strong> {producto.variante}</p>}
+                      {producto.uso && <p className="detalle-adicional"><strong>🏠 Uso:</strong> {producto.uso}</p>}
+                      {producto.aplicacion && <p className="detalle-adicional"><strong>📋 Aplicación:</strong> {producto.aplicacion}</p>}
+                      {producto.tipo_diseno && <p className="detalle-adicional"><strong>🎨 Diseño:</strong> {producto.tipo_diseno}</p>}
+                      {producto.material && <p className="detalle-adicional"><strong>🧱 Material:</strong> {producto.material}</p>}
+                      {producto.acabado && <p className="detalle-adicional"><strong>✨ Acabado:</strong> {producto.acabado}</p>}
+                      {producto.tipo_instalacion && <p className="detalle-adicional"><strong>🔧 Instalación:</strong> {producto.tipo_instalacion}</p>}
+                      {producto.espesor_capa_desgaste && <p className="detalle-adicional"><strong>📏 Espesor capa desgaste:</strong> {producto.espesor_capa_desgaste} mm</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-
-          {producto.especificaciones && (
-            <div className="box-modern">
-              <h3 className="box-title">⚙️ Especificaciones</h3>
-              <p className="description" style={{ whiteSpace: "pre-wrap" }}>{producto.especificaciones}</p>
-            </div>
-          )}
-
-          {producto.informacionAdicional && (
-            <div className="box-modern">
-              <h3 className="box-title">📋 Información adicional</h3>
-              <p className="description" style={{ whiteSpace: "pre-wrap" }}>{producto.informacionAdicional}</p>
-            </div>
-          )}
 
           <div className="botones-acciones">
             {producto.fichaTecnica && (
@@ -1630,7 +1711,7 @@ export default function ProductoDetalle() {
         </div>
       )}
 
-      {/* ============ SECCIÓN RECOMENDADOS Y RELACIONADOS (REDISEÑADA) ============ */}
+      {/* ============ SECCIÓN RECOMENDADOS Y RELACIONADOS ============ */}
       <div className="full-width-related-wrapper">
         {sugeridos.length > 0 && (
           <div className="full-width-related-section">
@@ -1895,6 +1976,145 @@ if (typeof document !== "undefined") {
     @media (max-width: 767px) {
       .producto-detalle-wrapper { padding: 20px; gap: 24px; margin: 16px 10px 24px; border-radius: 20px; }
       .producto-detalle-left-col, .producto-detalle-right-col { flex: 1 1 100%; max-width: 100%; }
+    }
+
+    /* =========================================================
+       ✅ ACORDEÓN DE INFORMACIÓN
+       ========================================================= */
+    .acordeon-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      margin-top: 4px;
+    }
+
+    .acordeon-item {
+      background: #fff;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .acordeon-item:hover {
+      border-color: var(--border);
+      box-shadow: var(--shadow-md);
+    }
+
+    .acordeon-item.abierto {
+      border-color: var(--accent-light);
+      box-shadow: 0 8px 24px rgba(37, 99, 235, 0.08);
+    }
+
+    .acordeon-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 22px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: all 0.25s ease;
+      color: var(--brand-900);
+    }
+
+    .acordeon-header:hover {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .acordeon-item.abierto .acordeon-header {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid var(--accent-light);
+    }
+
+    .acordeon-header-icon {
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-soft);
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+    }
+
+    .acordeon-item.abierto .acordeon-header-icon {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+      border-color: transparent;
+      transform: scale(1.05);
+      box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
+    }
+
+    .acordeon-header-title {
+      flex: 1;
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--brand-900);
+      letter-spacing: -0.2px;
+      transition: color 0.25s ease;
+    }
+
+    .acordeon-item.abierto .acordeon-header-title {
+      color: var(--accent-dark);
+    }
+
+    .acordeon-header-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      border: 1px solid var(--border-soft);
+      color: var(--brand-700);
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      flex-shrink: 0;
+    }
+
+    .acordeon-item.abierto .acordeon-header-arrow {
+      background: #fff;
+      color: var(--accent);
+      border-color: var(--accent-light);
+      transform: rotate(180deg);
+    }
+
+    .acordeon-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .acordeon-item.abierto .acordeon-content {
+      max-height: 3000px;
+    }
+
+    .acordeon-content-inner {
+      padding: 22px 24px 24px 24px;
+      animation: acordeonFadeIn 0.4s ease;
+    }
+
+    @keyframes acordeonFadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 767px) {
+      .acordeon-container { gap: 10px; }
+      .acordeon-header { padding: 14px 16px; gap: 10px; }
+      .acordeon-header-icon { width: 36px; height: 36px; font-size: 18px; }
+      .acordeon-header-title { font-size: 14px; }
+      .acordeon-header-arrow { width: 28px; height: 28px; }
+      .acordeon-content-inner { padding: 18px 16px 20px 16px; }
     }
 
     /* ============ FICHA TÉCNICA ============ */
@@ -2167,15 +2387,24 @@ if (typeof document !== "undefined") {
     .detalles-adicionales-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px 20px;
-      margin-top: 10px;
+      gap: 12px 20px;
+      margin-top: 0;
     }
 
     .detalle-adicional {
       margin: 0;
       font-size: 14px;
-      color: var(--text-primary);
-      padding: 6px 0;
+      color: var(--text-secondary);
+      padding: 8px 12px;
+      background: var(--surface-2);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-soft);
+      line-height: 1.5;
+    }
+
+    .detalle-adicional strong {
+      color: var(--brand-900);
+      font-weight: 700;
     }
 
     @media (max-width: 767px) {
@@ -3263,7 +3492,7 @@ if (typeof document !== "undefined") {
     }
 
     /* =========================================================
-       SECCIÓN RECOMENDADOS Y RELACIONADOS - REDISEÑO PREMIUM
+       SECCIÓN RECOMENDADOS Y RELACIONADOS
        ========================================================= */
     .full-width-related-wrapper {
       width: 100%;
@@ -3289,7 +3518,6 @@ if (typeof document !== "undefined") {
       width: 100%;
     }
 
-    /* --- Header de sección relacionada --- */
     .related-header {
       display: flex;
       justify-content: space-between;
@@ -3347,7 +3575,6 @@ if (typeof document !== "undefined") {
       border: 1px solid var(--border-soft);
     }
 
-    /* --- Banner de sugeridos --- */
     .sugeridos-banner {
       background:
         radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.35) 0%, transparent 55%),
@@ -3430,7 +3657,6 @@ if (typeof document !== "undefined") {
       font-weight: 700;
     }
 
-    /* --- Grupos por tipo --- */
     .tipo-grupo {
       margin-bottom: 40px;
     }
@@ -3493,7 +3719,6 @@ if (typeof document !== "undefined") {
       letter-spacing: 0.2px;
     }
 
-    /* --- Tarjeta de producto (relacionado y sugerido) --- */
     .producto-card {
       position: relative;
       background: #fff;
@@ -3729,7 +3954,6 @@ if (typeof document !== "undefined") {
       opacity: 1;
     }
 
-    /* --- Responsive --- */
     @media (min-width: 1024px) {
       .related-grid {
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
