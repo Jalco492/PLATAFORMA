@@ -160,6 +160,23 @@ export default function Admin() {
     cargarContactos();
     cargarPedidos();
   }, []);
+
+  // 🔥 AUTO-REFRESH: recarga los datos cada 30 segundos para sincronizar cambios entre dispositivos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log("🔄 Auto-refresh de datos del Admin...");
+      cargar();
+      cargarBanners();
+      cargarBannersOfertas();
+      cargarCategorias();
+      cargarSubcategorias();
+      cargarTipos();
+      cargarContactos();
+      cargarPedidos();
+    }, 30000); // cada 30 segundos
+
+    return () => clearInterval(interval);
+  }, []);
   
   const cargarContactos = () => {
     api.get("/contactos")
@@ -213,7 +230,6 @@ export default function Admin() {
   const formatearFechaEntrega = (fechaISO) => {
     if (!fechaISO) return null;
     try {
-      // Si ya viene formateada (ej: "Lunes 15/04/2025")
       if (typeof fechaISO === 'string' && fechaISO.includes('/')) return fechaISO;
       
       const fecha = new Date(fechaISO);
@@ -232,7 +248,6 @@ export default function Admin() {
   const formatearHoraEntrega = (hora24) => {
     if (!hora24) return null;
     try {
-      // Si ya tiene AM/PM
       if (typeof hora24 === 'string' && (hora24.toUpperCase().includes('AM') || hora24.toUpperCase().includes('PM'))) {
         return hora24;
       }
