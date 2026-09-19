@@ -4,7 +4,7 @@ const connection = mysql.createPool({
   host: "altaria.proxy.rlwy.net",
   port: 50640,
   user: "root",
-  password: "altaria.proxy.rlwy.net",
+  password: "lsnxunlsWgSBJPFTsVCMraKpvtVYbGFP",
   database: "railway",
   waitForConnections: true,
   connectionLimit: 10,
