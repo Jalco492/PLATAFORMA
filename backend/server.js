@@ -72,15 +72,12 @@ const formatearFecha = (fechaISO) => {
   if (!fechaISO) return '';
   
   try {
-    // 🔥 Si ya viene formateada con "/" (ej: "Lunes 15/04/2025"), regresarla tal cual
     if (typeof fechaISO === 'string' && fechaISO.includes('/')) {
       return fechaISO;
     }
     
-    // 🔥 Convertir a Date si es un objeto Date o string
     const fecha = fechaISO instanceof Date ? fechaISO : new Date(fechaISO);
     
-    // Validar que sea una fecha válida
     if (isNaN(fecha.getTime())) {
       return String(fechaISO);
     }
@@ -100,15 +97,11 @@ const formatearHora = (hora24) => {
   if (!hora24) return '';
   
   try {
-    // 🔥 Si ya viene con AM/PM, regresarla tal cual
     if (typeof hora24 === 'string' && (hora24.toUpperCase().includes('AM') || hora24.toUpperCase().includes('PM'))) {
       return hora24;
     }
     
-    // 🔥 Convertir a string si no lo es
     const horaStr = String(hora24);
-    
-    // Parsear "HH:MM" o "HH:MM:SS"
     const partes = horaStr.split(':');
     if (partes.length < 2) {
       return horaStr;
@@ -146,6 +139,54 @@ app.post("/upload-productos", upload.array("imagenes", 20), async (req, res) => 
 app.post("/upload-banner", upload.single("imagen"), (req, res) => {
   const imagen = `/uploads/productos/${req.file.filename}`;
   res.json({ imagen });
+});
+
+// =================================================
+// ⚙️ CONFIGURACIÓN GLOBAL (fecha de ofertas, etc.)
+// 🔥 NUEVO: sincroniza la fecha de oferta entre dispositivos
+// =================================================
+app.get("/configuracion/:clave", async (req, res) => {
+  try {
+    const { clave } = req.params;
+    const [rows] = await db.query(
+      "SELECT valor, actualizado_en FROM configuracion WHERE clave = ?",
+      [clave]
+    );
+    if (rows.length === 0) {
+      return res.json({ valor: null });
+    }
+    res.json({ 
+      valor: rows[0].valor,
+      actualizado_en: rows[0].actualizado_en
+    });
+  } catch (error) {
+    console.error("Error al obtener configuración:", error);
+    res.status(500).json({ error: "Error al obtener configuración" });
+  }
+});
+
+app.put("/configuracion/:clave", async (req, res) => {
+  try {
+    const { clave } = req.params;
+    const { valor } = req.body;
+    
+    if (valor === undefined || valor === null) {
+      return res.status(400).json({ error: "Falta el valor" });
+    }
+    
+    await db.query(`
+      INSERT INTO configuracion (clave, valor) 
+      VALUES (?, ?) 
+      ON DUPLICATE KEY UPDATE valor = ?, actualizado_en = NOW()
+    `, [clave, valor, valor]);
+    
+    console.log(`⚙️ Configuración guardada: ${clave} = ${valor}`);
+    
+    res.json({ success: true, clave, valor });
+  } catch (error) {
+    console.error("Error al guardar configuración:", error);
+    res.status(500).json({ error: "Error al guardar configuración" });
+  }
 });
 
 // =================================================
@@ -427,7 +468,6 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
 
   console.log(`   Productos encontrados: ${productos.length}`);
 
-  // 🔥 Filas con COLUMNA UNIDAD - SIN ENCIMADO
   const productosHtml = productos.map(p => {
     const unidad = p.unidad_medida || obtenerUnidadLegible(p.tipo_venta);
     const skuCorto = (p.sku || 'N/A').substring(0, 18);
@@ -484,7 +524,6 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
         .entrega-info { background: #fffbeb; padding: 15px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b; }
         .entrega-info p { margin: 5px 0; color: #92400e; }
         
-        /* 🔥 TABLA SIN ENCIMADO */
         .tabla-productos {
           width: 100%;
           border-collapse: collapse;
@@ -557,7 +596,6 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
         
         <h3 style="color: #1e40af;">🛒 Productos</h3>
         
-        <!-- 🔥 TABLA CON ANCHOS GENEROSOS -->
         <table class="tabla-productos" width="100%" cellpadding="0" cellspacing="0">
           <colgroup>
             <col style="width: 36%;">
@@ -657,7 +695,6 @@ app.put("/pedidos/:id/estado", async (req, res) => {
       });
     }
     
-    // Actualizar en BD
     await db.query(
       "UPDATE pedidos SET estado = ? WHERE id = ?",
       [estado, id]
@@ -666,7 +703,6 @@ app.put("/pedidos/:id/estado", async (req, res) => {
     
     const [pedidoActualizado] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     
-    // Enviar correo
     let correoEnviado = false;
     let errorCorreo = null;
     
@@ -697,7 +733,6 @@ app.put("/pedidos/:id/estado", async (req, res) => {
 // 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO) con Resend
 // =================================================
 const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
-  // 🔥 Filas con COLUMNA UNIDAD - SIN ENCIMADO
   const productosHtml = productos.map(p => {
     const unidad = p.unidadMostrar || p.unidadMedida || obtenerUnidadLegible(p.tipoVenta);
     const skuCorto = (p.sku || 'N/A').substring(0, 18);
@@ -747,7 +782,6 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
         .entrega-info { background: #fffbeb; padding: 15px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b; }
         .entrega-info p { margin: 5px 0; color: #92400e; }
         
-        /* 🔥 TABLA SIN ENCIMADO */
         .tabla-productos {
           width: 100%;
           border-collapse: collapse;
@@ -811,7 +845,6 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
         
         <h3 style="color: #1e40af;">🛒 Productos</h3>
         
-        <!-- 🔥 TABLA CON ANCHOS GENEROSOS -->
         <table class="tabla-productos" width="100%" cellpadding="0" cellspacing="0">
           <colgroup>
             <col style="width: 36%;">
@@ -2352,6 +2385,8 @@ app.listen(5000, () => {
   console.log("  - GET  /subcategorias");
   console.log("  - GET  /tipos");
   console.log("  - GET  /banners-ofertas");
+  console.log("  - GET  /configuracion/:clave ⚙️ NUEVO");
+  console.log("  - PUT  /configuracion/:clave ⚙️ NUEVO");
   console.log("  - POST /pedidos");
   console.log("  - GET  /pedidos");
   console.log("  - PUT  /pedidos/:id/estado (con envío de correo)");

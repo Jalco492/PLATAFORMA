@@ -63,19 +63,27 @@ export default function Admin() {
   const [filtroEstadoPedido, setFiltroEstadoPedido] = useState("todos");
   const [actualizandoEstado, setActualizandoEstado] = useState(null);
 
+  // 🔥 CARGAR FECHA DE OFERTA DESDE EL BACKEND (sincroniza entre dispositivos)
   useEffect(() => {
-    const guardada = localStorage.getItem("fechaOferta");
-    if (guardada) {
-      const fecha = new Date(guardada);
-      if (!isNaN(fecha.getTime())) {
-        const year = fecha.getFullYear();
-        const month = String(fecha.getMonth() + 1).padStart(2, "0");
-        const day = String(fecha.getDate()).padStart(2, "0");
-        const hours = String(fecha.getHours()).padStart(2, "0");
-        const minutes = String(fecha.getMinutes()).padStart(2, "0");
-        setFechaOferta(`${year}-${month}-${day}T${hours}:${minutes}`);
+    const cargarFechaOferta = async () => {
+      try {
+        const res = await api.get("/configuracion/fechaOferta");
+        if (res.data.valor) {
+          const fecha = new Date(res.data.valor);
+          if (!isNaN(fecha.getTime())) {
+            const year = fecha.getFullYear();
+            const month = String(fecha.getMonth() + 1).padStart(2, "0");
+            const day = String(fecha.getDate()).padStart(2, "0");
+            const hours = String(fecha.getHours()).padStart(2, "0");
+            const minutes = String(fecha.getMinutes()).padStart(2, "0");
+            setFechaOferta(`${year}-${month}-${day}T${hours}:${minutes}`);
+          }
+        }
+      } catch (err) {
+        console.log("No hay fecha de oferta configurada aún");
       }
-    }
+    };
+    cargarFechaOferta();
   }, []);
   
   // 🔥 ESTADOS PARA IMÁGENES
@@ -174,6 +182,30 @@ export default function Admin() {
       cargarContactos();
       cargarPedidos();
     }, 30000); // cada 30 segundos
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // 🔥 AUTO-REFRESH de la fecha de oferta cada 30 segundos
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get("/configuracion/fechaOferta");
+        if (res.data.valor) {
+          const fecha = new Date(res.data.valor);
+          if (!isNaN(fecha.getTime())) {
+            const year = fecha.getFullYear();
+            const month = String(fecha.getMonth() + 1).padStart(2, "0");
+            const day = String(fecha.getDate()).padStart(2, "0");
+            const hours = String(fecha.getHours()).padStart(2, "0");
+            const minutes = String(fecha.getMinutes()).padStart(2, "0");
+            setFechaOferta(`${year}-${month}-${day}T${hours}:${minutes}`);
+          }
+        }
+      } catch (err) {
+        // silencioso
+      }
+    }, 30000);
 
     return () => clearInterval(interval);
   }, []);
@@ -2690,7 +2722,7 @@ export default function Admin() {
 
       <section className="section-card timer-section">
         <h2>⏰ Configurar tiempo de ofertas</h2>
-        <p>Selecciona la fecha y hora de finalización</p>
+        <p>Selecciona la fecha y hora de finalización (se sincroniza entre todos los dispositivos)</p>
         <input
           type="datetime-local"
           value={fechaOferta}
@@ -2699,12 +2731,20 @@ export default function Admin() {
         />
         <button
           className="btn-timer"
-          onClick={() => {
+          onClick={async () => {
             if (!fechaOferta) return alert("Selecciona una fecha");
             const fecha = new Date(fechaOferta);
             if (isNaN(fecha.getTime())) return alert("Fecha inválida");
-            localStorage.setItem("fechaOferta", fecha.toISOString());
-            alert("✅ Tiempo guardado correctamente");
+            
+            try {
+              await api.put("/configuracion/fechaOferta", {
+                valor: fecha.toISOString()
+              });
+              alert("✅ Tiempo guardado correctamente.\n\nSe sincronizará en todos los dispositivos automáticamente.");
+            } catch (err) {
+              console.error(err);
+              alert("❌ Error al guardar configuración");
+            }
           }}
         >
           💾 Guardar configuración
