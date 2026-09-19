@@ -63,6 +63,16 @@ export default function Admin() {
   const [filtroEstadoPedido, setFiltroEstadoPedido] = useState("todos");
   const [actualizandoEstado, setActualizandoEstado] = useState(null);
 
+  // 🔥 HELPER: Construir URL completa de imágenes del backend
+  const getUrlCompleta = (ruta) => {
+    if (!ruta) return "";
+    if (typeof ruta !== "string") return "";
+    if (ruta.startsWith("http")) return ruta;
+    if (ruta.startsWith("blob:")) return ruta;
+    if (ruta.startsWith("data:")) return ruta;
+    return `https://backend-zuib.onrender.com${ruta}`;
+  };
+
   // 🔥 CARGAR FECHA DE OFERTA DESDE EL BACKEND (sincroniza entre dispositivos)
   useEffect(() => {
     const cargarFechaOferta = async () => {
@@ -619,7 +629,7 @@ export default function Admin() {
   const abrirModalEditar = (producto) => {
     const imagenesArr = producto.imagenes ? producto.imagenes.split(",") : [];
     const principal = imagenesArr[0] || "";
-    const galeria = imagenesArr.slice(1);
+    const galeria = imagenesArr.slice(1).map(getUrlCompleta);
     
     setForm({
       nombre: producto.nombre || "",
@@ -665,9 +675,9 @@ export default function Admin() {
       precioPorMetroCuadrado: producto.precioPorMetroCuadrado || "",
     });
     setSugerencias(producto.sugerencias ? JSON.parse(producto.sugerencias) : []);
-    setPreviewPrincipal(principal);
+    setPreviewPrincipal(getUrlCompleta(principal));
     setPreviewsGaleria(galeria);
-    setPreviewFicha(producto.fichaTecnica || "");
+    setPreviewFicha(getUrlCompleta(producto.fichaTecnica || ""));
     setArchivoPrincipal(null);
     setArchivosGaleria([]);
     setArchivoFicha(null);
@@ -680,7 +690,7 @@ export default function Admin() {
   const abrirModalDuplicar = (producto) => {
     const imagenesArr = producto.imagenes ? producto.imagenes.split(",") : [];
     const principal = imagenesArr[0] || "";
-    const galeria = imagenesArr.slice(1);
+    const galeria = imagenesArr.slice(1).map(getUrlCompleta);
     
     setForm({
       nombre: (producto.nombre || "") + " (copia)",
@@ -726,9 +736,9 @@ export default function Admin() {
       precioPorMetroCuadrado: producto.precioPorMetroCuadrado || "",
     });
     setSugerencias(producto.sugerencias ? JSON.parse(producto.sugerencias) : []);
-    setPreviewPrincipal(principal);
+    setPreviewPrincipal(getUrlCompleta(principal));
     setPreviewsGaleria(galeria);
-    setPreviewFicha(producto.fichaTecnica || "");
+    setPreviewFicha(getUrlCompleta(producto.fichaTecnica || ""));
     setArchivoPrincipal(null);
     setArchivosGaleria([]);
     setArchivoFicha(null);
@@ -2013,7 +2023,7 @@ export default function Admin() {
               {previewFicha && (
                 <div>
                   <p className="form-label">Vista previa ficha técnica</p>
-                  {previewFicha.endsWith(".pdf") ? (
+                  {previewFicha.toLowerCase().endsWith(".pdf") ? (
                     <object data={previewFicha} type="application/pdf" width="100%" height="300px">
                       <p>No se puede mostrar el PDF, <a href={previewFicha} target="_blank" rel="noopener noreferrer">descárgalo aquí</a></p>
                     </object>
@@ -2608,7 +2618,16 @@ export default function Admin() {
                   {previewPrincipal && (
                     <div>
                       <p className="form-label">Vista previa (principal)</p>
-                      <img src={previewPrincipal} alt="Principal" className="preview-image" style={{ maxHeight: '150px' }} />
+                      <img 
+                        src={previewPrincipal} 
+                        alt="Principal" 
+                        className="preview-image" 
+                        style={{ maxHeight: '150px' }}
+                        onError={(e) => {
+                          console.warn("Error cargando imagen principal:", previewPrincipal);
+                          e.target.src = "https://via.placeholder.com/150";
+                        }}
+                      />
                     </div>
                   )}
                 </div>
@@ -2627,7 +2646,15 @@ export default function Admin() {
                       <p className="form-label">Vista previa (galería)</p>
                       <div className="image-grid">
                         {previewsGaleria.map((img, i) => (
-                          <img key={i} src={img} alt={`galeria-${i}`} className="preview-thumb" />
+                          <img 
+                            key={i} 
+                            src={img} 
+                            alt={`galeria-${i}`} 
+                            className="preview-thumb"
+                            onError={(e) => {
+                              e.target.src = "https://via.placeholder.com/100";
+                            }}
+                          />
                         ))}
                       </div>
                     </div>
@@ -2645,7 +2672,7 @@ export default function Admin() {
                   {previewFicha && (
                     <div>
                       <p className="form-label">Vista previa ficha técnica</p>
-                      {previewFicha.endsWith(".pdf") ? (
+                      {previewFicha.toLowerCase().endsWith(".pdf") ? (
                         <object data={previewFicha} type="application/pdf" width="100%" height="300px">
                           <p>No se puede mostrar el PDF, <a href={previewFicha} target="_blank" rel="noopener noreferrer">descárgalo aquí</a></p>
                         </object>
@@ -2787,7 +2814,10 @@ export default function Admin() {
 
         {productosFiltrados.map(p => {
           const imagenesArr = p.imagenes ? p.imagenes.split(",") : [];
-          const principal = imagenesArr[0] || "https://via.placeholder.com/120";
+          const principalRaw = imagenesArr[0] || "";
+          const principal = principalRaw
+            ? getUrlCompleta(principalRaw)
+            : "https://via.placeholder.com/120";
           return (
             <div key={p.id} className="product-card">
               <div className="product-info">
@@ -2965,12 +2995,17 @@ export default function Admin() {
                       const prod = productos.find(x => x.id === Number(id));
                       if (!prod) return null;
                       const prodImagenes = prod.imagenes ? prod.imagenes.split(",") : [];
+                      const sugeridaRaw = prodImagenes[0] || "";
+                      const sugerida = sugeridaRaw
+                        ? getUrlCompleta(sugeridaRaw)
+                        : "https://via.placeholder.com/80";
                       return (
                         <div key={id} className="sugerencia-card">
                           <img
-                            src={prodImagenes[0] || "https://via.placeholder.com/80"}
+                            src={sugerida}
                             alt={prod.nombre}
                             className="sugerencia-image"
+                            onError={(e) => e.target.src = "https://via.placeholder.com/80"}
                           />
                           <p className="sugerencia-name">{prod.nombre}</p>
                           <p className="sugerencia-price">${prod.precio}</p>
@@ -3304,33 +3339,39 @@ export default function Admin() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pedidoSeleccionado.productos && pedidoSeleccionado.productos.map((item, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                        <td style={{ padding: '8px 10px' }}>
-                          <img 
-                            src={item.imagen || obtenerImagenProducto(item)}
-                            alt={item.nombre}
-                            style={{
-                              width: '50px',
-                              height: '50px',
-                              objectFit: 'cover',
-                              borderRadius: '8px',
-                              border: '1px solid #e5e7eb'
-                            }}
-                            onError={(e) => {
-                              e.target.src = 'https://via.placeholder.com/50';
-                            }}
-                          />
-                        </td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <div style={{ fontWeight: '600' }}>{item.nombre}</div>
-                          <div style={{ fontSize: '12px', color: '#6b7280' }}>SKU: {item.sku || 'N/A'}</div>
-                        </td>
-                        <td style={{ padding: '10px 12px', textAlign: 'center' }}>{item.cantidad}</td>
-                        <td style={{ padding: '10px 12px', textAlign: 'right' }}>${item.precio}</td>
-                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '600' }}>${item.subtotal}</td>
-                      </tr>
-                    ))}
+                    {pedidoSeleccionado.productos && pedidoSeleccionado.productos.map((item, idx) => {
+                      const imgRaw = item.imagen || obtenerImagenProducto(item);
+                      const imgFull = imgRaw && imgRaw !== "https://via.placeholder.com/60"
+                        ? getUrlCompleta(imgRaw)
+                        : "https://via.placeholder.com/50";
+                      return (
+                        <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                          <td style={{ padding: '8px 10px' }}>
+                            <img 
+                              src={imgFull}
+                              alt={item.nombre}
+                              style={{
+                                width: '50px',
+                                height: '50px',
+                                objectFit: 'cover',
+                                borderRadius: '8px',
+                                border: '1px solid #e5e7eb'
+                              }}
+                              onError={(e) => {
+                                e.target.src = 'https://via.placeholder.com/50';
+                              }}
+                            />
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <div style={{ fontWeight: '600' }}>{item.nombre}</div>
+                            <div style={{ fontSize: '12px', color: '#6b7280' }}>SKU: {item.sku || 'N/A'}</div>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>{item.cantidad}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right' }}>${item.precio}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '600' }}>${item.subtotal}</td>
+                        </tr>
+                      );
+                    })}
                     <tr style={{ borderTop: '2px solid #e5e7eb' }}>
                       <td colSpan="4" style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '700', fontSize: '16px' }}>
                         TOTAL:
@@ -3619,10 +3660,11 @@ export default function Admin() {
             return (
               <div key={b.id} className="banner-card" style={{ borderLeft: '4px solid #f59e0b' }}>
                 <img 
-                  src={b.imagen} 
+                  src={getUrlCompleta(b.imagen)} 
                   alt={b.titulo} 
                   className="banner-image" 
                   style={{ width: '120px', height: '80px', objectFit: 'cover' }}
+                  onError={(e) => e.target.src = "https://via.placeholder.com/120x80"}
                 />
                 <div className="banner-info">
                   <h3 style={{ color: '#d97706' }}>🏷️ {b.titulo}</h3>
@@ -3719,7 +3761,12 @@ export default function Admin() {
         <h2>🖼 Lista banners principales</h2>
         {banners.map(b => (
           <div key={b.id} className="banner-card">
-            <img src={b.imagen} alt={b.titulo} className="banner-image" />
+            <img 
+              src={getUrlCompleta(b.imagen)} 
+              alt={b.titulo} 
+              className="banner-image"
+              onError={(e) => e.target.src = "https://via.placeholder.com/180x100"}
+            />
             <div className="banner-info">
               <h3>{b.titulo}</h3>
               <p>{b.descripcion}</p>
