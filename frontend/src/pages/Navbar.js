@@ -246,39 +246,34 @@ export default function Navbar({
     };
   }, []);
 
+  // ✅ SCROLL: navbar visible SOLO cuando está hasta arriba del todo
   useEffect(() => {
     let scrollTimeout;
+
     const handleScroll = () => {
       if (scrollTimeout) {
         cancelAnimationFrame(scrollTimeout);
       }
       scrollTimeout = requestAnimationFrame(() => {
         const currentScrollY = window.scrollY;
-        if (isMobileView) {
-          if (currentScrollY > lastScrollY && currentScrollY > 50) {
-            setIsNavbarVisible(false);
-            setMobileMenuOpen(false);
-          } else if (currentScrollY < lastScrollY || currentScrollY < 50) {
-            setIsNavbarVisible(true);
-          }
+
+        // Si está hasta arriba del todo → mostrar
+        if (currentScrollY <= 10) {
+          setIsNavbarVisible(true);
         } else {
-          if (currentScrollY > lastScrollY && currentScrollY > 50) {
-            setIsNavbarVisible(false);
-          } else if (currentScrollY < lastScrollY || currentScrollY < 50) {
-            setIsNavbarVisible(true);
-          }
+          // En cualquier otro punto → ocultar
+          setIsNavbarVisible(false);
+          if (isMobileView) setMobileMenuOpen(false);
         }
-        setLastScrollY(currentScrollY);
       });
     };
+
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      if (scrollTimeout) {
-        cancelAnimationFrame(scrollTimeout);
-      }
+      if (scrollTimeout) cancelAnimationFrame(scrollTimeout);
     };
-  }, [lastScrollY, isMobileView]);
+  }, [isMobileView]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

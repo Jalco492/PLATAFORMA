@@ -32,6 +32,7 @@ export default function Footer({ darkMode }) {
           <a href="/comparar" style={styles.link(darkMode)}>Comparador de productos</a>
           <a href="/contacto" style={styles.link(darkMode)}>Contacto</a>
           <a href="/nosotros" style={styles.link(darkMode)}>Nosotros</a>
+           <a href="/pedido" style={styles.link(darkMode)}>Pedido</a>
           <a href="/favoritos" style={styles.link(darkMode)}>Favoritos</a>
           <a href="/cotizador" style={styles.link(darkMode)}>Cotizador</a>
         </div>

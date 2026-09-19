@@ -13,14 +13,10 @@ const getImageUrl = (imagen) => {
   if (!imagen) return "https://via.placeholder.com/200";
   if (typeof imagen !== "string") return "https://via.placeholder.com/200";
   
-  // Ya es una URL absoluta
   if (imagen.startsWith("http://") || imagen.startsWith("https://")) return imagen;
-  // Previsualizaciones locales
   if (imagen.startsWith("blob:")) return imagen;
   if (imagen.startsWith("data:")) return imagen;
-  // Rutas absolutas del backend
   if (imagen.startsWith("/")) return `${BACKEND_URL}${imagen}`;
-  // Rutas relativas
   return `${BACKEND_URL}/${imagen}`;
 };
 
@@ -52,7 +48,6 @@ export default function ProductoDetalle() {
   const [mensajeEnviado, setMensajeEnviado] = useState("");
   const [fichaZoom, setFichaZoom] = useState(false);
 
-  // 🔥 medidas con largo, ancho Y área (auto-calculada)
   const [medidas, setMedidas] = useState([
     { largo: "", ancho: "", area: "" },
     { largo: "", ancho: "", area: "" },
@@ -419,9 +414,6 @@ export default function ProductoDetalle() {
     setAreaDirecta("");
   };
 
-  // ========================================================================
-  // 🔥 Conversión usando la UNIDAD DECLARADA
-  // ========================================================================
   const convertirAMetrosConUnidad = (valor, unidad = 'cm') => {
     const num = Number(valor) || 0;
     if (num === 0) return 0;
@@ -467,7 +459,6 @@ export default function ProductoDetalle() {
     return obtenerAnchoRollo() * obtenerLargoRollo();
   };
 
-  // 🔥 Tipo de venta amigable — CORREGIDO
   const getTipoVentaAmigable = () => {
     const t = (producto?.tipoVenta || '').toLowerCase();
     const map = {
@@ -485,7 +476,6 @@ export default function ProductoDetalle() {
       : 'Otros');
   };
 
-  // ========== CÁLCULO DE COBERTURA POR UNIDAD ==========
   const calcularCoberturaPorUnidad = () => {
     if (!producto) return 0;
     const t = producto.tipoVenta;
@@ -517,7 +507,6 @@ export default function ProductoDetalle() {
 
   const coberturaPorUnidad = calcularCoberturaPorUnidad();
 
-  // ========== COTIZADOR ==========
   const obtenerMedidasValidas = () => medidas.filter(item => {
     const largo = Number(item.largo) || 0;
     const ancho = Number(item.ancho) || 0;
@@ -586,7 +575,6 @@ export default function ProductoDetalle() {
 
   const precioPorMetroCuadrado = Number(producto?.precio) || 0;
 
-  // ========== PDF ==========
   const convertirImagenBase64 = async (url) => {
     try {
       const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -1642,6 +1630,7 @@ export default function ProductoDetalle() {
         </div>
       )}
 
+      {/* ============ SECCIÓN RECOMENDADOS Y RELACIONADOS (REDISEÑADA) ============ */}
       <div className="full-width-related-wrapper">
         {sugeridos.length > 0 && (
           <div className="full-width-related-section">
@@ -1650,26 +1639,65 @@ export default function ProductoDetalle() {
               <h2 className="sugeridos-title">Para instalar este producto también necesitarás</h2>
               <p className="sugeridos-subtitle">Estos complementos son utilizados frecuentemente junto con <strong>{producto.nombre}</strong></p>
             </div>
+
             {Object.keys(sugeridosAgrupados).map((tipo) => (
               <div key={tipo} className="tipo-grupo">
-                <div className="tipo-grupo-header" style={{ borderLeftColor: getTipoColor(tipo) }}>
-                  <span className="tipo-grupo-icon">🏷️</span>
+                <div className="tipo-grupo-header" style={{ '--tipo-color': getTipoColor(tipo) }}>
+                  <span className="tipo-grupo-icon">🛠️</span>
                   <h3 className="tipo-grupo-title">{tipo}</h3>
                   <span className="tipo-grupo-count">{sugeridosAgrupados[tipo].length} productos</span>
                 </div>
                 <div className="related-grid">
                   {sugeridosAgrupados[tipo].map((p) => (
-                    <div key={p.id} className="sugerido-card" onClick={() => { navigate(`/producto/${p.id}`); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-                      <div className="sugerido-badge">Recomendado</div>
-                      <button className="fav-btn-small" onClick={(e) => { e.stopPropagation(); toggleFavorito(p); }} style={{ background: esFavorito(p.id) ? "#dc2626" : "#fff", color: esFavorito(p.id) ? "#fff" : "#111" }}>❤️</button>
-                      <img src={obtenerImagen(p)} alt={p.nombre} className="related-image" loading="lazy" />
-                      <h4>{p.nombre}</h4>
-                      <p className="related-sub">Ideal para instalación</p>
-                      {p.oferta === 1 || p.oferta === true ? (
-                        <div><span className="precio-ant">${p.precio}</span><p className="precio-of">${p.precioOferta}</p></div>
-                      ) : (
-                        <p className="related-price">${p.precio}</p>
-                      )}
+                    <div
+                      key={p.id}
+                      className="producto-card sugerido-card"
+                      onClick={() => { navigate(`/producto/${p.id}`); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    >
+                      <div className="producto-card-badges">
+                        <span className="card-badge recomendado">⭐ Recomendado</span>
+                        {(p.oferta === 1 || p.oferta === true) && (
+                          <span className="card-badge oferta">🔥 Oferta</span>
+                        )}
+                        {p.stock <= 3 && p.stock > 0 && (
+                          <span className="card-badge stock-bajo">⚡ Últimas</span>
+                        )}
+                      </div>
+
+                      <button
+                        className={`fav-btn-card ${esFavorito(p.id) ? 'active' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); toggleFavorito(p); }}
+                        aria-label="Favorito"
+                      >
+                        {esFavorito(p.id) ? '❤️' : '🤍'}
+                      </button>
+
+                      <div className="producto-card-image-wrapper">
+                        <img src={obtenerImagen(p)} alt={p.nombre} className="producto-card-image" loading="lazy" />
+                        <div className="producto-card-overlay">
+                          <span className="overlay-text">Ver detalles</span>
+                        </div>
+                      </div>
+
+                      <div className="producto-card-info">
+                        <h4 className="producto-card-title">{p.nombre}</h4>
+                        <p className="producto-card-sub">Ideal para instalación</p>
+
+                        <div className="producto-card-precio">
+                          {p.oferta === 1 || p.oferta === true ? (
+                            <>
+                              <span className="precio-actual oferta">${p.precioOferta}</span>
+                              <span className="precio-tachado">${p.precio}</span>
+                            </>
+                          ) : (
+                            <span className="precio-actual">${p.precio}</span>
+                          )}
+                        </div>
+
+                        <button className="producto-card-btn" onClick={(e) => { e.stopPropagation(); navigate(`/producto/${p.id}`); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+                          Ver producto →
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1681,27 +1709,71 @@ export default function ProductoDetalle() {
         {relacionados.length > 0 && (
           <div className="full-width-related-section">
             <div className="related-header">
-              <h2 className="section-title">🏷️ Productos en <span className="highlight">{producto.subcategoria}</span></h2>
+              <div className="related-header-left">
+                <span className="related-header-label">PRODUCTOS SIMILARES</span>
+                <h2 className="section-title">
+                  Más de <span className="highlight">{producto.subcategoria || 'esta categoría'}</span>
+                </h2>
+              </div>
               <span className="related-count">{relacionados.length} productos</span>
             </div>
+
             {Object.keys(relacionadosAgrupados).map((tipo) => (
               <div key={tipo} className="tipo-grupo">
-                <div className="tipo-grupo-header" style={{ borderLeftColor: getTipoColor(tipo) }}>
+                <div className="tipo-grupo-header" style={{ '--tipo-color': getTipoColor(tipo) }}>
                   <span className="tipo-grupo-icon">📦</span>
                   <h3 className="tipo-grupo-title">{tipo}</h3>
                   <span className="tipo-grupo-count">{relacionadosAgrupados[tipo].length} productos</span>
                 </div>
                 <div className="related-grid">
                   {relacionadosAgrupados[tipo].map((p) => (
-                    <div key={p.id} className="related-card" onClick={() => { navigate(`/producto/${p.id}`); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-                      <button className="fav-btn-small" onClick={(e) => { e.stopPropagation(); toggleFavorito(p); }} style={{ background: esFavorito(p.id) ? "#dc2626" : "#fff", color: esFavorito(p.id) ? "#fff" : "#111" }}>❤️</button>
-                      <img src={obtenerImagen(p)} alt={p.nombre} className="related-image" loading="lazy" />
-                      <h4>{p.nombre}</h4>
-                      {p.oferta === 1 || p.oferta === true ? (
-                        <div><span className="precio-ant">${p.precio}</span><p className="precio-of">${p.precioOferta}</p></div>
-                      ) : (
-                        <p className="related-price">${p.precio}</p>
-                      )}
+                    <div
+                      key={p.id}
+                      className="producto-card"
+                      onClick={() => { navigate(`/producto/${p.id}`); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    >
+                      <div className="producto-card-badges">
+                        {(p.oferta === 1 || p.oferta === true) && (
+                          <span className="card-badge oferta">🔥 Oferta</span>
+                        )}
+                        {p.stock <= 3 && p.stock > 0 && (
+                          <span className="card-badge stock-bajo">⚡ Últimas</span>
+                        )}
+                      </div>
+
+                      <button
+                        className={`fav-btn-card ${esFavorito(p.id) ? 'active' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); toggleFavorito(p); }}
+                        aria-label="Favorito"
+                      >
+                        {esFavorito(p.id) ? '❤️' : '🤍'}
+                      </button>
+
+                      <div className="producto-card-image-wrapper">
+                        <img src={obtenerImagen(p)} alt={p.nombre} className="producto-card-image" loading="lazy" />
+                        <div className="producto-card-overlay">
+                          <span className="overlay-text">Ver detalles</span>
+                        </div>
+                      </div>
+
+                      <div className="producto-card-info">
+                        <h4 className="producto-card-title">{p.nombre}</h4>
+
+                        <div className="producto-card-precio">
+                          {p.oferta === 1 || p.oferta === true ? (
+                            <>
+                              <span className="precio-actual oferta">${p.precioOferta}</span>
+                              <span className="precio-tachado">${p.precio}</span>
+                            </>
+                          ) : (
+                            <span className="precio-actual">${p.precio}</span>
+                          )}
+                        </div>
+
+                        <button className="producto-card-btn" onClick={(e) => { e.stopPropagation(); navigate(`/producto/${p.id}`); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+                          Ver producto →
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1717,7 +1789,7 @@ export default function ProductoDetalle() {
 }
 
 // ============================================================
-// ESTILOS CSS — DISEÑO CORPORATIVO PROFESIONAL + CARRUSEL PREMIUM
+// ESTILOS CSS — DISEÑO CORPORATIVO PROFESIONAL
 // ============================================================
 if (typeof document !== "undefined") {
   const styleSheet = document.createElement("style");
@@ -3190,153 +3262,611 @@ if (typeof document !== "undefined") {
       .modelo-carrusel-nombre { font-size: 12px; }
     }
 
-    /* ============ RELACIONADOS ============ */
-    .full-width-related-wrapper { width: 100%; max-width: 100vw; overflow-x: hidden; padding: 0 24px; box-sizing: border-box; margin: 0 auto; }
-    .full-width-related-section { max-width: 1440px; margin: 48px auto 0 auto; padding: 0 4px; box-sizing: border-box; width: 100%; }
-    .related-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 18px; width: 100%; }
+    /* =========================================================
+       SECCIÓN RECOMENDADOS Y RELACIONADOS - REDISEÑO PREMIUM
+       ========================================================= */
+    .full-width-related-wrapper {
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+      padding: 0 24px;
+      box-sizing: border-box;
+      margin: 0 auto;
+    }
+
+    .full-width-related-section {
+      max-width: 1440px;
+      margin: 56px auto 0 auto;
+      padding: 0 4px;
+      box-sizing: border-box;
+      width: 100%;
+    }
+
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 24px;
+      width: 100%;
+    }
+
+    /* --- Header de sección relacionada --- */
+    .related-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 28px;
+      padding: 0 2px;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .related-header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .related-header-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      text-transform: uppercase;
+      display: inline-block;
+      padding: 4px 10px;
+      background: var(--accent-light);
+      border-radius: 999px;
+      width: fit-content;
+    }
+
     .section-title {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      font-size: 22px; font-weight: 800;
-      color: var(--brand-900); margin: 0;
-      letter-spacing: -0.5px;
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--brand-900);
+      margin: 0;
+      letter-spacing: -0.6px;
+      line-height: 1.2;
     }
-    .related-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 0 2px; flex-wrap: wrap; gap: 10px; }
+
+    .highlight {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
     .related-count {
-      font-size: 12px; font-weight: 700;
-      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--brand-700);
       background: var(--surface-3);
-      padding: 6px 14px; border-radius: 999px;
+      padding: 8px 16px;
+      border-radius: 999px;
       letter-spacing: 0.2px;
-    }
-    .highlight { color: var(--accent); }
-    .related-card, .sugerido-card {
-      background: #fff; border-radius: var(--radius-md);
-      padding: 14px; text-align: center; cursor: pointer;
-      position: relative; border: 1px solid var(--border-soft);
-      transition: all 0.3s ease;
-    }
-    .related-card:hover, .sugerido-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); border-color: var(--border); }
-    .sugerido-badge {
-      position: absolute; top: 12px; left: 12px;
-      background: var(--brand-900); color: #fff;
-      font-size: 9px; padding: 4px 10px;
-      border-radius: 999px; font-weight: 700;
-      z-index: 5; letter-spacing: 0.3px;
-      text-transform: uppercase;
-    }
-    .related-image {
-      width: 100%; height: 130px; object-fit: contain;
-      border-radius: var(--radius-sm); margin-bottom: 10px;
-      background: var(--surface-2);
-    }
-    .related-card h4, .sugerido-card h4 {
-      font-size: 13px; margin: 8px 0 4px 0;
-      color: var(--brand-900); line-height: 1.3;
-      height: 34px; font-weight: 700;
-      display: -webkit-box; -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical; overflow: hidden;
-    }
-    .related-sub { font-size: 11px; color: var(--text-muted); margin: 0 0 4px 0; }
-    .related-price { color: var(--success); font-weight: 800; font-size: 16px; margin: 6px 0 0 0; }
-    .precio-ant { text-decoration: line-through; color: var(--text-muted); font-size: 12px; display: block; }
-    .precio-of { color: var(--danger); font-weight: 800; font-size: 17px; margin: 0; }
-    .fav-btn-small {
-      position: absolute; top: 12px; right: 12px;
-      width: 36px; height: 36px; border-radius: 50%;
-      border: 1px solid var(--border-soft); font-size: 14px;
-      cursor: pointer; z-index: 5;
-      transition: all 0.2s ease;
-      background: rgba(255,255,255,0.96);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .fav-btn-small:hover { transform: scale(1.1); border-color: var(--accent-light); }
-
-    .tipo-grupo { margin-bottom: 32px; }
-    .tipo-grupo:last-child { margin-bottom: 0; }
-    .tipo-grupo-header {
-      display: flex; align-items: center; gap: 12px;
-      padding: 12px 18px; background: #fff;
-      border-radius: var(--radius-md);
-      border-left: 3px solid var(--accent);
-      border: 1px solid var(--border-soft);
-      margin-bottom: 18px;
-    }
-    .tipo-grupo-icon { font-size: 18px; }
-    .tipo-grupo-title {
-      font-size: 15px; font-weight: 800;
-      color: var(--brand-900); margin: 0; flex: 1;
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      letter-spacing: -0.2px;
-    }
-    .tipo-grupo-count {
-      font-size: 11px; font-weight: 700;
-      color: var(--text-secondary);
-      background: var(--surface-2);
-      padding: 4px 12px; border-radius: 999px;
       border: 1px solid var(--border-soft);
     }
 
+    /* --- Banner de sugeridos --- */
     .sugeridos-banner {
-      background: linear-gradient(135deg, var(--brand-900) 0%, var(--brand-700) 100%);
-      padding: 26px 30px;
-      border-radius: var(--radius-lg);
-      margin-bottom: 28px;
-      width: 100%; box-sizing: border-box;
-      position: relative; overflow: hidden;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.35) 0%, transparent 55%),
+        radial-gradient(circle at 0% 100%, rgba(22, 163, 74, 0.25) 0%, transparent 55%),
+        linear-gradient(135deg, var(--brand-900) 0%, var(--brand-700) 100%);
+      padding: 32px 36px;
+      border-radius: var(--radius-xl);
+      margin-bottom: 36px;
+      width: 100%;
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+      border: 1px solid rgba(255,255,255,0.05);
     }
+
     .sugeridos-banner::before {
       content: '';
       position: absolute;
-      top: -50%; right: -20%;
-      width: 400px; height: 400px;
-      background: radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, transparent 70%);
+      top: -50%;
+      right: -10%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.2) 0%, transparent 70%);
       pointer-events: none;
     }
+
+    .sugeridos-banner::after {
+      content: '';
+      position: absolute;
+      bottom: -60%;
+      left: -5%;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(22, 163, 74, 0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
     .sugeridos-label {
       display: inline-block;
       background: rgba(255,255,255,0.12);
-      color: #fff; font-weight: 800;
-      font-size: 10px; letter-spacing: 1.5px;
-      padding: 5px 14px; border-radius: 999px;
-      text-transform: uppercase; margin-bottom: 12px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 10px;
+      letter-spacing: 2px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255,255,255,0.15);
-      position: relative; z-index: 1;
+      position: relative;
+      z-index: 1;
     }
+
     .sugeridos-title {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      font-size: 22px; font-weight: 800;
-      color: #fff; margin: 8px 0 8px 0;
-      line-height: 1.25; letter-spacing: -0.4px;
-      position: relative; z-index: 1;
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      margin: 8px 0 10px 0;
+      line-height: 1.25;
+      letter-spacing: -0.5px;
+      position: relative;
+      z-index: 1;
     }
-    .sugeridos-subtitle {
-      font-size: 14px; color: #cbd5e1; margin: 0;
-      position: relative; z-index: 1;
-    }
-    .sugeridos-subtitle strong { color: #fff; font-weight: 700; }
 
+    .sugeridos-subtitle {
+      font-size: 15px;
+      color: #cbd5e1;
+      margin: 0;
+      position: relative;
+      z-index: 1;
+      max-width: 720px;
+      line-height: 1.55;
+    }
+
+    .sugeridos-subtitle strong {
+      color: #fff;
+      font-weight: 700;
+    }
+
+    /* --- Grupos por tipo --- */
+    .tipo-grupo {
+      margin-bottom: 40px;
+    }
+
+    .tipo-grupo:last-child {
+      margin-bottom: 0;
+    }
+
+    .tipo-grupo-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 22px;
+      background: #fff;
+      border-radius: var(--radius-md);
+      border-left: 4px solid var(--tipo-color, var(--accent));
+      border-top: 1px solid var(--border-soft);
+      border-right: 1px solid var(--border-soft);
+      border-bottom: 1px solid var(--border-soft);
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.25s ease;
+    }
+
+    .tipo-grupo-header:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateX(4px);
+    }
+
+    .tipo-grupo-icon {
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-soft);
+    }
+
+    .tipo-grupo-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--brand-900);
+      margin: 0;
+      flex: 1;
+      letter-spacing: -0.2px;
+    }
+
+    .tipo-grupo-count {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--brand-700);
+      background: var(--surface-3);
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border-soft);
+      letter-spacing: 0.2px;
+    }
+
+    /* --- Tarjeta de producto (relacionado y sugerido) --- */
+    .producto-card {
+      position: relative;
+      background: #fff;
+      border-radius: var(--radius-lg);
+      padding: 0;
+      cursor: pointer;
+      border: 1px solid var(--border-soft);
+      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .producto-card:hover {
+      transform: translateY(-8px);
+      box-shadow:
+        0 24px 48px rgba(15, 23, 42, 0.12),
+        0 8px 16px rgba(37, 99, 235, 0.06);
+      border-color: var(--accent-light);
+    }
+
+    .sugerido-card {
+      border-top: 3px solid var(--accent);
+    }
+
+    .producto-card-badges {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .card-badge {
+      font-size: 9px;
+      font-weight: 800;
+      padding: 5px 10px;
+      border-radius: 999px;
+      color: #fff;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+      width: fit-content;
+    }
+
+    .card-badge.recomendado {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+    }
+
+    .card-badge.oferta {
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+      animation: ofertaPulse 1.8s ease-in-out infinite;
+    }
+
+    .card-badge.stock-bajo {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+    }
+
+    .fav-btn-card {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid var(--border-soft);
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      z-index: 4;
+      transition: all 0.25s ease;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+    }
+
+    .fav-btn-card:hover {
+      transform: scale(1.12);
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.15);
+      border-color: var(--accent-light);
+    }
+
+    .fav-btn-card.active {
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+      border-color: transparent;
+    }
+
+    .producto-card-image-wrapper {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      background: linear-gradient(135deg, #fafbfc 0%, #f1f5f9 100%);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+    }
+
+    .producto-card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      z-index: 1;
+    }
+
+    .producto-card:hover .producto-card-image {
+      transform: scale(1.1);
+    }
+
+    .producto-card-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 40%, rgba(15, 23, 42, 0.75) 100%);
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 18px;
+      z-index: 2;
+    }
+
+    .producto-card:hover .producto-card-overlay {
+      opacity: 1;
+    }
+
+    .overlay-text {
+      color: #fff;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      padding: 6px 16px;
+      background: rgba(37, 99, 235, 0.9);
+      border-radius: 999px;
+      backdrop-filter: blur(6px);
+      transform: translateY(10px);
+      transition: transform 0.35s ease;
+    }
+
+    .producto-card:hover .overlay-text {
+      transform: translateY(0);
+    }
+
+    .producto-card-info {
+      padding: 16px 16px 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .producto-card-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--brand-900);
+      margin: 0;
+      line-height: 1.35;
+      min-height: 38px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      letter-spacing: -0.2px;
+    }
+
+    .producto-card-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin: 0;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+
+    .producto-card-precio {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .precio-actual {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--success);
+      letter-spacing: -0.5px;
+    }
+
+    .precio-actual.oferta {
+      color: var(--danger);
+    }
+
+    .precio-tachado {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-decoration: line-through;
+      font-weight: 600;
+    }
+
+    .producto-card-btn {
+      margin-top: 8px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+      color: #fff;
+      border: none;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      font-family: inherit;
+      letter-spacing: 0.2px;
+      opacity: 0.95;
+    }
+
+    .producto-card-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+      opacity: 1;
+    }
+
+    /* --- Responsive --- */
     @media (min-width: 1024px) {
-      .related-grid { grid-template-columns: repeat(5, 1fr); gap: 24px; }
-      .related-image { height: 165px; }
-      .full-width-related-wrapper { padding: 0 48px; }
+      .related-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 26px;
+      }
+      .producto-card-image-wrapper {
+        height: 220px;
+      }
+      .full-width-related-wrapper {
+        padding: 0 48px;
+      }
+    }
+
+    @media (min-width: 1440px) {
+      .related-grid {
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 28px;
+      }
+      .producto-card-image-wrapper {
+        height: 240px;
+      }
     }
 
     @media (max-width: 767px) {
-      .full-width-related-wrapper { padding: 0 14px; }
-      .full-width-related-section { padding: 0 2px; }
-      .related-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
-      .related-image { height: 100px; }
-      .related-card h4, .sugerido-card h4 { font-size: 12px; height: 30px; }
-      .sugeridos-title { font-size: 18px; }
-      .sugeridos-subtitle { font-size: 13px; }
-      .sugeridos-banner { padding: 18px 20px; }
+      .full-width-related-wrapper {
+        padding: 0 14px;
+      }
+      .full-width-related-section {
+        padding: 0 2px;
+        margin-top: 40px;
+      }
+      .related-grid {
+        grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+        gap: 14px;
+      }
+      .producto-card-image-wrapper {
+        height: 150px;
+        padding: 10px;
+      }
+      .producto-card-info {
+        padding: 12px 12px 14px 12px;
+        gap: 6px;
+      }
+      .producto-card-title {
+        font-size: 12.5px;
+        min-height: 34px;
+      }
+      .producto-card-sub {
+        font-size: 10px;
+      }
+      .precio-actual {
+        font-size: 16px;
+      }
+      .precio-tachado {
+        font-size: 10px;
+      }
+      .producto-card-btn {
+        font-size: 11px;
+        padding: 8px 10px;
+      }
+      .fav-btn-card {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+      }
+      .card-badge {
+        font-size: 8px;
+        padding: 4px 8px;
+      }
+      .section-title {
+        font-size: 20px;
+      }
+      .related-header-label {
+        font-size: 10px;
+        padding: 3px 8px;
+      }
+      .related-count {
+        font-size: 11px;
+        padding: 6px 12px;
+      }
+      .sugeridos-banner {
+        padding: 22px 22px;
+        border-radius: var(--radius-lg);
+      }
+      .sugeridos-title {
+        font-size: 19px;
+      }
+      .sugeridos-subtitle {
+        font-size: 13px;
+      }
+      .tipo-grupo-header {
+        padding: 12px 16px;
+        gap: 10px;
+      }
+      .tipo-grupo-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+      }
+      .tipo-grupo-title {
+        font-size: 14px;
+      }
+      .tipo-grupo-count {
+        font-size: 10px;
+        padding: 4px 10px;
+      }
     }
 
     @media (max-width: 400px) {
-      .related-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-      .related-image { height: 78px; }
-      .fav-btn-small { width: 30px; height: 30px; font-size: 12px; }
+      .related-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      .producto-card-image-wrapper {
+        height: 130px;
+      }
+      .producto-card-title {
+        font-size: 11.5px;
+      }
+      .precio-actual {
+        font-size: 15px;
+      }
+      .producto-card-btn {
+        font-size: 10.5px;
+        padding: 7px 8px;
+      }
+      .fav-btn-card {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+        top: 8px;
+        right: 8px;
+      }
+      .card-badge {
+        font-size: 7px;
+        padding: 3px 7px;
+      }
     }
 
     /* ============ MODALES ============ */
@@ -3362,4 +3892,5 @@ if (typeof document !== "undefined") {
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
   `;
   document.head.appendChild(styleSheet);
+  
 }
