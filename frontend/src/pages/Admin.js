@@ -61,8 +61,8 @@ export default function Admin() {
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
   const [mostrarDetallePedido, setMostrarDetallePedido] = useState(false);
   const [filtroEstadoPedido, setFiltroEstadoPedido] = useState("todos");
+  const [actualizandoEstado, setActualizandoEstado] = useState(null);
 
-  // Cargar fecha guardada al montar
   useEffect(() => {
     const guardada = localStorage.getItem("fechaOferta");
     if (guardada) {
@@ -111,7 +111,7 @@ export default function Admin() {
     alto: "",
     grueso: "",
     cobertura: "",
-    mostrarCobertura: true, // 🔥 NUEVO: Controla si se muestra la cobertura
+    mostrarCobertura: true,
     tipoVenta: "pieza",
     tipoCobertura: "m2",
     piezasCaja: "",
@@ -126,7 +126,6 @@ export default function Admin() {
     tipo_instalacion: "",
     espesor_capa_desgaste: "",
     unidadGrueso: "mm",
-    // NUEVOS CAMPOS PARA UNIDADES DE MEDIDA
     unidadAncho: "cm",
     unidadAlto: "cm",
     unidadMetroLineal: "m",
@@ -151,7 +150,6 @@ export default function Admin() {
   const [modoEdicion, setModoEdicion] = useState(false);
   const [productoId, setProductoId] = useState(null);
   
-  // Cargar datos iniciales
   useEffect(() => {
     cargar();
     cargarBanners();
@@ -163,7 +161,6 @@ export default function Admin() {
     cargarPedidos();
   }, []);
   
-  // Funciones de carga
   const cargarContactos = () => {
     api.get("/contactos")
       .then(res => setContactos(res.data))
@@ -212,16 +209,51 @@ export default function Admin() {
       .catch(err => console.log(err));
   };
   
-  // Handlers de formulario
+  // 🔥 FUNCIONES AUXILIARES PARA FECHA/HORA DE ENTREGA
+  const formatearFechaEntrega = (fechaISO) => {
+    if (!fechaISO) return null;
+    try {
+      // Si ya viene formateada (ej: "Lunes 15/04/2025")
+      if (typeof fechaISO === 'string' && fechaISO.includes('/')) return fechaISO;
+      
+      const fecha = new Date(fechaISO);
+      if (isNaN(fecha.getTime())) return fechaISO;
+      
+      const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      const dia = String(fecha.getDate()).padStart(2, '0');
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+      const año = fecha.getFullYear();
+      return `${dias[fecha.getDay()]} ${dia}/${mes}/${año}`;
+    } catch {
+      return fechaISO;
+    }
+  };
+
+  const formatearHoraEntrega = (hora24) => {
+    if (!hora24) return null;
+    try {
+      // Si ya tiene AM/PM
+      if (typeof hora24 === 'string' && (hora24.toUpperCase().includes('AM') || hora24.toUpperCase().includes('PM'))) {
+        return hora24;
+      }
+      const [h, m] = hora24.split(':');
+      const hora = parseInt(h);
+      const ampm = hora >= 12 ? 'PM' : 'AM';
+      const hora12 = hora > 12 ? hora - 12 : (hora === 0 ? 12 : hora);
+      return `${hora12}:${m || '00'} ${ampm}`;
+    } catch {
+      return hora24;
+    }
+  };
+
+  // 🔥 Handlers de formulario CON AUTO-CÁLCULO
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    // Si cambia el tipo de venta, ajustamos campos relacionados
     if (name === "tipoVenta") {
       setForm({
         ...form,
         [name]: value,
-        // Resetear campos específicos al cambiar el tipo de venta
         anchoProducto: "",
         metrosPorRollo: "",
         precioPorMetroCuadrado: "",
@@ -231,13 +263,40 @@ export default function Admin() {
       return;
     }
     
-    setForm({
+    const nuevoForm = {
       ...form,
       [name]: type === "checkbox" ? checked : value
-    });
+    };
+    
+    if (nuevoForm.tipoVenta === "metro_lineal") {
+      const ancho = parseFloat(nuevoForm.anchoProducto) || 0;
+      const metros = parseFloat(nuevoForm.metrosPorRollo) || 0;
+      const precioM2 = parseFloat(nuevoForm.precioPorMetroCuadrado) || 0;
+      
+      if (ancho > 0 && metros > 0) {
+        const m2 = ancho * metros;
+        if (!nuevoForm.precio && precioM2 > 0) {
+          nuevoForm.precio = (precioM2 * m2).toFixed(2);
+        }
+      }
+    }
+    
+    if (nuevoForm.tipoVenta === "metro_cuadrado") {
+      const ancho = parseFloat(nuevoForm.anchoProducto) || 0;
+      const alto = parseFloat(nuevoForm.alto) || 0;
+      const precioM2 = parseFloat(nuevoForm.precioPorMetroCuadrado) || 0;
+      
+      if (ancho > 0 && alto > 0) {
+        const m2 = ancho * alto;
+        if (!nuevoForm.precio && precioM2 > 0) {
+          nuevoForm.precio = (precioM2 * m2).toFixed(2);
+        }
+      }
+    }
+    
+    setForm(nuevoForm);
   };
   
-  // Imágenes
   const handleImagenPrincipal = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -274,7 +333,6 @@ export default function Admin() {
     setPreviewBanner(URL.createObjectURL(file));
   };
   
-  // 🟠 BANNERS DE OFERTAS ESPECIALES
   const handleBannerOfertaChange = (e) => {
     const { name, value } = e.target;
     setBannerOfertaForm({
@@ -365,7 +423,6 @@ export default function Admin() {
       .catch(err => console.log(err));
   };
   
-  // CRUD Categorías, Subcategorías, Tipos
   const crearCategoria = () => {
     if (!nuevaCategoria) return alert("Escribe una categoría");
     api.post("/categorias", { nombre: nuevaCategoria })
@@ -512,7 +569,6 @@ export default function Admin() {
       });
   };
   
-  // 🟢 FUNCIONES PARA EL MODAL
   const abrirModalEditar = (producto) => {
     const imagenesArr = producto.imagenes ? producto.imagenes.split(",") : [];
     const principal = imagenesArr[0] || "";
@@ -692,7 +748,6 @@ export default function Admin() {
     setArchivoFicha(null);
   };
   
-  // 🟢 CREAR PRODUCTO
   const crearProducto = async () => {
     try {
       let todasLasImagenes = form.imagenes ? form.imagenes.split(",") : [];
@@ -732,7 +787,6 @@ export default function Admin() {
       
       const imagenesString = todasLasImagenes.join(",");
       
-      // Calcular metros cuadrados si es metro lineal o metro cuadrado
       let metrosCuadrados = null;
       if (form.tipoVenta === "metro_lineal" && form.anchoProducto && form.metrosPorRollo) {
         const anchoMetros = parseFloat(form.anchoProducto);
@@ -748,7 +802,6 @@ export default function Admin() {
         }
       }
       
-      // Asegurar que precio no sea null
       let precioFinal = form.precio;
       if (precioFinal === null || precioFinal === undefined || precioFinal === '') {
         if (form.tipoVenta === "metro_lineal" && form.precioPorMetroCuadrado && metrosCuadrados) {
@@ -760,7 +813,6 @@ export default function Admin() {
         }
       }
       
-      // Si mostrarCobertura es false, vaciar el campo cobertura
       let coberturaFinal = form.cobertura;
       if (!form.mostrarCobertura) {
         coberturaFinal = "";
@@ -785,10 +837,8 @@ export default function Admin() {
     }
   };
   
-  // 🔥 🔥 🔥 ACTUALIZAR PRODUCTO - CORREGIDO 🔥 🔥 🔥
   const actualizarProducto = async () => {
     try {
-      // Validar que tenemos un ID
       if (!productoId) {
         alert("❌ No se encontró el ID del producto");
         return;
@@ -796,11 +846,9 @@ export default function Admin() {
 
       console.log("📦 Actualizando producto ID:", productoId);
 
-      // 1. Preparar las imágenes
       let todasLasImagenes = [];
       const imagenesExistentes = form.imagenes ? form.imagenes.split(",") : [];
       
-      // Si hay una nueva imagen principal, subirla
       if (archivoPrincipal) {
         const formData = new FormData();
         formData.append("imagenes", archivoPrincipal);
@@ -809,11 +857,9 @@ export default function Admin() {
         });
         todasLasImagenes.push(uploadRes.data[0]);
       } else if (imagenesExistentes.length > 0) {
-        // Mantener la imagen principal existente
         todasLasImagenes.push(imagenesExistentes[0]);
       }
       
-      // Si hay nuevas imágenes de galería, subirlas
       if (archivosGaleria.length > 0) {
         const formData = new FormData();
         archivosGaleria.forEach(imagen => formData.append("imagenes", imagen));
@@ -822,12 +868,10 @@ export default function Admin() {
         });
         todasLasImagenes = todasLasImagenes.concat(uploadRes.data);
       } else {
-        // Mantener la galería existente (sin la primera que es la principal)
         const galeriaExistente = imagenesExistentes.slice(1);
         todasLasImagenes = todasLasImagenes.concat(galeriaExistente);
       }
       
-      // 2. Subir ficha técnica si hay nueva
       let fichaUrl = form.fichaTecnica || "";
       if (archivoFicha) {
         const formData = new FormData();
@@ -838,7 +882,6 @@ export default function Admin() {
         fichaUrl = uploadRes.data.url;
       }
       
-      // Calcular metros cuadrados si es metro lineal o metro cuadrado
       let metrosCuadrados = null;
       if (form.tipoVenta === "metro_lineal" && form.anchoProducto && form.metrosPorRollo) {
         const anchoMetros = parseFloat(form.anchoProducto);
@@ -854,7 +897,6 @@ export default function Admin() {
         }
       }
       
-      // Asegurar que precio no sea null
       let precioFinal = form.precio;
       if (precioFinal === null || precioFinal === undefined || precioFinal === '') {
         if (form.tipoVenta === "metro_lineal" && form.precioPorMetroCuadrado && metrosCuadrados) {
@@ -866,13 +908,11 @@ export default function Admin() {
         }
       }
       
-      // Si mostrarCobertura es false, vaciar el campo cobertura
       let coberturaFinal = form.cobertura;
       if (!form.mostrarCobertura) {
         coberturaFinal = "";
       }
       
-      // 3. Crear el objeto de datos para enviar
       const datosParaEnviar = {
         nombre: form.nombre,
         descripcion: form.descripcion,
@@ -921,22 +961,18 @@ export default function Admin() {
 
       console.log("📤 Enviando datos:", datosParaEnviar);
 
-      // 4. Hacer la petición PUT
       const response = await api.put(`/productos/${productoId}`, datosParaEnviar);
       
       console.log("✅ Respuesta del servidor:", response.data);
       
-      // 5. Recargar la lista de productos
       await cargar();
       
-      // 6. Cerrar el modal y mostrar mensaje
       cerrarModal();
       alert("✅ Producto actualizado correctamente");
       
     } catch (err) {
       console.error("❌ Error al actualizar producto:", err);
       
-      // Mostrar mensaje de error más detallado
       if (err.response) {
         console.error("📡 Error response:", err.response.data);
         alert(`❌ Error al actualizar: ${err.response.data.message || err.response.statusText || "Error del servidor"}`);
@@ -949,7 +985,6 @@ export default function Admin() {
     }
   };
   
-  // 🔘 MANEJADOR GUARDAR (desde el modal)
   const handleGuardarModal = () => {
     if (modoEdicion) {
       actualizarProducto();
@@ -958,13 +993,11 @@ export default function Admin() {
     }
   };
   
-  // 🔴 ELIMINAR PRODUCTO
   const eliminar = (id) => {
     if (!window.confirm("¿Eliminar producto?")) return;
     api.delete(`/productos/${id}`).then(() => cargar());
   };
   
-  // 🟢 BANNERS PRINCIPALES
   const crearBanner = async () => {
     try {
       let imagenBanner = "";
@@ -1013,15 +1046,26 @@ export default function Admin() {
       });
   };
 
-  // 📋 FUNCIONES PARA PEDIDOS
+  // 🔥 ACTUALIZAR ESTADO DE PEDIDO CON ENVÍO DE CORREO
   const actualizarEstadoPedido = async (id, estado) => {
-    if (!window.confirm(`¿Cambiar estado del pedido a "${estado}"?`)) return;
+    if (!window.confirm(`¿Cambiar estado del pedido a "${estado}"?\n\n📧 Se enviará un correo al cliente.`)) return;
+    
+    setActualizandoEstado(id);
     
     try {
       const res = await api.put(`/pedidos/${id}/estado`, { estado });
       
+      console.log("📬 Respuesta del servidor:", res.data);
+      
       if (res.data.success) {
-        alert(`✅ Estado actualizado a "${estado}". Se envió correo al cliente.`);
+        if (res.data.correo_enviado) {
+          alert(`✅ Estado actualizado a "${estado}".\n\n📧 Correo enviado correctamente al cliente.`);
+        } else if (res.data.error_correo) {
+          alert(`✅ Estado actualizado a "${estado}".\n\n⚠️ No se pudo enviar el correo:\n${res.data.error_correo}`);
+        } else {
+          alert(`✅ Estado actualizado a "${estado}".`);
+        }
+        
         cargarPedidos();
         if (mostrarDetallePedido && pedidoSeleccionado && pedidoSeleccionado.id === id) {
           const detalleRes = await api.get(`/pedidos/${id}`);
@@ -1029,8 +1073,10 @@ export default function Admin() {
         }
       }
     } catch (err) {
-      console.error(err);
-      alert("❌ Error al actualizar estado");
+      console.error("❌ Error al actualizar estado:", err);
+      alert("❌ Error al actualizar estado del pedido");
+    } finally {
+      setActualizandoEstado(null);
     }
   };
 
@@ -1070,7 +1116,6 @@ export default function Admin() {
     return producto.imagen || "https://via.placeholder.com/60";
   };
 
-  // 🔍 FILTRAR PRODUCTOS POR BÚSQUEDA
   const productosFiltrados = productos.filter(p => {
     const term = busqueda.toLowerCase().trim();
     if (!term) return true;
@@ -1079,9 +1124,16 @@ export default function Admin() {
     return nombre.includes(term) || sku.includes(term);
   });
 
-  // ======================
-  // RENDERIZADO PRINCIPAL
-  // ======================
+  // 🔥 LABELS DE ESTADOS PARA PEDIDOS
+  const estadoColores = {
+    pendiente: { bg: '#fef3c7', color: '#92400e', label: '⏳ Pendiente' },
+    confirmado: { bg: '#dbeafe', color: '#1e40af', label: '✅ Confirmado' },
+    en_preparacion: { bg: '#fef3c7', color: '#92400e', label: '🔧 En preparación' },
+    listo: { bg: '#d1fae5', color: '#065f46', label: '📦 Listo' },
+    entregado: { bg: '#d1fae5', color: '#065f46', label: '🚚 Entregado' },
+    cancelado: { bg: '#fee2e2', color: '#991b1b', label: '❌ Cancelado' }
+  };
+
   return (
     <div className="admin-container">
       <header className="admin-header">
@@ -1338,7 +1390,6 @@ export default function Admin() {
         )}
       </section>
 
-      {/* FORMULARIO DE PRODUCTO (solo se muestra si NO hay modal abierto) */}
       {!modalAbierto && (
         <section className="section-card">
           <h2>➕ Crear producto</h2>
@@ -1400,7 +1451,6 @@ export default function Admin() {
               <option value="presentacion">Presentación</option>
             </select>
 
-            {/* Campos para Paquete */}
             {form.tipoVenta === "paquete" && (
               <input
                 name="piezasCaja"
@@ -1413,11 +1463,10 @@ export default function Admin() {
               />
             )}
 
-            {/* Campos para Metro Lineal */}
             {form.tipoVenta === "metro_lineal" && (
               <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                 <div>
-                  <label className="form-label">📏 Ancho del producto (en metros)</label>
+                  <label className="form-label">📏 Ancho del rollo (en metros)</label>
                   <input
                     name="anchoProducto"
                     placeholder="Ej: 3.98"
@@ -1429,7 +1478,7 @@ export default function Admin() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">📏 Metros lineales que trae el rollo</label>
+                  <label className="form-label">📏 Largo del rollo (metros lineales)</label>
                   <input
                     name="metrosPorRollo"
                     placeholder="Ej: 30"
@@ -1451,25 +1500,28 @@ export default function Admin() {
                     step="0.01"
                     type="number"
                   />
-                  {form.anchoProducto && form.metrosPorRollo && form.precioPorMetroCuadrado && (
+                  {form.anchoProducto && form.metrosPorRollo && (
                     <div style={{ marginTop: '8px', padding: '8px 12px', background: '#eef2ff', borderRadius: '8px', fontSize: '13px' }}>
-                      <strong>📊 Cálculo:</strong> {form.anchoProducto}m × {form.metrosPorRollo}ml = {(parseFloat(form.anchoProducto) * parseFloat(form.metrosPorRollo)).toFixed(2)} m²
-                      <br />
-                      <strong>💰 Precio total:</strong> ${(parseFloat(form.precioPorMetroCuadrado) * parseFloat(form.anchoProducto) * parseFloat(form.metrosPorRollo)).toFixed(2)}
+                      <strong>📐 Cobertura:</strong> {form.anchoProducto}m × {form.metrosPorRollo}m = {(parseFloat(form.anchoProducto) * parseFloat(form.metrosPorRollo)).toFixed(2)} m²
+                      {form.precioPorMetroCuadrado && (
+                        <>
+                          <br />
+                          <strong>💰 Precio total:</strong> ${(parseFloat(form.precioPorMetroCuadrado) * parseFloat(form.anchoProducto) * parseFloat(form.metrosPorRollo)).toFixed(2)}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Campos para Metro Cuadrado */}
             {form.tipoVenta === "metro_cuadrado" && (
               <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                 <div>
-                  <label className="form-label">📏 Ancho del producto (en metros)</label>
+                  <label className="form-label">📏 Ancho del rollo (en metros)</label>
                   <input
                     name="anchoProducto"
-                    placeholder="Ej: 2.00"
+                    placeholder="Ej: 4"
                     value={form.anchoProducto}
                     onChange={handleChange}
                     className="form-input"
@@ -1478,10 +1530,10 @@ export default function Admin() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">📏 Alto del producto (en metros)</label>
+                  <label className="form-label">📏 Largo del rollo (en metros)</label>
                   <input
                     name="alto"
-                    placeholder="Ej: 2.00"
+                    placeholder="Ej: 30"
                     value={form.alto}
                     onChange={handleChange}
                     className="form-input"
@@ -1500,18 +1552,21 @@ export default function Admin() {
                     step="0.01"
                     type="number"
                   />
-                  {form.anchoProducto && form.alto && form.precioPorMetroCuadrado && (
+                  {form.anchoProducto && form.alto && (
                     <div style={{ marginTop: '8px', padding: '8px 12px', background: '#eef2ff', borderRadius: '8px', fontSize: '13px' }}>
-                      <strong>📊 Cálculo:</strong> {form.anchoProducto}m × {form.alto}m = {(parseFloat(form.anchoProducto) * parseFloat(form.alto)).toFixed(2)} m²
-                      <br />
-                      <strong>💰 Precio total:</strong> ${(parseFloat(form.precioPorMetroCuadrado) * parseFloat(form.anchoProducto) * parseFloat(form.alto)).toFixed(2)}
+                      <strong>📐 Cobertura:</strong> {form.anchoProducto}m × {form.alto}m = {(parseFloat(form.anchoProducto) * parseFloat(form.alto)).toFixed(2)} m²
+                      {form.precioPorMetroCuadrado && (
+                        <>
+                          <br />
+                          <strong>💰 Precio total:</strong> ${(parseFloat(form.precioPorMetroCuadrado) * parseFloat(form.anchoProducto) * parseFloat(form.alto)).toFixed(2)}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Campos para Presentación */}
             {form.tipoVenta === "presentacion" && (
               <div>
                 <label className="form-label">🧴 Presentación</label>
@@ -1532,7 +1587,6 @@ export default function Admin() {
               </div>
             )}
 
-            {/* Campos para Pieza, Caja y Paquete (medidas físicas) */}
             {form.tipoVenta !== "metro_lineal" && form.tipoVenta !== "metro_cuadrado" && form.tipoVenta !== "presentacion" && (
               <div className="input-group">
                 <div>
@@ -1610,7 +1664,6 @@ export default function Admin() {
               </div>
             )}
 
-            {/* 🔥 SECCIÓN DE COBERTURA CON CHECKBOX */}
             <div className="input-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
                 <label className="checkbox-label">
@@ -1986,7 +2039,6 @@ export default function Admin() {
         </section>
       )}
 
-      {/* MODAL */}
       {modalAbierto && (
         <div className="modal-overlay" onClick={cerrarModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -2053,7 +2105,6 @@ export default function Admin() {
                   <option value="presentacion">Presentación</option>
                 </select>
 
-                {/* Campos para Paquete */}
                 {form.tipoVenta === "paquete" && (
                   <input
                     name="piezasCaja"
@@ -2066,11 +2117,10 @@ export default function Admin() {
                   />
                 )}
 
-                {/* Campos para Metro Lineal */}
                 {form.tipoVenta === "metro_lineal" && (
                   <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                     <div>
-                      <label className="form-label">📏 Ancho del producto (en metros)</label>
+                      <label className="form-label">📏 Ancho del rollo (en metros)</label>
                       <input
                         name="anchoProducto"
                         placeholder="Ej: 3.98"
@@ -2082,7 +2132,7 @@ export default function Admin() {
                       />
                     </div>
                     <div>
-                      <label className="form-label">📏 Metros lineales que trae el rollo</label>
+                      <label className="form-label">📏 Largo del rollo (metros lineales)</label>
                       <input
                         name="metrosPorRollo"
                         placeholder="Ej: 30"
@@ -2108,14 +2158,13 @@ export default function Admin() {
                   </div>
                 )}
 
-                {/* Campos para Metro Cuadrado */}
                 {form.tipoVenta === "metro_cuadrado" && (
                   <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                     <div>
-                      <label className="form-label">📏 Ancho del producto (en metros)</label>
+                      <label className="form-label">📏 Ancho del rollo (en metros)</label>
                       <input
                         name="anchoProducto"
-                        placeholder="Ej: 2.00"
+                        placeholder="Ej: 4"
                         value={form.anchoProducto}
                         onChange={handleChange}
                         className="form-input"
@@ -2124,10 +2173,10 @@ export default function Admin() {
                       />
                     </div>
                     <div>
-                      <label className="form-label">📏 Alto del producto (en metros)</label>
+                      <label className="form-label">📏 Largo del rollo (en metros)</label>
                       <input
                         name="alto"
-                        placeholder="Ej: 2.00"
+                        placeholder="Ej: 30"
                         value={form.alto}
                         onChange={handleChange}
                         className="form-input"
@@ -2150,7 +2199,6 @@ export default function Admin() {
                   </div>
                 )}
 
-                {/* Campos para Presentación */}
                 {form.tipoVenta === "presentacion" && (
                   <div>
                     <label className="form-label">🧴 Presentación</label>
@@ -2171,7 +2219,6 @@ export default function Admin() {
                   </div>
                 )}
 
-                {/* Campos para Pieza, Caja y Paquete (medidas físicas) */}
                 {form.tipoVenta !== "metro_lineal" && form.tipoVenta !== "metro_cuadrado" && form.tipoVenta !== "presentacion" && (
                   <div className="input-group">
                     <div>
@@ -2249,7 +2296,6 @@ export default function Admin() {
                   </div>
                 )}
 
-                {/* 🔥 SECCIÓN DE COBERTURA CON CHECKBOX - MODAL */}
                 <div className="input-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
                     <label className="checkbox-label">
@@ -2627,7 +2673,6 @@ export default function Admin() {
         </div>
       )}
 
-      {/* ⏰ SECCIÓN DE CONFIGURACIÓN DEL TEMPORIZADOR */}
       <section className="section-card timer-section">
         <h2>⏰ Configurar tiempo de ofertas</h2>
         <p>Selecciona la fecha y hora de finalización</p>
@@ -2656,7 +2701,6 @@ export default function Admin() {
         )}
       </section>
 
-      {/* 🔍 LISTA DE PRODUCTOS CON BUSCADOR */}
       <section className="section-card">
         <h2>📦 Lista productos</h2>
         <div style={{ marginBottom: "20px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
@@ -2713,41 +2757,127 @@ export default function Admin() {
                     )}
                   </div>
                   
-                  {/* Mostrar información según tipo de venta */}
-                  {p.tipoVenta === "metro_lineal" ? (
-                    <div>
-                      <p>📏 Ancho del producto: {p.anchoProducto || 'N/A'} m</p>
-                      <p>📏 Metros lineales por rollo: {p.metrosPorRollo || 'N/A'} ml</p>
-                      {p.metrosCuadrados && <p>📐 Total: {p.metrosCuadrados} m²</p>}
-                      {p.precioPorMetroCuadrado && <p>💰 Precio por m²: ${p.precioPorMetroCuadrado}</p>}
-                      <p>🚚 Venta: Metro Lineal</p>
+                  {p.tipoVenta === "metro_lineal" && (
+                    <div className="tipo-venta-info">
+                      <p>🧵 <strong>Tipo:</strong> Rollo (Metro Lineal)</p>
+                      <p>📏 <strong>Largo del rollo:</strong> {p.metrosPorRollo || p.alto || 'N/A'} m</p>
+                      <p>📏 <strong>Ancho del rollo:</strong> {p.anchoProducto || 'N/A'} m</p>
+                      {p.metrosCuadrados && (
+                        <p>📐 <strong>Cobertura total:</strong> {Number(p.metrosCuadrados).toFixed(2)} m²</p>
+                      )}
+                      {p.precioPorMetroCuadrado && (
+                        <p>💰 <strong>Precio por m²:</strong> ${p.precioPorMetroCuadrado}</p>
+                      )}
+                      {p.grueso && (
+                        <p>📊 <strong>Grosor:</strong> {p.grueso} {p.unidadGrueso || 'mm'}</p>
+                      )}
                     </div>
-                  ) : p.tipoVenta === "metro_cuadrado" ? (
-                    <div>
-                      <p>📏 Ancho: {p.anchoProducto || 'N/A'} m</p>
-                      <p>📏 Alto: {p.alto || 'N/A'} m</p>
-                      {p.metrosCuadrados && <p>📐 Total: {p.metrosCuadrados} m²</p>}
-                      {p.precioPorMetroCuadrado && <p>💰 Precio por m²: ${p.precioPorMetroCuadrado}</p>}
-                      <p>🚚 Venta: Metro Cuadrado</p>
-                    </div>
-                  ) : p.tipoVenta === "paquete" ? (
-                    <div>
-                      <p>📦 Piezas por paquete: {p.piezasCaja || 'N/A'}</p>
-                      <p>🚚 Venta: Paquete</p>
-                    </div>
-                  ) : p.tipoVenta === "presentacion" ? (
-                    <p>🧴 Presentación: {p.presentacion}</p>
-                  ) : (
-                    <p>📏 {p.ancho || 'N/A'}{p.unidadAncho || 'cm'} x {p.alto || 'N/A'}{p.unidadAlto || 'cm'} x {p.grueso || 'N/A'}{p.unidadGrueso || 'mm'}</p>
                   )}
-                  
-                  {/* Mostrar cobertura solo si está activada */}
-                  {(p.mostrarCobertura === 1 || p.mostrarCobertura === true) && p.cobertura && (
-                    <p>📦 Cobertura: {p.cobertura} {p.tipoCobertura}</p>
+
+                  {p.tipoVenta === "metro_cuadrado" && (
+                    <div className="tipo-venta-info">
+                      <p>🧵 <strong>Tipo:</strong> Rollo (Metro Cuadrado)</p>
+                      <p>📏 <strong>Largo del rollo:</strong> {p.alto || 'N/A'} m</p>
+                      <p>📏 <strong>Ancho del rollo:</strong> {p.anchoProducto || 'N/A'} m</p>
+                      {p.metrosCuadrados && (
+                        <p>📐 <strong>Cobertura total:</strong> {Number(p.metrosCuadrados).toFixed(2)} m²</p>
+                      )}
+                      {p.precioPorMetroCuadrado && (
+                        <p>💰 <strong>Precio por m²:</strong> ${p.precioPorMetroCuadrado}</p>
+                      )}
+                      {p.grueso && (
+                        <p>📊 <strong>Grosor:</strong> {p.grueso} {p.unidadGrueso || 'mm'}</p>
+                      )}
+                    </div>
                   )}
-                  
-                  <p>🚚 Venta: {p.tipoVenta}</p>
-                  <p>💲 {p.precio}</p>
+
+                  {p.tipoVenta === "caja" && (
+                    <div className="tipo-venta-info">
+                      <p>📦 <strong>Tipo:</strong> Caja</p>
+                      <p>📦 <strong>Piezas por caja:</strong> {p.piezasCaja || 1}</p>
+                      {(p.ancho || p.alto) && (
+                        <p>📐 <strong>Medida por pieza:</strong> {p.ancho || 'N/A'}{p.unidadAncho || 'cm'} × {p.alto || 'N/A'}{p.unidadAlto || 'cm'}</p>
+                      )}
+                      {p.grueso && (
+                        <p>📊 <strong>Grosor:</strong> {p.grueso} {p.unidadGrueso || 'mm'}</p>
+                      )}
+                      {(p.mostrarCobertura === 1 || p.mostrarCobertura === true) && p.cobertura && (
+                        <p>📊 <strong>Cobertura por caja:</strong> {p.cobertura} {p.tipoCobertura || 'm²'}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {p.tipoVenta === "paquete" && (
+                    <div className="tipo-venta-info">
+                      <p>📦 <strong>Tipo:</strong> Paquete</p>
+                      <p>📦 <strong>Piezas por paquete:</strong> {p.piezasCaja || 1}</p>
+                      {(p.ancho || p.alto) && (
+                        <p>📐 <strong>Medida por pieza:</strong> {p.ancho || 'N/A'}{p.unidadAncho || 'cm'} × {p.alto || 'N/A'}{p.unidadAlto || 'cm'}</p>
+                      )}
+                      {p.grueso && (
+                        <p>📊 <strong>Grosor:</strong> {p.grueso} {p.unidadGrueso || 'mm'}</p>
+                      )}
+                      {(p.mostrarCobertura === 1 || p.mostrarCobertura === true) && p.cobertura && (
+                        <p>📊 <strong>Cobertura por paquete:</strong> {p.cobertura} {p.tipoCobertura || 'm²'}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {p.tipoVenta === "pieza" && (
+                    <div className="tipo-venta-info">
+                      <p>🧩 <strong>Tipo:</strong> Pieza</p>
+                      {(p.ancho || p.alto) && (
+                        <p>📐 <strong>Medidas:</strong> {p.ancho || 'N/A'}{p.unidadAncho || 'cm'} × {p.alto || 'N/A'}{p.unidadAlto || 'cm'}</p>
+                      )}
+                      {p.grueso && (
+                        <p>📊 <strong>Grosor:</strong> {p.grueso} {p.unidadGrueso || 'mm'}</p>
+                      )}
+                      {(p.mostrarCobertura === 1 || p.mostrarCobertura === true) && p.cobertura && (
+                        <p>📊 <strong>Cobertura por pieza:</strong> {p.cobertura} {p.tipoCobertura || 'm²'}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {p.tipoVenta === "presentacion" && (
+                    <div className="tipo-venta-info">
+                      <p>🧴 <strong>Tipo:</strong> Presentación</p>
+                      <p>🧴 <strong>Presentación:</strong> {p.presentacion || 'N/A'}</p>
+                      {(p.mostrarCobertura === 1 || p.mostrarCobertura === true) && p.cobertura && (
+                        <p>📊 <strong>Cobertura por unidad:</strong> {p.cobertura} {p.tipoCobertura || 'm²'}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {p.tipoVenta === "tramo" && (
+                    <div className="tipo-venta-info">
+                      <p>📏 <strong>Tipo:</strong> Tramo</p>
+                      {(p.ancho || p.alto) && (
+                        <p>📐 <strong>Medidas del tramo:</strong> {p.ancho || 'N/A'}{p.unidadAncho || 'cm'} × {p.alto || 'N/A'}{p.unidadAlto || 'cm'}</p>
+                      )}
+                      {p.grueso && (
+                        <p>📊 <strong>Grosor:</strong> {p.grueso} {p.unidadGrueso || 'mm'}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {!p.tipoVenta && (
+                    <div className="tipo-venta-info">
+                      <p>📏 <strong>Medidas:</strong> {p.ancho || 'N/A'}{p.unidadAncho || 'cm'} × {p.alto || 'N/A'}{p.unidadAlto || 'cm'} × {p.grueso || 'N/A'}{p.unidadGrueso || 'mm'}</p>
+                    </div>
+                  )}
+
+                  {p.tipoVenta !== "caja" &&
+                   p.tipoVenta !== "paquete" &&
+                   p.tipoVenta !== "pieza" &&
+                   p.tipoVenta !== "presentacion" &&
+                   p.tipoVenta !== "metro_lineal" &&
+                   p.tipoVenta !== "metro_cuadrado" &&
+                   (p.mostrarCobertura === 1 || p.mostrarCobertura === true) &&
+                   p.cobertura && (
+                    <p>📦 <strong>Cobertura:</strong> {p.cobertura} {p.tipoCobertura || 'm²'}</p>
+                  )}
+
+                  <p>💲 <strong>Precio:</strong> ${p.precio}</p>
                   <p>📂 Categoría: {p.categoria || "Sin categoría"}</p>
                   <p>📁 Subcategoría: {p.subcategoria || "Sin subcategoría"}</p>
                   {(p.oferta === 1 || p.oferta === true) && (
@@ -2819,9 +2949,6 @@ export default function Admin() {
         })}
       </section>
 
-      {/* ================================================= */}
-      {/* 📋 SECCIÓN DE PEDIDOS */}
-      {/* ================================================= */}
       <section className="section-card" style={{ borderTop: '4px solid #2563eb' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <h2 style={{ margin: 0 }}>📋 Pedidos</h2>
@@ -2854,7 +2981,7 @@ export default function Admin() {
               width: '100%',
               borderCollapse: 'collapse',
               fontSize: '14px',
-              minWidth: '650px'
+              minWidth: '900px'
             }}>
               <thead>
                 <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #e5e7eb' }}>
@@ -2862,7 +2989,7 @@ export default function Admin() {
                   <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '700', color: '#374151' }}>👤 Cliente</th>
                   <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '700', color: '#374151' }}>📦 Productos</th>
                   <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '700', color: '#374151' }}>💰 Total</th>
-                  <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '700', color: '#374151' }}>📅 Fecha</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '700', color: '#374151' }}>📅 Entrega</th>
                   <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '700', color: '#374151' }}>📌 Estado</th>
                   <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '700', color: '#374151' }}>Acciones</th>
                 </tr>
@@ -2871,15 +2998,9 @@ export default function Admin() {
                 {pedidos
                   .filter(p => filtroEstadoPedido === 'todos' || p.estado === filtroEstadoPedido)
                   .map(pedido => {
-                    const estadoColores = {
-                      pendiente: { bg: '#fef3c7', color: '#92400e', label: '⏳ Pendiente' },
-                      confirmado: { bg: '#dbeafe', color: '#1e40af', label: '✅ Confirmado' },
-                      en_preparacion: { bg: '#fef3c7', color: '#92400e', label: '🔧 En preparación' },
-                      listo: { bg: '#d1fae5', color: '#065f46', label: '📦 Listo' },
-                      entregado: { bg: '#d1fae5', color: '#065f46', label: '🚚 Entregado' },
-                      cancelado: { bg: '#fee2e2', color: '#991b1b', label: '❌ Cancelado' }
-                    };
                     const estadoInfo = estadoColores[pedido.estado] || estadoColores.pendiente;
+                    const fechaEntrega = formatearFechaEntrega(pedido.dia_entrega);
+                    const horaEntrega = formatearHoraEntrega(pedido.hora_entrega);
 
                     return (
                       <tr key={pedido.id} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background 0.2s' }}
@@ -2888,6 +3009,9 @@ export default function Admin() {
                       >
                         <td style={{ padding: '12px 14px' }}>
                           <strong style={{ color: '#2563eb' }}>{pedido.numero_pedido}</strong>
+                          <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+                            {new Date(pedido.fecha_pedido).toLocaleDateString('es-MX')}
+                          </div>
                         </td>
                         <td style={{ padding: '12px 14px' }}>
                           <div style={{ fontWeight: '600' }}>{pedido.cliente_nombre}</div>
@@ -2901,8 +3025,31 @@ export default function Admin() {
                         <td style={{ padding: '12px 14px', fontWeight: '700', color: '#059669' }}>
                           ${pedido.total}
                         </td>
-                        <td style={{ padding: '12px 14px', fontSize: '13px', color: '#6b7280' }}>
-                          {new Date(pedido.fecha_pedido).toLocaleDateString('es-MX')}
+                        <td style={{ padding: '12px 14px' }}>
+                          {fechaEntrega || horaEntrega ? (
+                            <div style={{
+                              background: 'linear-gradient(135deg, #fffbeb, #fef3c7)',
+                              border: '1px solid #fde68a',
+                              borderRadius: '10px',
+                              padding: '6px 10px',
+                              display: 'inline-block'
+                            }}>
+                              {fechaEntrega && (
+                                <div style={{ fontSize: '12px', color: '#92400e', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                                  📅 {fechaEntrega}
+                                </div>
+                              )}
+                              {horaEntrega && (
+                                <div style={{ fontSize: '12px', color: '#92400e', fontWeight: '700', marginTop: '2px' }}>
+                                  🕒 {horaEntrega}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: '#9ca3af', fontStyle: 'italic' }}>
+                              No especificado
+                            </span>
+                          )}
                         </td>
                         <td style={{ padding: '12px 14px' }}>
                           <span style={{
@@ -2912,7 +3059,8 @@ export default function Admin() {
                             borderRadius: '16px',
                             fontSize: '12px',
                             fontWeight: '700',
-                            display: 'inline-block'
+                            display: 'inline-block',
+                            whiteSpace: 'nowrap'
                           }}>
                             {estadoInfo.label}
                           </span>
@@ -2929,13 +3077,15 @@ export default function Admin() {
                             <select
                               value={pedido.estado}
                               onChange={(e) => actualizarEstadoPedido(pedido.id, e.target.value)}
+                              disabled={actualizandoEstado === pedido.id}
                               style={{
                                 padding: '4px 8px',
                                 borderRadius: '8px',
                                 border: '2px solid #e5e7eb',
                                 fontSize: '11px',
                                 background: '#fff',
-                                cursor: 'pointer'
+                                cursor: actualizandoEstado === pedido.id ? 'wait' : 'pointer',
+                                opacity: actualizandoEstado === pedido.id ? 0.6 : 1
                               }}
                             >
                               <option value="pendiente">⏳ Pendiente</option>
@@ -2963,7 +3113,6 @@ export default function Admin() {
         )}
       </section>
 
-      {/* 📋 MODAL DE DETALLE DE PEDIDO */}
       {mostrarDetallePedido && pedidoSeleccionado && (
         <div className="modal-overlay" onClick={() => setMostrarDetallePedido(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '750px' }}>
@@ -2990,27 +3139,15 @@ export default function Admin() {
                     <strong style={{ color: '#6b7280', fontSize: '12px' }}>📌 Estado</strong>
                     <p style={{ margin: '4px 0 0 0' }}>
                       <span style={{
-                        background: (() => {
-                          const colores = {
-                            pendiente: '#fef3c7', confirmado: '#dbeafe', en_preparacion: '#fef3c7',
-                            listo: '#d1fae5', entregado: '#d1fae5', cancelado: '#fee2e2'
-                          };
-                          return colores[pedidoSeleccionado.estado] || '#f1f5f9';
-                        })(),
-                        color: (() => {
-                          const colores = {
-                            pendiente: '#92400e', confirmado: '#1e40af', en_preparacion: '#92400e',
-                            listo: '#065f46', entregado: '#065f46', cancelado: '#991b1b'
-                          };
-                          return colores[pedidoSeleccionado.estado] || '#374151';
-                        })(),
+                        background: (estadoColores[pedidoSeleccionado.estado] || estadoColores.pendiente).bg,
+                        color: (estadoColores[pedidoSeleccionado.estado] || estadoColores.pendiente).color,
                         padding: '4px 14px',
                         borderRadius: '16px',
                         fontSize: '14px',
                         fontWeight: '700',
                         display: 'inline-block'
                       }}>
-                        {(pedidoSeleccionado.estado || 'pendiente').toUpperCase()}
+                        {(estadoColores[pedidoSeleccionado.estado] || estadoColores.pendiente).label}
                       </span>
                     </p>
                   </div>
@@ -3029,6 +3166,48 @@ export default function Admin() {
                     <p style={{ margin: '4px 0 0 0' }}>{pedidoSeleccionado.cliente_celular}</p>
                   </div>
                 </div>
+
+                {(pedidoSeleccionado.dia_entrega || pedidoSeleccionado.hora_entrega) && (
+                  <div style={{
+                    marginTop: '14px',
+                    background: 'linear-gradient(135deg, #fffbeb, #fef3c7)',
+                    border: '2px solid #fde68a',
+                    borderRadius: '14px',
+                    padding: '14px 18px'
+                  }}>
+                    <div style={{
+                      color: '#92400e',
+                      fontSize: '13px',
+                      fontWeight: '800',
+                      marginBottom: '10px',
+                      letterSpacing: '0.3px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      📅 DÍA Y HORA DE ENTREGA
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <div style={{ fontSize: '11px', color: '#a16207', fontWeight: '600', marginBottom: '2px' }}>
+                          Día seleccionado
+                        </div>
+                        <div style={{ fontSize: '15px', color: '#78350f', fontWeight: '800' }}>
+                          {formatearFechaEntrega(pedidoSeleccionado.dia_entrega) || 'No especificado'}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '11px', color: '#a16207', fontWeight: '600', marginBottom: '2px' }}>
+                          Hora seleccionada
+                        </div>
+                        <div style={{ fontSize: '15px', color: '#78350f', fontWeight: '800' }}>
+                          🕒 {formatearHoraEntrega(pedidoSeleccionado.hora_entrega) || 'No especificado'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {pedidoSeleccionado.cliente_comentarios && (
                   <div style={{ marginTop: '10px' }}>
                     <strong style={{ color: '#6b7280', fontSize: '12px' }}>💬 Comentarios</strong>
@@ -3038,7 +3217,7 @@ export default function Admin() {
                   </div>
                 )}
                 <div style={{ marginTop: '10px' }}>
-                  <strong style={{ color: '#6b7280', fontSize: '12px' }}>📅 Fecha</strong>
+                  <strong style={{ color: '#6b7280', fontSize: '12px' }}>📅 Fecha del pedido</strong>
                   <p style={{ margin: '4px 0 0 0' }}>
                     {new Date(pedidoSeleccionado.fecha_pedido).toLocaleString('es-MX', {
                       weekday: 'long',
@@ -3107,6 +3286,18 @@ export default function Admin() {
                     </tr>
                   </tbody>
                 </table>
+              </div>
+
+              <div style={{
+                marginTop: '16px',
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                fontSize: '13px',
+                color: '#166534'
+              }}>
+                📧 <strong>Nota:</strong> Al cambiar el estado del pedido, se enviará automáticamente un correo al cliente notificando el nuevo estado.
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
@@ -3190,7 +3381,6 @@ export default function Admin() {
         )}
       </section>
 
-      {/* 🟠 BANNERS DE OFERTAS ESPECIALES */}
       <section className="section-card" style={{ borderTop: '4px solid #f59e0b' }}>
         <h2>🏷️ Banners de ofertas especiales</h2>
         <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>
@@ -3411,7 +3601,6 @@ export default function Admin() {
         )}
       </section>
 
-      {/* 🔵 BANNERS PRINCIPALES */}
       <section className="section-card">
         <h2>🔥 Banner promociones principales</h2>
         <div className="form-grid">
@@ -3489,7 +3678,6 @@ export default function Admin() {
         ))}
       </section>
 
-      {/* ESTILOS - se mantienen igual */}
       <style jsx>{`
         * { box-sizing: border-box; }
 
@@ -3928,6 +4116,34 @@ export default function Admin() {
         }
 
         @media (min-width: 768px) { .product-details p { font-size: 14px; } }
+
+        .tipo-venta-info {
+          background: #f8fafc;
+          border-left: 3px solid #3b82f6;
+          border-radius: 8px;
+          padding: 8px 12px;
+          margin: 8px 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .tipo-venta-info p {
+          margin: 2px 0;
+          font-size: 13px;
+          color: #374151;
+          line-height: 1.4;
+        }
+
+        .tipo-venta-info p strong {
+          color: #111827;
+        }
+
+        @media (min-width: 768px) {
+          .tipo-venta-info p {
+            font-size: 14px;
+          }
+        }
 
         .product-actions {
           display: flex;

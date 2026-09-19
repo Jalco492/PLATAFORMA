@@ -7,29 +7,16 @@ import api from "../services/api";
 
 // 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
 const getImageUrl = (imagen) => {
-  if (!imagen) {
-    return "https://via.placeholder.com/200?text=Sin+imagen";
-  }
-
-  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
-    return imagen;
-  }
-
+  if (!imagen) return "https://via.placeholder.com/200?text=Sin+imagen";
+  if (imagen.startsWith("http://") || imagen.startsWith("https://")) return imagen;
   const API_BASE = process.env.REACT_APP_API_URL || 'https://backend-zuib.onrender.com';
-  
-  if (imagen.startsWith("/")) {
-    return `${API_BASE}${imagen}`;
-  }
-
+  if (imagen.startsWith("/")) return `${API_BASE}${imagen}`;
   return `${API_BASE}/${imagen}`;
 };
 
-// 🔥 FUNCIÓN PARA OBTENER LA IMAGEN DEL PRODUCTO
 const obtenerImagenProducto = (producto) => {
   if (!producto) return "https://via.placeholder.com/200?text=Sin+imagen";
-
   let imagenUrl = "";
-
   if (producto.imagenes && producto.imagenes.trim() !== "") {
     imagenUrl = producto.imagenes.split(",")[0].trim();
   } else if (producto.imagen && producto.imagen.trim() !== "") {
@@ -37,20 +24,15 @@ const obtenerImagenProducto = (producto) => {
   } else {
     return "https://via.placeholder.com/200?text=Sin+imagen";
   }
-
   return getImageUrl(imagenUrl);
 };
 
-// 🔥 FUNCIÓN PARA CONVERTIR IMAGEN A BASE64
 const convertirImagenBase64 = async (url) => {
   try {
     if (!url) return null;
     if (url.includes("placeholder")) return null;
-    
     const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
     const blob = await response.blob();
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -62,6 +44,17 @@ const convertirImagenBase64 = async (url) => {
     console.error('Error convirtiendo imagen a base64:', error);
     return null;
   }
+};
+
+// 🔥 CONVERSIÓN DE UNIDADES
+const convertirAMetrosConUnidad = (valor, unidad = 'cm') => {
+  const num = Number(valor) || 0;
+  if (num === 0) return 0;
+  const u = (unidad || 'cm').toLowerCase().trim();
+  if (u === 'm' || u === 'mt' || u === 'mts' || u === 'metro' || u === 'metros') return num;
+  if (u === 'mm' || u === 'milimetro' || u === 'milimetros') return num / 1000;
+  if (u === 'cm' || u === 'centimetro' || u === 'centimetros') return num / 100;
+  return num / 100;
 };
 
 export default function Cotizador() {
@@ -89,11 +82,44 @@ export default function Cotizador() {
     localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
 
+  // ============================================================
+  // 🔥 TIPOS QUE SOLO PERMITEN INGRESAR CANTIDAD
+  // ============================================================
+  const esSoloCantidad = (tipoVenta) => {
+    return ["pieza", "paquete", "otros", "unidad", "presentacion"].includes(tipoVenta);
+  };
+
+  // ============================================================
+  // 🔥 MODOS PERMITIDOS POR TIPO DE VENTA
+  // ============================================================
+  const getModosPermitidos = (tipoVenta) => {
+    if (esSoloCantidad(tipoVenta)) return ["cantidad"];
+    switch (tipoVenta) {
+      case "metro_cuadrado":
+        return ["largoAncho", "area"];
+      case "metro_lineal":
+        return ["largoAncho", "metrosLineales"];
+      case "caja":
+        return ["largoAncho", "area"];
+      case "tramo":
+        return ["metrosLineales"];
+      default:
+        return ["cantidad"];
+    }
+  };
+
+  const crearAreaInicial = (tipoVenta) => {
+    const modo = getModosPermitidos(tipoVenta)[0];
+    if (modo === "cantidad") return { modo: "cantidad", cantidad: "", usar: true };
+    if (modo === "metrosLineales") return { modo: "metrosLineales", metrosLineales: "", usar: true };
+    if (modo === "area") return { modo: "area", area: "", usar: true };
+    return { modo: "largoAncho", largo: "", ancho: "", usar: true };
+  };
+
   useEffect(() => {
     const cargarProductos = async () => {
       try {
         const guardados = JSON.parse(localStorage.getItem("cotizador")) || [];
-
         if (guardados.length === 0) {
           setProductos([]);
           return;
@@ -103,29 +129,19 @@ export default function Cotizador() {
 
         const combinados = guardados
           .map((guardado) => {
-            const productoBD = res.data.find(
-              (prod) => prod.id === guardado.id
-            );
-
+            const productoBD = res.data.find((prod) => prod.id === guardado.id);
             if (!productoBD) return null;
 
-            let areasIniciales = [];
-            if (productoBD.tipoVenta === "tramo") {
-              areasIniciales = [{ perimetro: "", usar: true }];
-            } else if (productoBD.tipoVenta === "unidad") {
-              areasIniciales = [{ cantidad: "", usar: true }];
-            } else if (productoBD.tipoVenta === "otros") {
-              areasIniciales = [{ area: "", usar: true }];
-            } else {
-              areasIniciales = [{ largo: "", ancho: "", usar: true }];
-            }
+            const areasForzadas = esSoloCantidad(productoBD.tipoVenta)
+              ? [{ modo: "cantidad", cantidad: "", usar: true }]
+              : (guardado.areas?.length
+                  ? guardado.areas
+                  : [crearAreaInicial(productoBD.tipoVenta)]);
 
             return {
               ...productoBD,
-              desperdicio: guardado.desperdicio ?? 10,
-              areas: guardado.areas?.length
-                ? guardado.areas
-                : areasIniciales
+              desperdicio: esSoloCantidad(productoBD.tipoVenta) ? 0 : (guardado.desperdicio ?? 10),
+              areas: areasForzadas
             };
           })
           .filter(Boolean);
@@ -140,15 +156,11 @@ export default function Cotizador() {
   }, []);
 
   useEffect(() => {
-    api.get("/categorias")
-      .then((res) => setCategorias(res.data))
-      .catch((err) => console.log(err));
+    api.get("/categorias").then((res) => setCategorias(res.data)).catch((err) => console.log(err));
   }, []);
 
   useEffect(() => {
-    api.get("/subcategorias")
-      .then((res) => setSubcategorias(res.data))
-      .catch((err) => console.log(err));
+    api.get("/subcategorias").then((res) => setSubcategorias(res.data)).catch((err) => console.log(err));
   }, []);
 
   const guardar = (lista) => {
@@ -156,25 +168,165 @@ export default function Cotizador() {
     localStorage.setItem("cotizador", JSON.stringify(lista));
   };
 
-  const calcular = (p) => {
-    if (p.tipoVenta === "otros") {
-      const areaTotal = (p.areas || []).reduce((acc, a) => {
-        if (!a.usar) return acc;
-        return acc + (Number(a.area) || 0);
-      }, 0);
+  // ============================================================
+  // 🔥 ANCHO Y LARGO DEL ROLLO
+  // ============================================================
+  const obtenerAnchoRollo = (producto) => {
+    if (!producto) return 0;
 
+    if (producto.tipoVenta === "metro_cuadrado") {
+      const alto = Number(producto.alto) || 0;
+      if (alto > 0) {
+        if (alto > 100) return alto / 100;
+        return alto;
+      }
+      const anchoProd = Number(producto.anchoProducto) || 0;
+      if (anchoProd > 0) return anchoProd;
+      return convertirAMetrosConUnidad(producto.ancho, producto.unidadAncho || 'm');
+    }
+
+    if (producto.tipoVenta === "metro_lineal") {
+      const anchoProd = Number(producto.anchoProducto) || 0;
+      if (anchoProd > 0) return anchoProd;
+      const ancho = Number(producto.ancho) || 0;
+      if (ancho > 0) {
+        if (ancho > 100) return ancho / 100;
+        return ancho;
+      }
+      return convertirAMetrosConUnidad(producto.ancho, producto.unidadAncho || 'm');
+    }
+
+    return 0;
+  };
+
+  const obtenerLargoRollo = (producto) => {
+    const metrosRollo = Number(producto?.metrosPorRollo) || 0;
+    if (metrosRollo > 0) return metrosRollo;
+    const metrosCuad = Number(producto?.metrosCuadrados) || 0;
+    const ancho = obtenerAnchoRollo(producto);
+    if (metrosCuad > 0 && ancho > 0) return metrosCuad / ancho;
+    return 0;
+  };
+
+  // ============================================================
+  // 🔥 INFO DE PRESENTACIÓN / RINDE POR UNIDAD
+  // ============================================================
+  /**
+   * Devuelve un array de { icono, label, valor } con la info
+   * relevante del producto (piezas, rinde, cobertura, etc.)
+   */
+  const obtenerInfoPresentacion = (p) => {
+    if (!p) return [];
+    const t = p.tipoVenta;
+    const info = [];
+
+    // 🔹 Piezas por caja/paquete
+    if ((t === "caja" || t === "paquete") && p.piezasCaja) {
+      info.push({
+        icono: "📦",
+        label: `Piezas por ${t}`,
+        valor: `${p.piezasCaja} pz`
+      });
+    }
+
+    // 🔹 Medidas por pieza (caja, paquete, pieza)
+    if ((t === "caja" || t === "paquete" || t === "pieza") && p.ancho && p.alto) {
+      const unidadA = p.unidadAncho || 'cm';
+      const unidadAl = p.unidadAlto || 'cm';
+      info.push({
+        icono: "📐",
+        label: "Medida por pieza",
+        valor: `${p.ancho}${unidadA} × ${p.alto}${unidadAl}`
+      });
+    }
+
+    // 🔹 Cobertura / rinde declarado
+    if (p.cobertura && Number(p.cobertura) > 0) {
+      const tipoUnidad = 
+        t === "paquete" ? "paquete" :
+        t === "caja" ? "caja" :
+        t === "pieza" ? "pieza" :
+        t === "unidad" ? "unidad" :
+        t === "presentacion" ? "presentación" :
+        p.presentacion || "unidad";
+      info.push({
+        icono: "📊",
+        label: `Rinde por ${tipoUnidad}`,
+        valor: `${Number(p.cobertura).toFixed(2)} m²`
+      });
+    }
+
+    // 🔹 Presentación declarada
+    if (p.presentacion) {
+      info.push({
+        icono: "🏷️",
+        label: "Presentación",
+        valor: p.presentacion
+      });
+    }
+
+    // 🔹 Grosor
+    if (p.grueso && (t === "pieza" || t === "paquete" || t === "caja" || t === "otros")) {
+      info.push({
+        icono: "📏",
+        label: "Grosor",
+        valor: `${p.grueso} ${p.unidadGrueso || 'mm'}`
+      });
+    }
+
+    return info;
+  };
+
+  // ============================================================
+  // 🔥 EXTRAER VALORES
+  // ============================================================
+  const extraerArea = (area) => {
+    if (!area || area.usar === false) return 0;
+    if (area.modo === "area") return Number(area.area) || 0;
+    if (area.modo === "largoAncho") {
+      const largo = Number(area.largo) || 0;
+      const ancho = Number(area.ancho) || 0;
+      return largo * ancho;
+    }
+    return 0;
+  };
+
+  const extraerMetrosLineales = (area) => {
+    if (!area || area.usar === false) return 0;
+    if (area.modo === "metrosLineales") return Number(area.metrosLineales) || 0;
+    return 0;
+  };
+
+  const extraerCantidad = (area) => {
+    if (!area || area.usar === false) return 0;
+    if (area.modo === "cantidad") return Number(area.cantidad) || 0;
+    return 0;
+  };
+
+  // ============================================================
+  // 🔥 MOTOR DE CÁLCULO PRINCIPAL
+  // ============================================================
+  const calcular = (p) => {
+    const tipo = p.tipoVenta || "otros";
+    const precio = Number(p.oferta ? p.precioOferta : p.precio) || 0;
+    const areas = p.areas || [];
+    const desperdicio = esSoloCantidad(tipo) ? 0 : (parseFloat(p.desperdicio) || 0);
+
+    // -------- TIPOS POR CANTIDAD --------
+    if (esSoloCantidad(tipo)) {
+      const cantidad = areas.reduce((acc, a) => acc + extraerCantidad(a), 0);
       const coberturaPorUnidad = Number(p.cobertura) || 0;
-      const cantidad = coberturaPorUnidad > 0 ? Math.ceil(areaTotal / coberturaPorUnidad) : 0;
-      const precio = Number(p.oferta ? p.precioOferta : p.precio) || 0;
+      const areaCubierta = cantidad * coberturaPorUnidad;
       const total = cantidad * precio;
 
       return {
-        area: areaTotal,
+        tipo,
+        area: areaCubierta,
         desperdicio: 0,
-        areaConDesc: areaTotal,
+        areaConDesc: areaCubierta,
         ancho: 0,
         alto: 0,
-        piezasCaja: 1,
+        piezasCaja: Number(p.piezasCaja) || 0,
         coberturaPieza: coberturaPorUnidad,
         coberturaUnidad: coberturaPorUnidad,
         cantidad,
@@ -185,112 +337,182 @@ export default function Cotizador() {
       };
     }
 
-    const area = (p.areas || []).reduce((acc, a) => {
-      if (!a.usar) return acc;
-      return acc + ((Number(a.largo) || 0) * (Number(a.ancho) || 0));
-    }, 0);
+    // -------- TRAMO --------
+    if (tipo === "tramo") {
+      const metrosIngresados = areas.reduce((acc, a) => acc + extraerMetrosLineales(a), 0);
+      const metrosConDesp = metrosIngresados * (1 + desperdicio / 100);
+      const total = metrosConDesp * precio;
 
-    const desperdicio = parseFloat(p.desperdicio) || 0;
-    const areaConDesc = area * (1 + desperdicio / 100);
-    const ancho = (parseFloat(p.ancho) || 0) / 100;
-    const alto = (parseFloat(p.alto) || 0) / 100;
-    const piezasCaja = parseInt(p.piezasCaja) || 1;
-    const coberturaPieza = ancho > 0 && alto > 0 ? ancho * alto : 0;
-    const coberturaUnidad = p.tipoVenta === "caja" ? coberturaPieza * piezasCaja : coberturaPieza;
-
-    let cantidad = 0;
-    let metrosLineales = 0;
-    let equivalenciaRollos = 0;
-
-    if (p.tipoVenta === "unidad") {
-      cantidad = (p.areas || []).reduce((total, a) => {
-        if (!a.usar) return total;
-        return total + (Number(a.cantidad) || 0);
-      }, 0);
-    } else if (p.tipoVenta === "tramo") {
-      metrosLineales = (p.areas || []).reduce((total, a) => {
-        if (!a.usar) return total;
-        return total + (Number(a.perimetro) || 0);
-      }, 0);
-      cantidad = metrosLineales;
-    } else if (p.tipoVenta === "rollo") {
-      const anchoMaterial = Math.min(ancho, alto);
-      const largoMaterial = Math.max(ancho, alto);
-      metrosLineales = anchoMaterial > 0 ? areaConDesc / anchoMaterial : 0;
-      equivalenciaRollos = largoMaterial > 0 ? metrosLineales / largoMaterial : 0;
-      cantidad = metrosLineales;
-    } else {
-      cantidad = coberturaUnidad > 0 ? Math.ceil(areaConDesc / coberturaUnidad) : 0;
+      return {
+        tipo,
+        area: 0,
+        desperdicio,
+        areaConDesc: 0,
+        ancho: 0,
+        alto: 0,
+        piezasCaja: 1,
+        coberturaPieza: 0,
+        coberturaUnidad: 0,
+        cantidad: metrosConDesp,
+        metrosLineales: metrosConDesp,
+        equivalenciaRollos: 0,
+        precio,
+        total
+      };
     }
 
-    const precio = Number(p.oferta ? p.precioOferta : p.precio) || 0;
-    let total = 0;
+    // -------- METRO CUADRADO --------
+    if (tipo === "metro_cuadrado") {
+      const areaIngresada = areas.reduce((acc, a) => acc + extraerArea(a), 0);
+      const areaConDesp = areaIngresada * (1 + desperdicio / 100);
+      const anchoRollo = obtenerAnchoRollo(p);
+      const metrosLineales = anchoRollo > 0 ? areaConDesp / anchoRollo : 0;
+      const total = areaConDesp * precio;
 
-    if (p.tipoVenta === "rollo") {
-      total = areaConDesc * precio;
-    } else if (p.tipoVenta === "tramo" || p.tipoVenta === "unidad") {
-      total = cantidad * precio;
-    } else {
-      total = cantidad * precio;
+      return {
+        tipo,
+        area: areaIngresada,
+        desperdicio,
+        areaConDesc: areaConDesp,
+        ancho: anchoRollo,
+        alto: obtenerLargoRollo(p),
+        piezasCaja: 1,
+        coberturaPieza: 0,
+        coberturaUnidad: Number(p.metrosCuadrados) || 0,
+        cantidad: metrosLineales,
+        metrosLineales,
+        equivalenciaRollos: 0,
+        precio,
+        total
+      };
     }
 
+    // -------- METRO LINEAL --------
+    if (tipo === "metro_lineal") {
+      const anchoRollo = obtenerAnchoRollo(p);
+      let areaTotal = 0;
+      let metrosDirectos = 0;
+
+      areas.forEach((a) => {
+        if (a.usar === false) return;
+        if (a.modo === "metrosLineales") {
+          metrosDirectos += Number(a.metrosLineales) || 0;
+        } else if (a.modo === "largoAncho") {
+          const largo = Number(a.largo) || 0;
+          const ancho = Number(a.ancho) || 0;
+          areaTotal += largo * ancho;
+        }
+      });
+
+      let metrosDesdeArea = 0;
+      if (areaTotal > 0 && anchoRollo > 0) {
+        const areaConDesp = areaTotal * (1 + desperdicio / 100);
+        metrosDesdeArea = areaConDesp / anchoRollo;
+      }
+
+      const metrosDirectosConDesp = metrosDirectos * (1 + desperdicio / 100);
+      const metrosTotales = metrosDesdeArea + metrosDirectosConDesp;
+      const total = metrosTotales * precio;
+
+      return {
+        tipo,
+        area: areaTotal,
+        desperdicio,
+        areaConDesc: areaTotal * (1 + desperdicio / 100),
+        ancho: anchoRollo,
+        alto: 0,
+        piezasCaja: 1,
+        coberturaPieza: 0,
+        coberturaUnidad: 0,
+        cantidad: metrosTotales,
+        metrosLineales: metrosTotales,
+        equivalenciaRollos: 0,
+        precio,
+        total
+      };
+    }
+
+    // -------- CAJA --------
+    if (tipo === "caja") {
+      const areaIngresada = areas.reduce((acc, a) => acc + extraerArea(a), 0);
+      const areaConDesp = areaIngresada * (1 + desperdicio / 100);
+      const anchoM = convertirAMetrosConUnidad(p.ancho, p.unidadAncho || 'cm');
+      const altoM = convertirAMetrosConUnidad(p.alto, p.unidadAlto || 'cm');
+      const coberturaPieza = anchoM * altoM;
+      const piezas = Number(p.piezasCaja) || 1;
+      const coberturaUnidad = coberturaPieza * piezas;
+      const cantidad = coberturaUnidad > 0 ? Math.ceil(areaConDesp / coberturaUnidad) : 0;
+      const total = cantidad * precio;
+
+      return {
+        tipo,
+        area: areaIngresada,
+        desperdicio,
+        areaConDesc: areaConDesp,
+        ancho: anchoM,
+        alto: altoM,
+        piezasCaja: piezas,
+        coberturaPieza: coberturaPieza,
+        coberturaUnidad,
+        cantidad,
+        metrosLineales: 0,
+        equivalenciaRollos: 0,
+        precio,
+        total
+      };
+    }
+
+    // Fallback
+    const cantidadFallback = areas.reduce((acc, a) => acc + extraerCantidad(a), 0);
     return {
-      area,
-      desperdicio,
-      areaConDesc,
-      ancho,
-      alto,
-      piezasCaja,
-      coberturaPieza,
-      coberturaUnidad,
-      cantidad,
-      metrosLineales,
-      equivalenciaRollos,
+      tipo,
+      area: 0,
+      desperdicio: 0,
+      areaConDesc: 0,
+      ancho: 0,
+      alto: 0,
+      piezasCaja: 1,
+      coberturaPieza: 0,
+      coberturaUnidad: 0,
+      cantidad: cantidadFallback,
+      metrosLineales: 0,
+      equivalenciaRollos: 0,
       precio,
-      total
+      total: cantidadFallback * precio
     };
   };
 
   const eliminarProducto = (id) => {
     const nuevos = productos.filter((p) => p.id !== id);
     guardar(nuevos);
+    window.dispatchEvent(new Event("cotizadorActualizado"));
   };
 
-  const totalGeneral = productos.reduce((acc, p) => {
-    return acc + calcular(p).total;
-  }, 0);
+  const totalGeneral = productos.reduce((acc, p) => acc + calcular(p).total, 0);
 
-  // 🔥 FUNCIÓN PARA AGREGAR MEMBRETADO DE PORTADA
+  // 🔥 MEMBRETADOS
   const agregarMembretadoPortada = async (pdf) => {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     try {
-      const fondoUrl = window.location.origin + "/membreteuno.jpg";
-      const fondo = await convertirImagenBase64(fondoUrl);
-      if (fondo) {
-        pdf.addImage(fondo, "JPEG", 0, 0, pageWidth, pageHeight);
-      }
+      const fondo = await convertirImagenBase64(window.location.origin + "/membreteuno.jpg");
+      if (fondo) pdf.addImage(fondo, "JPEG", 0, 0, pageWidth, pageHeight);
     } catch (error) {
       console.log("Error cargando membrete de portada:", error);
     }
   };
 
-  // 🔥 FUNCIÓN PARA AGREGAR MEMBRETADO INTERNO
   const agregarMembretadoInterno = async (pdf) => {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     try {
-      const fondoUrl = window.location.origin + "/membretedos.jpg";
-      const fondo = await convertirImagenBase64(fondoUrl);
-      if (fondo) {
-        pdf.addImage(fondo, "JPEG", 0, 0, pageWidth, pageHeight);
-      }
+      const fondo = await convertirImagenBase64(window.location.origin + "/membretedos.jpg");
+      if (fondo) pdf.addImage(fondo, "JPEG", 0, 0, pageWidth, pageHeight);
     } catch (error) {
       console.log("Error cargando membrete interno:", error);
     }
   };
 
-  // 🔥 FUNCIÓN PARA VERIFICAR SALTO DE PÁGINA
   const verificarSaltoPagina = async (pdf, y, espacioNecesario) => {
     const pageHeight = pdf.internal.pageSize.getHeight();
     if (y + espacioNecesario > pageHeight - 25) {
@@ -301,18 +523,16 @@ export default function Cotizador() {
     return y;
   };
 
-  const formatMeters = (cm) => {
-    return (Number(cm) / 100).toFixed(2);
-  };
-
-  // 🔥 FUNCIÓN GENERAR PDF - COMPLETA CON TODOS LOS DETALLES
+  // ============================================================
+  // 🔥 GENERAR PDF
+  // ============================================================
   const generarPDF = async () => {
     try {
       setEnviando(true);
       const pdf = new jsPDF("p", "mm", "a4");
-      
+
       await agregarMembretadoPortada(pdf);
-      
+
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
@@ -324,15 +544,15 @@ export default function Cotizador() {
       pdf.setFontSize(10);
       pdf.setTextColor(80);
       pdf.text(`Fecha: ${fechaActual}`, pageWidth - 55, 58);
-      
+
       pdf.setDrawColor(200);
       pdf.line(15, 55, pageWidth - 15, 55);
       y = 70;
 
-      // 🔥 RECORRER CADA PRODUCTO
       for (let i = 0; i < productos.length; i++) {
         const producto = productos[i];
         const r = calcular(producto);
+        const tipo = producto.tipoVenta || "otros";
 
         if (y > 220) {
           pdf.addPage();
@@ -340,10 +560,9 @@ export default function Cotizador() {
           y = 20;
         }
 
-        // 🔥 IMAGEN DEL PRODUCTO
+        // IMAGEN
         try {
-          const imgUrl = obtenerImagenProducto(producto);
-          const imagenBase64 = await convertirImagenBase64(imgUrl);
+          const imagenBase64 = await convertirImagenBase64(obtenerImagenProducto(producto));
           if (imagenBase64) {
             pdf.addImage(imagenBase64, "JPEG", 15, y, 50, 50);
           } else {
@@ -351,14 +570,13 @@ export default function Cotizador() {
             pdf.setTextColor(150);
             pdf.text("Imagen no disponible", 15, y + 25);
           }
-        } catch (error) {
-          console.log("Error imagen producto", error);
+        } catch {
           pdf.setFontSize(10);
           pdf.setTextColor(150);
           pdf.text("Imagen no disponible", 15, y + 25);
         }
 
-        // 🔥 DATOS DEL PRODUCTO
+        // DATOS PRODUCTO
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(14);
         pdf.setTextColor(40);
@@ -366,58 +584,69 @@ export default function Cotizador() {
         pdf.text(`Categoría: ${producto.categoria || "-"}`, 75, y + 20);
         pdf.text(`Subcategoría: ${producto.subcategoria || "-"}`, 75, y + 30);
         pdf.text(`SKU: ${producto.sku || "-"}`, 75, y + 40);
-        
+
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(20);
         pdf.setTextColor(22, 163, 74);
         pdf.text(`$${r.total.toFixed(2)}`, 75, y + 55);
         y += 65;
 
-        // 🔥 RESUMEN DE COTIZACIÓN - MEJORADO PARA "OTROS"
+        // RESUMEN
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(18);
         pdf.setTextColor(0);
         pdf.text("Resumen de Cotización", 15, y);
         y += 10;
-        
-        // Fondo para el resumen
+
         pdf.setFillColor(245, 247, 250);
         pdf.roundedRect(15, y, pageWidth - 30, 55, 3, 3, "F");
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(11);
         pdf.setTextColor(60);
 
-        if (producto.tipoVenta === "otros") {
-          // 🔥 MOSTRAR TODOS LOS DETALLES PARA "OTROS"
-          pdf.text(`Presentación: ${producto.presentacion || "No definida"}`, 20, y + 8);
-          pdf.text(`Cobertura por ${producto.presentacion || "unidad"}: ${r.coberturaUnidad.toFixed(2)} m²`, 20, y + 18);
-          pdf.text(`Área a cubrir: ${r.area.toFixed(2)} m²`, 20, y + 28);
-          pdf.text(`Unidades necesarias: ${r.cantidad}`, 20, y + 38);
-          pdf.text(`Área total cubierta: ${(r.cantidad * r.coberturaUnidad).toFixed(2)} m²`, 20, y + 48);
-        } else if (producto.tipoVenta === "unidad") {
-          pdf.text(`Cantidad total de unidades: ${r.cantidad}`, 20, y + 8);
-        } else if (producto.tipoVenta === "tramo") {
-          pdf.text(`Perímetro total: ${r.metrosLineales.toFixed(2)} m`, 20, y + 8);
-          pdf.text(`Metros lineales requeridos: ${r.metrosLineales.toFixed(2)} m`, 20, y + 18);
-        } else {
-          pdf.text(`Modo de cotización: Todas las áreas`, 20, y + 8);
-          pdf.text(`Área total calculada: ${r.area.toFixed(2)} m²`, 20, y + 18);
-          pdf.text(`Desperdicio aplicado: ${producto.desperdicio || 0}%`, 20, y + 28);
-          pdf.text(`Área final: ${r.areaConDesc.toFixed(2)} m²`, 20, y + 38);
-          pdf.text(
-            producto.tipoVenta === "rollo"
-              ? `Cantidad requerida: ${r.metrosLineales.toFixed(2)} metros lineales`
-              : `Cantidad requerida: ${r.cantidad} ${producto.tipoVenta}s`,
-            110,
-            y + 18
-          );
+        if (esSoloCantidad(tipo)) {
+          pdf.text(`Presentación: ${producto.presentacion || tipo}`, 20, y + 8);
+          if (r.piezasCaja > 0) {
+            pdf.text(`Piezas por ${tipo}: ${r.piezasCaja} pz`, 20, y + 18);
+          }
+          if (r.coberturaUnidad > 0) {
+            pdf.text(`Rinde por ${tipo}: ${r.coberturaUnidad.toFixed(2)} m²`, 20, y + 28);
+          }
+          pdf.text(`Cantidad: ${r.cantidad} ${tipo}(s)`, 20, y + 38);
+          if (r.areaConDesc > 0) {
+            pdf.text(`Área total cubierta: ${r.areaConDesc.toFixed(2)} m²`, 20, y + 48);
+          }
+        } else if (tipo === "metro_cuadrado") {
+          pdf.text(`Área a cubrir: ${r.area.toFixed(2)} m²`, 20, y + 8);
+          pdf.text(`Desperdicio: ${r.desperdicio}%`, 20, y + 18);
+          pdf.text(`Área final: ${r.areaConDesc.toFixed(2)} m²`, 20, y + 28);
+          pdf.text(`Ancho del rollo: ${r.ancho.toFixed(2)} m`, 20, y + 38);
+          pdf.text(`Material necesario: ${r.metrosLineales.toFixed(2)} ml`, 20, y + 48);
+        } else if (tipo === "metro_lineal") {
+          pdf.text(`Ancho del rollo: ${r.ancho.toFixed(2)} m`, 20, y + 8);
+          if (r.area > 0) {
+            pdf.text(`Área a cubrir: ${r.area.toFixed(2)} m²`, 20, y + 18);
+            pdf.text(`Desperdicio: ${r.desperdicio}%`, 20, y + 28);
+            pdf.text(`Material necesario: ${r.metrosLineales.toFixed(2)} ml`, 20, y + 38);
+          } else {
+            pdf.text(`Desperdicio: ${r.desperdicio}%`, 20, y + 18);
+            pdf.text(`Material necesario: ${r.metrosLineales.toFixed(2)} ml`, 20, y + 28);
+          }
+        } else if (tipo === "caja") {
+          pdf.text(`Área a cubrir: ${r.area.toFixed(2)} m²`, 20, y + 8);
+          pdf.text(`Desperdicio: ${r.desperdicio}%`, 20, y + 18);
+          pdf.text(`Piezas por caja: ${r.piezasCaja}`, 20, y + 28);
+          pdf.text(`Cobertura por caja: ${r.coberturaUnidad.toFixed(2)} m²`, 20, y + 38);
+          pdf.text(`Material necesario: ${r.cantidad} cajas`, 20, y + 48);
+        } else if (tipo === "tramo") {
+          pdf.text(`Material necesario: ${r.cantidad.toFixed(2)} m`, 20, y + 8);
         }
         y += 70;
 
-        // 🔥 DETALLE DE MEDIDAS - MEJORADO PARA "OTROS"
+        // DETALLE
         pdf.setFontSize(14);
         pdf.setTextColor(30);
-        pdf.text("Detalle de Medidas", 15, y);
+        pdf.text("Detalle", 15, y);
         y += 4;
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(11);
@@ -427,69 +656,63 @@ export default function Cotizador() {
 
         if (areasActivas.length > 0) {
           areasActivas.forEach((area, index) => {
-            if (producto.tipoVenta === "tramo") {
-              pdf.text(`Perímetro ${index + 1}: ${Number(area.perimetro || 0).toFixed(2)} m`, 20, y);
-            } else if (producto.tipoVenta === "unidad") {
+            if (area.modo === "cantidad") {
               pdf.text(`Cantidad ${index + 1}: ${Number(area.cantidad || 0)} unidades`, 20, y);
-            } else if (producto.tipoVenta === "otros") {
-              // 🔥 MOSTRAR EL DETALLE DE ÁREA PARA "OTROS"
+            } else if (area.modo === "metrosLineales") {
+              pdf.text(`Tramo ${index + 1}: ${Number(area.metrosLineales || 0).toFixed(2)} ml`, 20, y);
+            } else if (area.modo === "area") {
               pdf.text(`Área ${index + 1}: ${Number(area.area || 0).toFixed(2)} m²`, 20, y);
-            } else {
+            } else if (area.modo === "largoAncho") {
               const largo = Number(area.largo || 0);
               const ancho = Number(area.ancho || 0);
-              const areaTotal = largo * ancho;
-              pdf.text(`Área ${index + 1}: ${largo}m x ${ancho}m = ${areaTotal.toFixed(2)} m²`, 20, y);
+              pdf.text(`Área ${index + 1}: ${largo}m × ${ancho}m = ${(largo * ancho).toFixed(2)} m²`, 20, y);
             }
             y += 8;
           });
         } else {
-          pdf.text("No hay áreas seleccionadas para este producto.", 20, y);
+          pdf.text("No hay cantidades ingresadas.", 20, y);
           y += 8;
         }
         y += 5;
 
-        // 🔥 NOTA DEL PRODUCTO - MEJORADA PARA "OTROS"
+        // NOTA
         let notaProducto = "";
-        if (producto.tipoVenta === "rollo") {
-          const anchoRollo = Math.min(Number(producto.ancho || 0), Number(producto.alto || 0)) / 100;
-          const largoRollo = Math.max(Number(producto.ancho || 0), Number(producto.alto || 0)) / 100;
-          const coberturaRollo = anchoRollo * largoRollo;
-          const metrosLineales = anchoRollo > 0 ? r.areaConDesc / anchoRollo : 0;
+        if (esSoloCantidad(tipo)) {
+          let detalle = `Producto por ${tipo}`;
+          if (producto.presentacion) detalle += ` (${producto.presentacion})`;
+          detalle += `. Se cotizan ${r.cantidad} unidades a $${r.precio.toFixed(2)} c/u.`;
+          if (r.coberturaUnidad > 0 && r.areaConDesc > 0) {
+            detalle += ` Rinde por unidad: ${r.coberturaUnidad.toFixed(2)} m². Cobertura total: ${r.areaConDesc.toFixed(2)} m².`;
+          }
+          notaProducto = detalle;
+        } else if (tipo === "metro_cuadrado") {
           notaProducto =
-            `Este producto se vende por rollo. ` +
-            `Cada rollo mide ${largoRollo.toFixed(2)} m x ${anchoRollo.toFixed(2)} m y cubre ${coberturaRollo.toFixed(2)} m². ` +
-            `Para cubrir ${r.areaConDesc.toFixed(2)} m² necesitas aproximadamente ${metrosLineales.toFixed(2)} metros lineales.`;
-        } else if (producto.tipoVenta === "caja") {
-          notaProducto =
-            `Cada caja contiene ${producto.piezasCaja || 1} piezas y cubre ${r.coberturaUnidad.toFixed(2)} m². ` +
-            `Para cubrir ${r.areaConDesc.toFixed(2)} m² necesitas aproximadamente ${r.cantidad} cajas.`;
-        } else if (producto.tipoVenta === "pieza") {
-          notaProducto =
-            `Cada pieza cubre ${r.coberturaUnidad.toFixed(2)} m². ` +
-            `Para cubrir ${r.areaConDesc.toFixed(2)} m² necesitas aproximadamente ${r.cantidad} piezas.`;
-        } else if (producto.tipoVenta === "unidad") {
-          notaProducto = `Se requieren aproximadamente ${r.cantidad} unidades para este proyecto.`;
-        } else if (producto.tipoVenta === "tramo") {
-          notaProducto =
-            `Para cubrir ${r.cantidad.toFixed(2)} metros necesitas aproximadamente ${r.cantidad.toFixed(2)} metros lineales.`;
-        } else if (producto.tipoVenta === "otros") {
-          // 🔥 NOTA MEJORADA PARA "OTROS"
-          notaProducto =
-            `Este producto se vende por presentación (${producto.presentacion || "unidad"}). ` +
-            `Cada ${producto.presentacion || "unidad"} cubre ${r.coberturaUnidad.toFixed(2)} m². ` +
-            `Para cubrir ${r.area.toFixed(2)} m² necesitas aproximadamente ${r.cantidad} unidades. ` +
-            `Esto cubrirá ${(r.cantidad * r.coberturaUnidad).toFixed(2)} m².`;
+            `Producto por metro cuadrado (rollo). Ancho del rollo: ${r.ancho.toFixed(2)} m. ` +
+            `Para cubrir ${r.areaConDesc.toFixed(2)} m² necesitas ${r.metrosLineales.toFixed(2)} metros lineales.`;
+        } else if (tipo === "metro_lineal") {
+          if (r.area > 0 && r.ancho > 0) {
+            notaProducto =
+              `Producto por metro lineal. Área a cubrir: ${r.area.toFixed(2)} m². ` +
+              `Ancho del rollo: ${r.ancho.toFixed(2)} m. ` +
+              `Total de metros lineales a cotizar: ${r.metrosLineales.toFixed(2)} ml.`;
+          } else {
+            notaProducto = `Producto por metro lineal. Total: ${r.metrosLineales.toFixed(2)} ml.`;
+          }
+        } else if (tipo === "caja") {
+          notaProducto = `Cada caja contiene ${r.piezasCaja} piezas y cubre ${r.coberturaUnidad.toFixed(2)} m². Necesitas ${r.cantidad} cajas.`;
+        } else if (tipo === "tramo") {
+          notaProducto = `Venta por tramo. Total: ${r.cantidad.toFixed(2)} m.`;
         }
 
         const lineasNota = pdf.splitTextToSize(notaProducto, pageWidth - 45);
         const altoNota = lineasNota.length * 5 + 12;
-        
+
         if (y + altoNota > pageHeight - 50) {
           pdf.addPage();
           await agregarMembretadoInterno(pdf);
           y = 50;
         }
-        
+
         pdf.setFillColor(255, 248, 200);
         pdf.roundedRect(15, y, pageWidth - 30, altoNota, 3, 3, "F");
         y = await verificarSaltoPagina(pdf, y, 70);
@@ -498,13 +721,7 @@ export default function Cotizador() {
         pdf.text(lineasNota, 20, y + 8);
         y += altoNota + 15;
 
-        // 🔥 CONDICIONES COMERCIALES
-        if (y > pageHeight - 90) {
-          pdf.addPage();
-          await agregarMembretadoInterno(pdf);
-          y = 20;
-        }
-        
+        // CONDICIONES
         y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(14);
         pdf.setTextColor(30);
@@ -516,7 +733,6 @@ export default function Cotizador() {
           "• Material sujeto a disponibilidad.",
           "• No incluye instalación ni envío salvo indicación expresa."
         ];
-        y = await verificarSaltoPagina(pdf, y, 70);
         pdf.setFontSize(10);
         pdf.setTextColor(90);
         condiciones.forEach(item => {
@@ -524,35 +740,29 @@ export default function Cotizador() {
           y += 7;
         });
         y += 10;
-        
+
         pdf.setDrawColor(220);
         pdf.line(15, y, pageWidth - 15, y);
         y += 12;
       }
 
-      // 🔥 TOTAL GENERAL
-      const totalGeneral = productos.reduce((acc, p) => acc + calcular(p).total, 0);
+      // TOTAL GENERAL
+      const totalGeneralCalc = productos.reduce((acc, p) => acc + calcular(p).total, 0);
       if (y > pageHeight - 80) {
         pdf.addPage();
         await agregarMembretadoInterno(pdf);
         y = 20;
       }
-      
+
       pdf.setFillColor(22, 163, 74);
       pdf.roundedRect(15, y, pageWidth - 30, 18, 3, 3, "F");
       pdf.setTextColor(255);
       y = await verificarSaltoPagina(pdf, y, 70);
       pdf.setFontSize(18);
-      pdf.text(`TOTAL ESTIMADO: $${totalGeneral.toFixed(2)}`, 20, y + 12);
+      pdf.text(`TOTAL ESTIMADO: $${totalGeneralCalc.toFixed(2)}`, 20, y + 12);
       y += 35;
 
-      // 🔥 DATOS DEL CLIENTE
-      if (y > pageHeight - 80) {
-        pdf.addPage();
-        await agregarMembretadoInterno(pdf);
-        y = 20;
-      }
-      
+      // DATOS CLIENTE
       y = await verificarSaltoPagina(pdf, y, 70);
       pdf.setFontSize(16);
       pdf.setTextColor(0);
@@ -560,32 +770,29 @@ export default function Cotizador() {
       y += 12;
       pdf.setFillColor(248, 250, 252);
       pdf.roundedRect(15, y, pageWidth - 30, 28, 3, 3, "F");
-      y = await verificarSaltoPagina(pdf, y, 70);
       pdf.setFontSize(11);
       pdf.text(`Nombre: ${cliente.nombre || "-"}`, 20, y + 8);
       pdf.text(`Correo: ${cliente.correo || "-"}`, 20, y + 16);
       pdf.text(`Celular: ${cliente.celular || "-"}`, 20, y + 24);
-      y += 40;
 
-      // 🔥 ENVIAR POR CORREO
       const pdfBase64 = pdf.output("datauristring");
       await api.post("/enviar-cotizacion", {
         nombre: cliente.nombre,
         correo: cliente.correo,
         celular: cliente.celular,
         producto: "Cotización múltiple",
-        total: totalGeneral,
+        total: totalGeneralCalc,
         pdf: pdfBase64
       });
 
       setMensajeEnviado("✅ La cotización fue enviada a tu correo");
       setCliente({ nombre: "", correo: "", celular: "" });
-      
+
       setTimeout(() => {
         setMostrarFormulario(false);
         setMensajeEnviado("");
       }, 3000);
-      
+
     } catch (error) {
       console.error("❌ Error generando cotización:", error);
       alert("❌ Error generando cotización. Por favor, intenta de nuevo.");
@@ -597,15 +804,7 @@ export default function Cotizador() {
   const agregarArea = (indexProducto) => {
     const copia = [...productos];
     const tipo = copia[indexProducto].tipoVenta;
-    let nuevaArea = { usar: true };
-    if (tipo === "tramo") nuevaArea.perimetro = "";
-    else if (tipo === "unidad") nuevaArea.cantidad = "";
-    else if (tipo === "otros") nuevaArea.area = "";
-    else {
-      nuevaArea.largo = "";
-      nuevaArea.ancho = "";
-    }
-    copia[indexProducto].areas.push(nuevaArea);
+    copia[indexProducto].areas.push(crearAreaInicial(tipo));
     guardar(copia);
   };
 
@@ -613,16 +812,7 @@ export default function Cotizador() {
     const copia = [...productos];
     copia[indexProducto].areas = copia[indexProducto].areas.filter((_, i) => i !== indexArea);
     if (copia[indexProducto].areas.length === 0) {
-      const tipo = copia[indexProducto].tipoVenta;
-      if (tipo === "tramo") {
-        copia[indexProducto].areas = [{ perimetro: "", usar: true }];
-      } else if (tipo === "unidad") {
-        copia[indexProducto].areas = [{ cantidad: "", usar: true }];
-      } else if (tipo === "otros") {
-        copia[indexProducto].areas = [{ area: "", usar: true }];
-      } else {
-        copia[indexProducto].areas = [{ largo: "", ancho: "", usar: true }];
-      }
+      copia[indexProducto].areas = [crearAreaInicial(copia[indexProducto].tipoVenta)];
     }
     guardar(copia);
   };
@@ -633,11 +823,23 @@ export default function Cotizador() {
     guardar(copia);
   };
 
-  const irAProductos = () => {
-    navigate("/productos");
+  const cambiarModo = (indexProducto, indexArea, nuevoModo) => {
+    const copia = [...productos];
+    const areaActual = copia[indexProducto].areas[indexArea];
+    let nuevaArea = { modo: nuevoModo, usar: areaActual.usar ?? true };
+    if (nuevoModo === "cantidad") nuevaArea.cantidad = "";
+    else if (nuevoModo === "metrosLineales") nuevaArea.metrosLineales = "";
+    else if (nuevoModo === "area") nuevaArea.area = "";
+    else if (nuevoModo === "largoAncho") { nuevaArea.largo = ""; nuevaArea.ancho = ""; }
+    copia[indexProducto].areas[indexArea] = nuevaArea;
+    guardar(copia);
   };
 
-  // ========== RENDER ==========
+  const irAProductos = () => navigate("/productos");
+
+  // ============================================================
+  // 🎨 RENDER
+  // ============================================================
   return (
     <div
       style={{
@@ -677,9 +879,8 @@ export default function Cotizador() {
           Cotizador de Productos
         </h1>
 
-        {/* GUÍA DE MEDICIÓN */}
+        {/* GUÍA */}
         <div
-          className="guia-card"
           style={{
             background: darkMode ? "#1f2937" : "#fff",
             padding: "20px",
@@ -692,10 +893,10 @@ export default function Cotizador() {
             📏 ¿Cómo se calculan los metros cuadrados?
           </h2>
           <p style={{ color: darkMode ? "#d1d5db" : "#374151", fontSize: "clamp(0.9rem, 1.8vw, 1rem)" }}>
-            Multiplica el largo × ancho de cada área y se suman todas las áreas. Da clic en las imágenes para ampliarlas.
+            Para productos por <strong>metro cuadrado</strong> o <strong>metro lineal</strong> puedes ingresar largo × ancho o el área directa.
+            Para productos por <strong>pieza</strong>, <strong>paquete</strong>, <strong>unidad</strong> u <strong>otros</strong>, solo ingresa la cantidad.
           </p>
           <div
-            className="guia-grid"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
@@ -732,7 +933,6 @@ export default function Cotizador() {
           </div>
         </div>
 
-        {/* BOTÓN AGREGAR PRODUCTOS */}
         <button
           style={{
             background: "#16a34a",
@@ -757,13 +957,26 @@ export default function Cotizador() {
         {/* LISTA DE PRODUCTOS */}
         {productos.map((p, i) => {
           const r = calcular(p);
-          const areasActivas = (p.areas || []).filter(a => a.usar !== false);
           const imagenUrl = obtenerImagenProducto(p);
+          const tipo = p.tipoVenta || "otros";
+          const soloCantidad = esSoloCantidad(tipo);
+          const infoPresentacion = obtenerInfoPresentacion(p);
+
+          const tipoAmigable =
+            tipo === "metro_cuadrado" ? "Metro cuadrado" :
+            tipo === "metro_lineal" ? "Metro lineal" :
+            tipo === "caja" ? "Caja" :
+            tipo === "paquete" ? "Paquete" :
+            tipo === "pieza" ? "Pieza" :
+            tipo === "unidad" ? "Unidad" :
+            tipo === "presentacion" ? "Presentación" :
+            tipo === "tramo" ? "Tramo" : "Otros";
+
+          const modosPermitidos = getModosPermitidos(tipo);
 
           return (
             <div
               key={p.id}
-              className="producto-card"
               style={{
                 background: darkMode ? "#1f2937" : "#fff",
                 borderRadius: "18px",
@@ -773,7 +986,7 @@ export default function Cotizador() {
                 border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb"
               }}
             >
-              {/* HEADER PRODUCTO */}
+              {/* HEADER */}
               <div
                 style={{
                   display: "flex",
@@ -820,7 +1033,17 @@ export default function Cotizador() {
                       SKU: {p.sku}
                     </p>
                   )}
-                  {p.tipoVenta === "otros" && p.presentacion && (
+                  <p
+                    style={{
+                      margin: "5px 0 0",
+                      color: "#2563eb",
+                      fontWeight: "600",
+                      fontSize: "clamp(0.75rem, 1.4vw, 0.9rem)"
+                    }}
+                  >
+                    🚚 Tipo de venta: {tipoAmigable}
+                  </p>
+                  {(tipo === "metro_cuadrado" || tipo === "metro_lineal") && (
                     <p
                       style={{
                         margin: "5px 0 0",
@@ -828,13 +1051,66 @@ export default function Cotizador() {
                         fontSize: "clamp(0.75rem, 1.4vw, 0.9rem)"
                       }}
                     >
-                      Presentación: {p.presentacion} · Cobertura: {p.cobertura} m²
+                      Ancho del rollo: {obtenerAnchoRollo(p).toFixed(2)} m
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* ÁREAS */}
+              {/* 🔥 INFO DE PRESENTACIÓN / RINDE */}
+              {soloCantidad && infoPresentacion.length > 0 && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                    gap: "10px",
+                    marginBottom: "18px",
+                    padding: "14px",
+                    background: darkMode ? "#0f172a" : "#f0f9ff",
+                    borderRadius: "12px",
+                    border: darkMode ? "1px solid #1e3a8a" : "1px solid #bae6fd"
+                  }}
+                >
+                  {infoPresentacion.map((item, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px"
+                      }}
+                    >
+                      <span style={{ fontSize: "20px" }}>{item.icono}</span>
+                      <div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "11px",
+                            fontWeight: "600",
+                            color: darkMode ? "#94a3b8" : "#64748b",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.4px"
+                          }}
+                        >
+                          {item.label}
+                        </p>
+                        <p
+                          style={{
+                            margin: "2px 0 0 0",
+                            fontSize: "15px",
+                            fontWeight: "700",
+                            color: darkMode ? "#fff" : "#0f172a"
+                          }}
+                        >
+                          {item.valor}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ÁREAS / CANTIDADES */}
               <div
                 style={{
                   display: "flex",
@@ -843,176 +1119,217 @@ export default function Cotizador() {
                   marginBottom: "20px"
                 }}
               >
-                {(p.areas || []).map((area, areaIndex) => (
-                  <div
-                    key={areaIndex}
-                    style={{
-                      background: area.usar === false ? "#fee2e2" : darkMode ? "#111827" : "#f9fafb",
-                      padding: "clamp(12px, 2vw, 18px)",
-                      borderRadius: "12px"
-                    }}
-                  >
-                    <h4 style={{ fontSize: "clamp(0.95rem, 1.8vw, 1.1rem)" }}>Área {areaIndex + 1}</h4>
-                    <div style={{ marginBottom: "10px" }}>
-                      <label
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          fontWeight: "bold",
-                          color: darkMode ? "#fff" : "#111827",
-                          fontSize: "clamp(0.85rem, 1.5vw, 1rem)"
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={area.usar ?? true}
-                          onChange={(e) => {
-                            const copia = [...productos];
-                            copia[i].areas[areaIndex].usar = e.target.checked;
-                            guardar(copia);
-                          }}
-                        />
-                        Utilizar esta área
-                      </label>
-                    </div>
+                {(p.areas || []).map((area, areaIndex) => {
+                  const modos = modosPermitidos;
+                  return (
                     <div
+                      key={areaIndex}
                       style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          p.tipoVenta === "unidad" || p.tipoVenta === "tramo" || p.tipoVenta === "otros"
-                            ? "1fr"
-                            : "1fr 1fr",
-                        gap: "10px"
+                        background: area.usar === false ? "#fee2e2" : darkMode ? "#111827" : "#f9fafb",
+                        padding: "clamp(12px, 2vw, 18px)",
+                        borderRadius: "12px"
                       }}
                     >
-                      {p.tipoVenta === "unidad" && (
-                        <input
-                          type="number"
-                          placeholder="Cantidad"
-                          value={area.cantidad || ""}
-                          onChange={(e) =>
-                            actualizarArea(i, areaIndex, "cantidad", e.target.value)
-                          }
+                      <h4 style={{ fontSize: "clamp(0.95rem, 1.8vw, 1.1rem)" }}>
+                        {soloCantidad ? `Cantidad ${areaIndex + 1}` :
+                         tipo === "tramo" ? `Tramo ${areaIndex + 1}` :
+                         `Área ${areaIndex + 1}`}
+                      </h4>
+
+                      <div style={{ marginBottom: "10px" }}>
+                        <label
                           style={{
-                            padding: "clamp(10px, 1.8vw, 14px)",
-                            borderRadius: "10px",
-                            border: "1px solid #d1d5db",
-                            fontSize: "clamp(0.9rem, 1.6vw, 1rem)",
-                            width: "100%",
-                            boxSizing: "border-box"
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            fontWeight: "bold",
+                            color: darkMode ? "#fff" : "#111827",
+                            fontSize: "clamp(0.85rem, 1.5vw, 1rem)"
                           }}
-                        />
-                      )}
-                      {p.tipoVenta === "tramo" && (
-                        <input
-                          type="number"
-                          placeholder="Perímetro (m)"
-                          value={area.perimetro || ""}
-                          onChange={(e) =>
-                            actualizarArea(i, areaIndex, "perimetro", e.target.value)
-                          }
-                          style={{
-                            padding: "clamp(10px, 1.8vw, 14px)",
-                            borderRadius: "10px",
-                            border: "1px solid #d1d5db",
-                            fontSize: "clamp(0.9rem, 1.6vw, 1rem)",
-                            width: "100%",
-                            boxSizing: "border-box"
-                          }}
-                        />
-                      )}
-                      {p.tipoVenta === "otros" && (
-                        <input
-                          type="number"
-                          placeholder="Área a cubrir (m²)"
-                          value={area.area || ""}
-                          onChange={(e) =>
-                            actualizarArea(i, areaIndex, "area", e.target.value)
-                          }
-                          style={{
-                            padding: "clamp(10px, 1.8vw, 14px)",
-                            borderRadius: "10px",
-                            border: "1px solid #d1d5db",
-                            fontSize: "clamp(0.9rem, 1.6vw, 1rem)",
-                            width: "100%",
-                            boxSizing: "border-box"
-                          }}
-                        />
-                      )}
-                      {p.tipoVenta !== "unidad" && p.tipoVenta !== "tramo" && p.tipoVenta !== "otros" && (
-                        <>
+                        >
                           <input
-                            type="number"
-                            placeholder="Largo (m)"
-                            value={area.largo || ""}
-                            onChange={(e) =>
-                              actualizarArea(i, areaIndex, "largo", e.target.value)
-                            }
-                            style={{
-                              padding: "clamp(10px, 1.8vw, 14px)",
-                              borderRadius: "10px",
-                              border: "1px solid #d1d5db",
-                              fontSize: "clamp(0.9rem, 1.6vw, 1rem)",
-                              width: "100%",
-                              boxSizing: "border-box"
+                            type="checkbox"
+                            checked={area.usar ?? true}
+                            onChange={(e) => {
+                              const copia = [...productos];
+                              copia[i].areas[areaIndex].usar = e.target.checked;
+                              guardar(copia);
                             }}
                           />
-                          <input
-                            type="number"
-                            placeholder="Ancho (m)"
-                            value={area.ancho || ""}
-                            onChange={(e) =>
-                              actualizarArea(i, areaIndex, "ancho", e.target.value)
-                            }
-                            style={{
-                              padding: "clamp(10px, 1.8vw, 14px)",
-                              borderRadius: "10px",
-                              border: "1px solid #d1d5db",
-                              fontSize: "clamp(0.9rem, 1.6vw, 1rem)",
-                              width: "100%",
-                              boxSizing: "border-box"
-                            }}
-                          />
-                        </>
+                          Incluir este elemento en la cotización
+                        </label>
+                      </div>
+
+                      {modos.length > 1 && (
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "8px",
+                            marginBottom: "12px",
+                            flexWrap: "wrap"
+                          }}
+                        >
+                          {modos.map((modo) => {
+                            const activo = (area.modo || modos[0]) === modo;
+                            const label =
+                              modo === "largoAncho" ? "📏 Largo × Ancho" :
+                              modo === "area" ? "📐 Área (m²)" :
+                              modo === "metrosLineales" ? "📏 Metros lineales" :
+                              modo === "cantidad" ? "🔢 Cantidad" : modo;
+                            return (
+                              <button
+                                key={modo}
+                                onClick={() => cambiarModo(i, areaIndex, modo)}
+                                style={{
+                                  padding: "8px 14px",
+                                  borderRadius: "10px",
+                                  border: activo ? "2px solid #2563eb" : `1px solid ${darkMode ? "#374151" : "#d1d5db"}`,
+                                  background: activo ? (darkMode ? "#1e3a8a" : "#dbeafe") : (darkMode ? "#111827" : "#fff"),
+                                  color: activo ? (darkMode ? "#fff" : "#1d4ed8") : (darkMode ? "#e5e7eb" : "#374151"),
+                                  fontWeight: "600",
+                                  fontSize: "clamp(0.8rem, 1.3vw, 0.9rem)",
+                                  cursor: "pointer"
+                                }}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       )}
-                    </div>
-                    <p
-                      style={{
-                        marginTop: "10px",
-                        fontWeight: "bold",
-                        color: "#16a34a",
-                        fontSize: "clamp(0.85rem, 1.5vw, 1rem)"
-                      }}
-                    >
-                      {p.tipoVenta === "unidad"
-                        ? `Cantidad: ${Number(area.cantidad || 0)}`
-                        : p.tipoVenta === "tramo"
-                        ? `Perímetro: ${Number(area.perimetro || 0)} m`
-                        : p.tipoVenta === "otros"
-                        ? `Área a cubrir: ${Number(area.area || 0).toFixed(2)} m²`
-                        : `Área: ${((Number(area.largo) || 0) * (Number(area.ancho) || 0)).toFixed(2)} m²`}
-                    </p>
-                    {(p.areas || []).length > 1 && (
-                      <button
-                        onClick={() => eliminarArea(i, areaIndex)}
+
+                      <div
                         style={{
-                          background: "#dc2626",
-                          color: "#fff",
-                          border: "none",
-                          padding: "8px 14px",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          fontSize: "clamp(0.8rem, 1.3vw, 0.9rem)",
-                          fontWeight: "600",
-                          touchAction: "manipulation"
+                          display: "grid",
+                          gridTemplateColumns: area.modo === "largoAncho" ? "1fr 1fr" : "1fr",
+                          gap: "10px"
                         }}
                       >
-                        Eliminar área
-                      </button>
-                    )}
-                  </div>
-                ))}
+                        {area.modo === "largoAncho" && (
+                          <>
+                            <input
+                              type="number"
+                              placeholder="Largo (m)"
+                              value={area.largo || ""}
+                              onChange={(e) => actualizarArea(i, areaIndex, "largo", e.target.value)}
+                              style={{
+                                padding: "clamp(10px, 1.8vw, 14px)",
+                                borderRadius: "10px",
+                                border: "1px solid #d1d5db",
+                                fontSize: "clamp(0.9rem, 1.6vw, 1rem)",
+                                width: "100%",
+                                boxSizing: "border-box"
+                              }}
+                            />
+                            <input
+                              type="number"
+                              placeholder="Ancho (m)"
+                              value={area.ancho || ""}
+                              onChange={(e) => actualizarArea(i, areaIndex, "ancho", e.target.value)}
+                              style={{
+                                padding: "clamp(10px, 1.8vw, 14px)",
+                                borderRadius: "10px",
+                                border: "1px solid #d1d5db",
+                                fontSize: "clamp(0.9rem, 1.6vw, 1rem)",
+                                width: "100%",
+                                boxSizing: "border-box"
+                              }}
+                            />
+                          </>
+                        )}
+
+                        {area.modo === "area" && (
+                          <input
+                            type="number"
+                            placeholder="Área a cubrir (m²)"
+                            value={area.area || ""}
+                            onChange={(e) => actualizarArea(i, areaIndex, "area", e.target.value)}
+                            style={{
+                              padding: "clamp(10px, 1.8vw, 14px)",
+                              borderRadius: "10px",
+                              border: "1px solid #d1d5db",
+                              fontSize: "clamp(0.9rem, 1.6vw, 1rem)",
+                              width: "100%",
+                              boxSizing: "border-box"
+                            }}
+                          />
+                        )}
+
+                        {area.modo === "metrosLineales" && (
+                          <input
+                            type="number"
+                            placeholder="Metros lineales (ml)"
+                            value={area.metrosLineales || ""}
+                            onChange={(e) => actualizarArea(i, areaIndex, "metrosLineales", e.target.value)}
+                            style={{
+                              padding: "clamp(10px, 1.8vw, 14px)",
+                              borderRadius: "10px",
+                              border: "1px solid #d1d5db",
+                              fontSize: "clamp(0.9rem, 1.6vw, 1rem)",
+                              width: "100%",
+                              boxSizing: "border-box"
+                            }}
+                          />
+                        )}
+
+                        {area.modo === "cantidad" && (
+                          <input
+                            type="number"
+                            placeholder="Cantidad"
+                            value={area.cantidad || ""}
+                            onChange={(e) => actualizarArea(i, areaIndex, "cantidad", e.target.value)}
+                            style={{
+                              padding: "clamp(10px, 1.8vw, 14px)",
+                              borderRadius: "10px",
+                              border: "1px solid #d1d5db",
+                              fontSize: "clamp(0.9rem, 1.6vw, 1rem)",
+                              width: "100%",
+                              boxSizing: "border-box"
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {!soloCantidad && (
+                        <p
+                          style={{
+                            marginTop: "10px",
+                            fontWeight: "bold",
+                            color: "#16a34a",
+                            fontSize: "clamp(0.85rem, 1.5vw, 1rem)"
+                          }}
+                        >
+                          {area.modo === "metrosLineales"
+                            ? `Metros lineales: ${Number(area.metrosLineales || 0).toFixed(2)} ml`
+                            : area.modo === "area"
+                            ? `Área: ${Number(area.area || 0).toFixed(2)} m²`
+                            : `Área: ${((Number(area.largo) || 0) * (Number(area.ancho) || 0)).toFixed(2)} m²`}
+                        </p>
+                      )}
+
+                      {(p.areas || []).length > 1 && (
+                        <button
+                          onClick={() => eliminarArea(i, areaIndex)}
+                          style={{
+                            background: "#dc2626",
+                            color: "#fff",
+                            border: "none",
+                            padding: "8px 14px",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            fontSize: "clamp(0.8rem, 1.3vw, 0.9rem)",
+                            fontWeight: "600",
+                            touchAction: "manipulation",
+                            marginTop: "8px"
+                          }}
+                        >
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+
                 <button
                   onClick={() => agregarArea(i)}
                   style={{
@@ -1027,12 +1344,12 @@ export default function Cotizador() {
                     touchAction: "manipulation"
                   }}
                 >
-                  ➕ Agregar área
+                  ➕ Agregar {soloCantidad ? "otra cantidad" : "otra área"}
                 </button>
               </div>
 
-              {/* DESPERDICIO */}
-              {p.tipoVenta !== "otros" && (
+              {/* DESPERDICIO — solo para tipos que lo usan */}
+              {!soloCantidad && (
                 <div
                   style={{
                     display: "flex",
@@ -1041,6 +1358,9 @@ export default function Cotizador() {
                     marginBottom: "20px"
                   }}
                 >
+                  <span style={{ width: "100%", fontWeight: "600", color: darkMode ? "#e5e7eb" : "#374151", fontSize: "0.9rem" }}>
+                    Desperdicio sugerido:
+                  </span>
                   {[0, 10, 15, 20].map((d) => (
                     <button
                       key={d}
@@ -1063,7 +1383,7 @@ export default function Cotizador() {
                         touchAction: "manipulation"
                       }}
                     >
-                      {d}% Desperdicio
+                      {d}%
                     </button>
                   ))}
                 </div>
@@ -1078,121 +1398,121 @@ export default function Cotizador() {
                   border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb"
                 }}
               >
-                {p.tipoVenta === "otros" ? (
+                <h3
+                  style={{
+                    margin: "0 0 12px 0",
+                    color: darkMode ? "#fff" : "#111827",
+                    fontSize: "clamp(1rem, 1.8vw, 1.15rem)"
+                  }}
+                >
+                  🧾 Resumen
+                </h3>
+
+                {soloCantidad ? (
                   <>
                     <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
-                      <strong>Presentación:</strong> {p.presentacion || "No definida"}
+                      <strong>Presentación:</strong> {p.presentacion || tipoAmigable}
+                    </p>
+                    {r.piezasCaja > 0 && (
+                      <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                        <strong>Piezas por {tipoAmigable.toLowerCase()}:</strong> {r.piezasCaja} pz
+                      </p>
+                    )}
+                    {r.coberturaUnidad > 0 && (
+                      <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                        <strong>Rinde por {tipoAmigable.toLowerCase()}:</strong> {r.coberturaUnidad.toFixed(2)} m²
+                      </p>
+                    )}
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Cantidad:</strong> {r.cantidad}
                     </p>
                     <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
-                      <strong>Cobertura por {p.presentacion || "unidad"}:</strong> {Number(p.cobertura || 0).toFixed(2)} m²
+                      <strong>Precio unitario:</strong> ${r.precio.toFixed(2)}
                     </p>
+                    {r.areaConDesc > 0 && (
+                      <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                        <strong>Cobertura total:</strong> {r.areaConDesc.toFixed(2)} m²
+                      </p>
+                    )}
                     <hr style={{ border: "none", borderTop: darkMode ? "1px solid #374151" : "1px solid #e5e7eb", margin: "12px 0" }} />
+                    <p style={{ color: "#2563eb", fontWeight: "700", marginBottom: "8px", fontSize: "clamp(1rem, 1.7vw, 1.15rem)" }}>
+                      📦 Pedido: {r.cantidad} {tipoAmigable.toLowerCase()}{r.cantidad === 1 ? "" : "s"}
+                    </p>
+                  </>
+                ) : tipo === "metro_cuadrado" ? (
+                  <>
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Ancho del rollo:</strong> {r.ancho.toFixed(2)} m
+                    </p>
                     <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
                       <strong>Área a cubrir:</strong> {r.area.toFixed(2)} m²
                     </p>
-                    <p style={{ color: "#2563eb", fontWeight: "600", marginBottom: "8px", fontSize: "clamp(0.95rem, 1.6vw, 1.05rem)" }}>
-                      <strong>Unidades necesarias:</strong> {r.cantidad}
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Desperdicio:</strong> {r.desperdicio}%
                     </p>
                     <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
-                      <strong>Área total cubierta:</strong> {(r.cantidad * r.coberturaUnidad).toFixed(2)} m²
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
-                      <strong>Medida:</strong> {(Number(p.ancho || 0) / 100).toFixed(2)} m × {(Number(p.alto || 0) / 100).toFixed(2)} m
-                    </p>
-                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
-                      <strong>Tipo de venta:</strong>{" "}
-                      {p.tipoVenta === "caja" ? "Caja" :
-                       p.tipoVenta === "pieza" ? "Pieza" :
-                       p.tipoVenta === "rollo" ? "Rollo" :
-                       p.tipoVenta === "tramo" ? "Tramo" :
-                       p.tipoVenta === "unidad" ? "Unidad" : "No definido"}
-                    </p>
-                    {p.tipoVenta === "caja" && (
-                      <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
-                        <strong>Piezas por caja:</strong> {p.piezasCaja || 1}
-                      </p>
-                    )}
-                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
-                      <strong>Cobertura por {p.tipoVenta === "caja" ? "caja" :
-                        p.tipoVenta === "pieza" ? "pieza" :
-                        p.tipoVenta === "rollo" ? "rollo" :
-                        p.tipoVenta === "tramo" ? "tramo" : "unidad"}:</strong>{" "}
-                      {r.coberturaUnidad.toFixed(2)} m²
+                      <strong>Área final:</strong> {r.areaConDesc.toFixed(2)} m²
                     </p>
                     <hr style={{ border: "none", borderTop: darkMode ? "1px solid #374151" : "1px solid #e5e7eb", margin: "12px 0" }} />
-
-                    {p.tipoVenta !== "unidad" && p.tipoVenta !== "tramo" && (
-                      <>
-                        <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
-                          <strong>Área:</strong> {r.area.toFixed(2)} m²
-                        </p>
-                        <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
-                          <strong>Área con desperdicio:</strong> {r.areaConDesc.toFixed(2)} m²
-                        </p>
-                      </>
-                    )}
-
-                    {(p.tipoVenta === "rollo" || p.tipoVenta === "tramo") ? (
-                      <p style={{ color: "#2563eb", fontWeight: "600", marginBottom: "8px", fontSize: "clamp(0.95rem, 1.6vw, 1.05rem)" }}>
-                        <strong>Material requerido:</strong> {r.metrosLineales.toFixed(2)} ml
-                      </p>
-                    ) : (
-                      <p style={{ color: "#2563eb", fontWeight: "600", marginBottom: "8px", fontSize: "clamp(0.95rem, 1.6vw, 1.05rem)" }}>
-                        <strong>
-                          {p.tipoVenta === "caja" ? "Cajas necesarias" :
-                           p.tipoVenta === "unidad" ? "Unidades necesarias" : "Piezas necesarias"}:
-                        </strong> {r.cantidad}
-                      </p>
-                    )}
+                    <p style={{ color: "#2563eb", fontWeight: "700", marginBottom: "8px", fontSize: "clamp(1rem, 1.7vw, 1.15rem)" }}>
+                      📦 Necesitas: {r.metrosLineales.toFixed(2)} metros lineales
+                    </p>
                   </>
-                )}
-
-                <hr style={{ border: "none", borderTop: darkMode ? "1px solid #374151" : "1px solid #e5e7eb", margin: "12px 0" }} />
-
-                <strong style={{ color: darkMode ? "#fff" : "#111827", fontSize: "clamp(0.9rem, 1.5vw, 1rem)" }}>
-                  Datos guardados (solo áreas activas):
-                </strong>
-                {areasActivas.length > 0 ? (
-                  p.tipoVenta === "tramo" ? (
-                    areasActivas.map((a, idx) => (
-                      <p key={idx} style={{ fontSize: "clamp(0.8rem, 1.3vw, 0.9rem)" }}>
-                        Perímetro {idx + 1}: {Number(a.perimetro || 0).toFixed(2)} m
+                ) : tipo === "metro_lineal" ? (
+                  <>
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Ancho del rollo:</strong> {r.ancho.toFixed(2)} m
+                    </p>
+                    {r.area > 0 && (
+                      <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                        <strong>Área a cubrir:</strong> {r.area.toFixed(2)} m²
                       </p>
-                    ))
-                  ) : p.tipoVenta === "unidad" ? (
-                    areasActivas.map((a, idx) => (
-                      <p key={idx} style={{ fontSize: "clamp(0.8rem, 1.3vw, 0.9rem)" }}>
-                        Cantidad {idx + 1}: {Number(a.cantidad || 0)}
-                      </p>
-                    ))
-                  ) : p.tipoVenta === "otros" ? (
-                    areasActivas.map((a, idx) => (
-                      <p key={idx} style={{ fontSize: "clamp(0.8rem, 1.3vw, 0.9rem)" }}>
-                        Área {idx + 1}: {Number(a.area || 0).toFixed(2)} m²
-                      </p>
-                    ))
-                  ) : (
-                    areasActivas.map((a, idx) => (
-                      <p key={idx} style={{ fontSize: "clamp(0.8rem, 1.3vw, 0.9rem)" }}>
-                        Área {idx + 1}: {((Number(a.largo) || 0) * (Number(a.ancho) || 0)).toFixed(2)} m²
-                      </p>
-                    ))
-                  )
-                ) : (
-                  <p style={{ fontSize: "clamp(0.8rem, 1.3vw, 0.9rem)", color: "#6b7280" }}>
-                    Ninguna área seleccionada
-                  </p>
-                )}
+                    )}
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Desperdicio:</strong> {r.desperdicio}%
+                    </p>
+                    <hr style={{ border: "none", borderTop: darkMode ? "1px solid #374151" : "1px solid #e5e7eb", margin: "12px 0" }} />
+                    <p style={{ color: "#2563eb", fontWeight: "700", marginBottom: "8px", fontSize: "clamp(1rem, 1.7vw, 1.15rem)" }}>
+                      📦 Necesitas: {r.metrosLineales.toFixed(2)} metros lineales
+                    </p>
+                  </>
+                ) : tipo === "caja" ? (
+                  <>
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Piezas por caja:</strong> {r.piezasCaja} pz
+                    </p>
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Cobertura por caja:</strong> {r.coberturaUnidad.toFixed(2)} m²
+                    </p>
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Área a cubrir:</strong> {r.area.toFixed(2)} m²
+                    </p>
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Desperdicio:</strong> {r.desperdicio}%
+                    </p>
+                    <hr style={{ border: "none", borderTop: darkMode ? "1px solid #374151" : "1px solid #e5e7eb", margin: "12px 0" }} />
+                    <p style={{ color: "#2563eb", fontWeight: "700", marginBottom: "8px", fontSize: "clamp(1rem, 1.7vw, 1.15rem)" }}>
+                      📦 Necesitas: {r.cantidad} cajas
+                    </p>
+                  </>
+                ) : tipo === "tramo" ? (
+                  <>
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Desperdicio:</strong> {r.desperdicio}%
+                    </p>
+                    <hr style={{ border: "none", borderTop: darkMode ? "1px solid #374151" : "1px solid #e5e7eb", margin: "12px 0" }} />
+                    <p style={{ color: "#2563eb", fontWeight: "700", marginBottom: "8px", fontSize: "clamp(1rem, 1.7vw, 1.15rem)" }}>
+                      📦 Necesitas: {r.cantidad.toFixed(2)} metros
+                    </p>
+                  </>
+                ) : null}
 
                 <p
                   style={{
                     fontSize: "clamp(1.1rem, 2.2vw, 1.5rem)",
                     fontWeight: "700",
                     color: "#16a34a",
-                    marginTop: "10px"
+                    marginTop: "14px"
                   }}
                 >
                   Total: ${r.total.toFixed(2)}
@@ -1318,9 +1638,7 @@ export default function Cotizador() {
                   <input
                     placeholder="Nombre"
                     value={cliente.nombre}
-                    onChange={(e) =>
-                      setCliente({ ...cliente, nombre: e.target.value })
-                    }
+                    onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })}
                     style={{
                       width: "100%",
                       padding: "clamp(12px, 1.8vw, 16px)",
@@ -1334,9 +1652,7 @@ export default function Cotizador() {
                   <input
                     placeholder="Correo"
                     value={cliente.correo}
-                    onChange={(e) =>
-                      setCliente({ ...cliente, correo: e.target.value })
-                    }
+                    onChange={(e) => setCliente({ ...cliente, correo: e.target.value })}
                     style={{
                       width: "100%",
                       padding: "clamp(12px, 1.8vw, 16px)",
@@ -1350,9 +1666,7 @@ export default function Cotizador() {
                   <input
                     placeholder="Celular"
                     value={cliente.celular}
-                    onChange={(e) =>
-                      setCliente({ ...cliente, celular: e.target.value })
-                    }
+                    onChange={(e) => setCliente({ ...cliente, celular: e.target.value })}
                     style={{
                       width: "100%",
                       padding: "clamp(12px, 1.8vw, 16px)",
@@ -1385,8 +1699,7 @@ export default function Cotizador() {
                         color: "#fff",
                         cursor: "pointer",
                         fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
-                        fontWeight: "600",
-                        touchAction: "manipulation"
+                        fontWeight: "600"
                       }}
                     >
                       Cancelar
@@ -1404,7 +1717,6 @@ export default function Cotizador() {
                         cursor: "pointer",
                         fontWeight: "600",
                         fontSize: "clamp(0.95rem, 1.6vw, 1rem)",
-                        touchAction: "manipulation",
                         opacity: enviando ? 0.7 : 1
                       }}
                     >
@@ -1417,7 +1729,7 @@ export default function Cotizador() {
           </div>
         )}
 
-        {/* MODAL DE ZOOM */}
+        {/* ZOOM GUÍA */}
         {imagenGuiaZoom && (
           <div
             style={{

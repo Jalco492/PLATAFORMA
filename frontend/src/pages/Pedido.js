@@ -20,7 +20,12 @@ import {
   FaPalette,
   FaThLarge,
   FaEdit,
-  FaSave
+  FaSave,
+  FaCalendarAlt,
+  FaClock,
+  FaInfoCircle,
+  FaPhoneAlt,
+  FaCopy
 } from "react-icons/fa";
 import api from "../services/api";
 import Navbar from "./Navbar";
@@ -72,8 +77,8 @@ const obtenerTipoVenta = (tipoVenta) => {
     'metro_lineal': 'Metro Lineal',
     'presentacion': 'Presentación',
     'unidad': 'Unidad',
-    'tramo': 'Tramo (metros)',
-    'rollo': 'Rollo (metros)',
+    'tramo': 'Tramo',
+    'rollo': 'Rollo',
     'otros': 'Otros'
   };
   return tipos[tipoVenta] || tipoVenta || 'No definido';
@@ -101,7 +106,7 @@ const esVentaPorMetros = (tipoVenta) => {
   return tipoVenta === 'tramo' || tipoVenta === 'rollo' || tipoVenta === 'metro_lineal' || tipoVenta === 'metro_cuadrado';
 };
 
-// 🔥 FUNCIÓN PARA OBTENER LA UNIDAD DE MEDIDA
+// 🔥 FUNCIÓN PARA OBTENER LA UNIDAD DE MEDIDA (para el backend)
 const obtenerUnidadMedida = (tipoVenta) => {
   if (tipoVenta === 'metro_cuadrado') return 'm²';
   if (tipoVenta === 'metro_lineal') return 'ml';
@@ -110,6 +115,40 @@ const obtenerUnidadMedida = (tipoVenta) => {
   if (tipoVenta === 'paquete') return 'paquetes';
   if (tipoVenta === 'pieza') return 'piezas';
   return 'unidades';
+};
+
+// 🔥 FUNCIÓN PARA OBTENER LA UNIDAD A MOSTRAR (abreviada)
+const obtenerUnidadMostrar = (tipoVenta) => {
+  if (tipoVenta === 'metro_cuadrado') return 'm²';
+  if (tipoVenta === 'metro_lineal') return 'ml';
+  if (tipoVenta === 'tramo') return 'tramos';
+  if (tipoVenta === 'rollo') return 'm';
+  if (tipoVenta === 'caja') return 'cajas';
+  if (tipoVenta === 'paquete') return 'paquetes';
+  if (tipoVenta === 'pieza') return 'pz';
+  if (tipoVenta === 'presentacion') return 'uds';
+  return 'uds';
+};
+
+// 🔥 FUNCIÓN PARA OBTENER LA UNIDAD SINGULAR (para textos)
+const obtenerUnidadSingular = (tipoVenta) => {
+  if (tipoVenta === 'metro_cuadrado') return 'm²';
+  if (tipoVenta === 'metro_lineal') return 'ml';
+  if (tipoVenta === 'tramo') return 'tramo';
+  if (tipoVenta === 'rollo') return 'm';
+  if (tipoVenta === 'caja') return 'caja';
+  if (tipoVenta === 'paquete') return 'paquete';
+  if (tipoVenta === 'pieza') return 'pieza';
+  if (tipoVenta === 'presentacion') return 'presentación';
+  return 'unidad';
+};
+
+// 🔥 FUNCIÓN PARA OBTENER EL PASO (incremento)
+const obtenerPaso = (tipoVenta) => {
+  if (tipoVenta === 'metro_cuadrado' || tipoVenta === 'metro_lineal' || tipoVenta === 'tramo' || tipoVenta === 'rollo') {
+    return 0.5;
+  }
+  return 1;
 };
 
 // 🔥 FUNCIÓN PARA CALCULAR SUBTOTAL DE FORMA SEGURA
@@ -122,11 +161,110 @@ const calcularSubtotal = (item) => {
   return precio * cantidad;
 };
 
+// 🔥 FUNCIÓN PARA OBTENER INFO EXTRA DEL PRODUCTO
+const obtenerInfoExtra = (item) => {
+  const info = [];
+  const t = item.tipoVenta;
+
+  if ((t === 'caja' || t === 'paquete') && item.piezasCaja) {
+    info.push({
+      icono: '📦',
+      texto: `${item.piezasCaja} pz por ${t}`
+    });
+  }
+
+  if ((t === 'metro_cuadrado' || t === 'metro_lineal') && item.anchoProducto > 0) {
+    info.push({
+      icono: '📏',
+      texto: `Ancho: ${item.anchoProducto} m`
+    });
+  }
+
+  if (item.cobertura && Number(item.cobertura) > 0) {
+    info.push({
+      icono: '📊',
+      texto: `${Number(item.cobertura).toFixed(2)} m²`
+    });
+  }
+
+  if (t === 'presentacion' && item.presentacion) {
+    info.push({
+      icono: '🏷️',
+      texto: item.presentacion
+    });
+  }
+
+  if (item.grueso && (t === 'pieza' || t === 'caja' || t === 'paquete')) {
+    info.push({
+      icono: '📐',
+      texto: `${item.grueso}${item.unidadGrueso || 'mm'}`
+    });
+  }
+
+  return info;
+};
+
+// 🔥 FUNCIÓN PARA OBTENER LOS DÍAS DISPONIBLES DE ENTREGA (Lunes a Sábado)
+const obtenerDiasEntrega = () => {
+  const dias = [];
+  const hoy = new Date();
+  const nombresDias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  
+  for (let i = 1; i <= 30; i++) {
+    const fecha = new Date(hoy);
+    fecha.setDate(hoy.getDate() + i);
+    const diaSemana = fecha.getDay();
+    
+    if (diaSemana >= 1 && diaSemana <= 6) {
+      const año = fecha.getFullYear();
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+      const dia = String(fecha.getDate()).padStart(2, '0');
+      const fechaISO = `${año}-${mes}-${dia}`;
+      
+      dias.push({
+        valor: fechaISO,
+        etiqueta: `${nombresDias[diaSemana]} ${dia}/${mes}/${año}`,
+        diaSemana: diaSemana,
+        esSabado: diaSemana === 6
+      });
+    }
+  }
+  
+  return dias;
+};
+
+// 🔥 FUNCIÓN PARA OBTENER LAS HORAS DISPONIBLES SEGÚN EL DÍA
+const obtenerHorasEntrega = (esSabado) => {
+  const horas = [];
+  
+  if (esSabado) {
+    for (let h = 12; h <= 17; h++) {
+      const horaFormateada = h === 12 ? '12:00 PM' : `${h - 12}:00 PM`;
+      horas.push({
+        valor: `${String(h).padStart(2, '0')}:00`,
+        etiqueta: horaFormateada
+      });
+    }
+  } else {
+    for (let h = 12; h <= 18; h++) {
+      const horaFormateada = h === 12 ? '12:00 PM' : `${h - 12}:00 PM`;
+      horas.push({
+        valor: `${String(h).padStart(2, '0')}:00`,
+        etiqueta: horaFormateada
+      });
+    }
+  }
+  
+  return horas;
+};
+
 export default function Pedido() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Estados para el mensaje informativo
+  // 🔥 REF PARA SCROLL AL MENSAJE DE ÉXITO
+  const mensajeExitoRef = useRef(null);
+  
   const [mostrarMensaje, setMostrarMensaje] = useState(() => {
     const carritoGuardado = sessionStorage.getItem("carritoPedido");
     let tieneProductos = false;
@@ -141,11 +279,9 @@ export default function Pedido() {
     return !tieneProductos;
   });
   
-  // Estados para el formulario de pedido
   const [productosDisponibles, setProductosDisponibles] = useState([]);
   const [carrito, setCarrito] = useState([]);
   
-  // Estados para datos del cliente
   const [cliente, setCliente] = useState(() => {
     const clienteGuardado = sessionStorage.getItem("clientePedido");
     if (clienteGuardado) {
@@ -159,7 +295,9 @@ export default function Pedido() {
       nombre: "",
       email: "",
       celular: "",
-      comentarios: ""
+      comentarios: "",
+      diaEntrega: "",
+      horaEntrega: ""
     };
   });
   
@@ -167,32 +305,89 @@ export default function Pedido() {
   const [mensajeExito, setMensajeExito] = useState("");
   const [mensajeError, setMensajeError] = useState("");
   const [numeroPedido, setNumeroPedido] = useState("");
+  const [folioCopiado, setFolioCopiado] = useState(false);
 
-  // Estado para dark mode
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem("darkMode") === "true";
   });
 
-  // Estado para favoritos
   const [favoritos, setFavoritos] = useState(() => {
     const guardados = localStorage.getItem("favoritos");
     return guardados ? JSON.parse(guardados) : [];
   });
 
-  // Estado para categorías y subcategorías
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
   const [tipos, setTipos] = useState([]);
 
-  // 🔥 ESTADO PARA MODO DE EDICIÓN DE CANTIDAD
   const [editandoCantidad, setEditandoCantidad] = useState(null);
   const [cantidadInput, setCantidadInput] = useState("");
 
-  // REF para evitar duplicados
+  const [diasDisponibles, setDiasDisponibles] = useState([]);
+  const [horasDisponibles, setHorasDisponibles] = useState([]);
+  const [diaSeleccionado, setDiaSeleccionado] = useState(null);
+
   const productoAgregadoRef = useRef(false);
   const ultimoProductoAgregadoRef = useRef(null);
 
-  // Cargar productos disponibles y carrito guardado
+  useEffect(() => {
+    const dias = obtenerDiasEntrega();
+    setDiasDisponibles(dias);
+  }, []);
+
+  useEffect(() => {
+    if (cliente.diaEntrega) {
+      const diaInfo = diasDisponibles.find(d => d.valor === cliente.diaEntrega);
+      if (diaInfo) {
+        setDiaSeleccionado(diaInfo);
+        const horas = obtenerHorasEntrega(diaInfo.esSabado);
+        setHorasDisponibles(horas);
+        
+        if (cliente.horaEntrega && !horas.find(h => h.valor === cliente.horaEntrega)) {
+          setCliente(prev => ({ ...prev, horaEntrega: "" }));
+        }
+      }
+    } else {
+      setDiaSeleccionado(null);
+      setHorasDisponibles([]);
+    }
+  }, [cliente.diaEntrega, diasDisponibles]);
+
+  // 🔥 SCROLL AUTOMÁTICO AL MENSAJE DE ÉXITO (CON REINTENTOS SEGUROS)
+  useEffect(() => {
+    if (!mensajeExito) return;
+
+    let intentos = 0;
+    const maxIntentos = 15;
+    let cancelado = false;
+
+    const intentarScroll = () => {
+      if (cancelado) return;
+      
+      if (mensajeExitoRef.current) {
+        try {
+          window.scrollTo({ top: 0, behavior: 'instant' });
+          mensajeExitoRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        } catch (e) {
+          console.error("Error en scroll:", e);
+        }
+      } else if (intentos < maxIntentos) {
+        intentos++;
+        setTimeout(intentarScroll, 50);
+      }
+    };
+
+    const timer = setTimeout(intentarScroll, 50);
+
+    return () => {
+      cancelado = true;
+      clearTimeout(timer);
+    };
+  }, [mensajeExito]);
+
   useEffect(() => {
     const cargarProductos = async () => {
       try {
@@ -205,13 +400,11 @@ export default function Pedido() {
     };
     cargarProductos();
 
-    // Recuperar carrito guardado en sessionStorage
     const carritoGuardado = sessionStorage.getItem("carritoPedido");
     if (carritoGuardado) {
       try {
         const parsed = JSON.parse(carritoGuardado);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Asegurar que cada item tenga los campos necesarios
           const carritoLimpio = parsed.map(item => ({
             ...item,
             precio: Number(item.precio) || 0,
@@ -227,7 +420,6 @@ export default function Pedido() {
     }
   }, []);
 
-  // Cargar categorías, subcategorías y tipos para Navbar
   useEffect(() => {
     const cargarDatosNavegacion = async () => {
       try {
@@ -246,30 +438,28 @@ export default function Pedido() {
     cargarDatosNavegacion();
   }, []);
 
-  // Guardar dark mode en localStorage
   useEffect(() => {
     localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
 
-  // Guardar favoritos en localStorage
   useEffect(() => {
     localStorage.setItem("favoritos", JSON.stringify(favoritos));
   }, [favoritos]);
 
-  // Guardar carrito en sessionStorage
   useEffect(() => {
     if (carrito.length > 0 || sessionStorage.getItem("carritoPedido")) {
       sessionStorage.setItem("carritoPedido", JSON.stringify(carrito));
     }
-    setMostrarMensaje(carrito.length === 0);
-  }, [carrito]);
+    // 🔥 NO ACTIVAR mostrarMensaje SI HAY MENSAJE DE ÉXITO
+    if (!mensajeExito) {
+      setMostrarMensaje(carrito.length === 0);
+    }
+  }, [carrito, mensajeExito]);
 
-  // Guardar cliente en sessionStorage
   useEffect(() => {
     sessionStorage.setItem("clientePedido", JSON.stringify(cliente));
   }, [cliente]);
 
-  // Escuchar productos agregados
   useEffect(() => {
     if (!location.state?.productoAgregado) return;
     
@@ -298,7 +488,14 @@ export default function Pedido() {
       ancho: producto.ancho || 0,
       alto: producto.alto || 0,
       anchoProducto: producto.anchoProducto || 0,
-      metrosPorRollo: producto.metrosPorRollo || 0
+      metrosPorRollo: producto.metrosPorRollo || 0,
+      piezasCaja: producto.piezasCaja || 0,
+      grueso: producto.grueso || 0,
+      unidadGrueso: producto.unidadGrueso || 'mm',
+      unidadAncho: producto.unidadAncho || 'cm',
+      unidadAlto: producto.unidadAlto || 'cm',
+      metrosCuadrados: producto.metrosCuadrados || 0,
+      unidadMedida: obtenerUnidadMedida(producto.tipoVenta)
     };
     
     agregarProductoAlCarrito(productoCompleto, cantidad || 1);
@@ -312,7 +509,6 @@ export default function Pedido() {
     
   }, [location.state]);
 
-  // Función para toggle favoritos
   const toggleFavorito = (producto) => {
     const existe = favoritos.find((fav) => fav.id === producto.id);
     if (existe) {
@@ -322,10 +518,8 @@ export default function Pedido() {
     }
   };
 
-  // Función para verificar si un producto es favorito
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
-  // 🔥 FUNCIÓN PARA AGREGAR PRODUCTO AL CARRITO
   const agregarProductoAlCarrito = (producto, cantidad = 1) => {
     setCarrito(prevCarrito => {
       const existe = prevCarrito.find(item => item.id === producto.id);
@@ -358,6 +552,12 @@ export default function Pedido() {
           alto: producto.alto || 0,
           anchoProducto: producto.anchoProducto || 0,
           metrosPorRollo: producto.metrosPorRollo || 0,
+          piezasCaja: producto.piezasCaja || 0,
+          grueso: producto.grueso || 0,
+          unidadGrueso: producto.unidadGrueso || 'mm',
+          unidadAncho: producto.unidadAncho || 'cm',
+          unidadAlto: producto.unidadAlto || 'cm',
+          metrosCuadrados: producto.metrosCuadrados || 0,
           cantidad: Number(cantidad),
           subtotal: Number(producto.precio) * Number(cantidad)
         };
@@ -369,7 +569,6 @@ export default function Pedido() {
     });
   };
 
-  // Eliminar producto del carrito
   const eliminarDelCarrito = (id) => {
     setCarrito(prevCarrito => {
       const nuevoCarrito = prevCarrito.filter(item => item.id !== id);
@@ -378,7 +577,6 @@ export default function Pedido() {
     });
   };
 
-  // 🔥 ACTUALIZAR CANTIDAD - Soporte para metros
   const actualizarCantidad = (id, nuevaCantidad) => {
     if (nuevaCantidad < 0.1) return;
     setCarrito(prevCarrito => {
@@ -396,13 +594,11 @@ export default function Pedido() {
     });
   };
 
-  // 🔥 INICIAR EDICIÓN DE CANTIDAD
   const iniciarEdicionCantidad = (item) => {
     setEditandoCantidad(item.id);
     setCantidadInput(String(item.cantidad));
   };
 
-  // 🔥 GUARDAR CANTIDAD EDITADA
   const guardarEdicionCantidad = (id) => {
     const valor = parseFloat(cantidadInput);
     if (isNaN(valor) || valor <= 0) {
@@ -414,13 +610,11 @@ export default function Pedido() {
     setCantidadInput("");
   };
 
-  // 🔥 CANCELAR EDICIÓN
   const cancelarEdicionCantidad = () => {
     setEditandoCantidad(null);
     setCantidadInput("");
   };
 
-  // 🔥 INCREMENTAR CANTIDAD
   const incrementarCantidad = (id, paso = 1) => {
     const item = carrito.find(i => i.id === id);
     if (!item) return;
@@ -428,7 +622,6 @@ export default function Pedido() {
     actualizarCantidad(id, nuevaCantidad);
   };
 
-  // 🔥 DECREMENTAR CANTIDAD
   const decrementarCantidad = (id, paso = 1) => {
     const item = carrito.find(i => i.id === id);
     if (!item) return;
@@ -442,32 +635,11 @@ export default function Pedido() {
     actualizarCantidad(id, nuevaCantidad);
   };
 
-  // 🔥 OBTENER EL PASO PARA CADA TIPO DE PRODUCTO
-  const obtenerPaso = (tipoVenta) => {
-    if (tipoVenta === 'metro_cuadrado' || tipoVenta === 'metro_lineal' || tipoVenta === 'tramo' || tipoVenta === 'rollo') {
-      return 0.5; // Para metros, incrementos de 0.5
-    }
-    return 1; // Para unidades, incrementos de 1
-  };
-
-  // 🔥 OBTENER LA UNIDAD DE MEDIDA PARA MOSTRAR
-  const obtenerUnidadMostrar = (tipoVenta) => {
-    if (tipoVenta === 'metro_cuadrado') return 'm²';
-    if (tipoVenta === 'metro_lineal') return 'ml';
-    if (tipoVenta === 'tramo' || tipoVenta === 'rollo') return 'm';
-    if (tipoVenta === 'caja') return 'caja';
-    if (tipoVenta === 'paquete') return 'paquete';
-    if (tipoVenta === 'pieza') return 'pieza';
-    return 'uds';
-  };
-
-  // Calcular total del carrito
   const totalCarrito = carrito.reduce((sum, item) => {
     const subtotal = calcularSubtotal(item);
     return sum + subtotal;
   }, 0);
 
-  // Validar formulario
   const validarFormulario = () => {
     if (!cliente.nombre.trim()) {
       setMensajeError("Por favor ingresa tu nombre");
@@ -481,6 +653,14 @@ export default function Pedido() {
       setMensajeError("Por favor ingresa un número de celular válido (10 dígitos)");
       return false;
     }
+    if (!cliente.diaEntrega) {
+      setMensajeError("Por favor selecciona el día de entrega");
+      return false;
+    }
+    if (!cliente.horaEntrega) {
+      setMensajeError("Por favor selecciona la hora de entrega");
+      return false;
+    }
     if (carrito.length === 0) {
       setMensajeError("Agrega al menos un producto al pedido");
       return false;
@@ -488,7 +668,33 @@ export default function Pedido() {
     return true;
   };
 
-  // Enviar pedido
+  const formatearFechaEntrega = (fechaISO) => {
+    if (!fechaISO) return '';
+    const [año, mes, dia] = fechaISO.split('-');
+    const fecha = new Date(año, mes - 1, dia);
+    const nombresDias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    return `${nombresDias[fecha.getDay()]} ${dia}/${mes}/${año}`;
+  };
+
+  const formatearHoraEntrega = (hora24) => {
+    if (!hora24) return '';
+    const [h, m] = hora24.split(':');
+    const hora = parseInt(h);
+    const ampm = hora >= 12 ? 'PM' : 'AM';
+    const hora12 = hora > 12 ? hora - 12 : (hora === 0 ? 12 : hora);
+    return `${hora12}:${m} ${ampm}`;
+  };
+
+  const copiarFolio = async () => {
+    try {
+      await navigator.clipboard.writeText(numeroPedido);
+      setFolioCopiado(true);
+      setTimeout(() => setFolioCopiado(false), 2000);
+    } catch (err) {
+      console.error("Error al copiar:", err);
+    }
+  };
+
   const enviarPedido = async () => {
     if (!validarFormulario()) return;
     
@@ -497,12 +703,20 @@ export default function Pedido() {
     setMensajeExito("");
     setNumeroPedido("");
 
+    const diaInfo = diasDisponibles.find(d => d.valor === cliente.diaEntrega);
+    const fechaEntregaFormateada = diaInfo ? diaInfo.etiqueta : formatearFechaEntrega(cliente.diaEntrega);
+    const horaEntregaFormateada = formatearHoraEntrega(cliente.horaEntrega);
+
     const pedidoData = {
       cliente: {
         nombre: cliente.nombre,
         email: cliente.email,
         celular: cliente.celular,
-        comentarios: cliente.comentarios || ""
+        comentarios: cliente.comentarios || "",
+        diaEntrega: cliente.diaEntrega,
+        horaEntrega: cliente.horaEntrega,
+        fechaEntregaFormateada: fechaEntregaFormateada,
+        horaEntregaFormateada: horaEntregaFormateada
       },
       productos: carrito.map(item => ({
         id: item.id,
@@ -513,13 +727,18 @@ export default function Pedido() {
         subtotal: calcularSubtotal(item),
         imagen: item.imagen || obtenerImagenProducto(item),
         tipoVenta: item.tipoVenta || 'unidad',
+        tipoVentaLabel: obtenerTipoVenta(item.tipoVenta),
         presentacion: item.presentacion || 'Unidad',
         cobertura: item.cobertura || 0,
         categoria: item.categoria || '',
         subcategoria: item.subcategoria || '',
         unidadMedida: obtenerUnidadMedida(item.tipoVenta),
+        unidadMostrar: obtenerUnidadMostrar(item.tipoVenta),
+        unidadSingular: obtenerUnidadSingular(item.tipoVenta),
         anchoProducto: item.anchoProducto || 0,
-        metrosPorRollo: item.metrosPorRollo || 0
+        metrosPorRollo: item.metrosPorRollo || 0,
+        piezasCaja: item.piezasCaja || 0,
+        metrosCuadrados: item.metrosCuadrados || 0
       })),
       total: Number(totalCarrito.toFixed(2))
     };
@@ -528,14 +747,27 @@ export default function Pedido() {
       const res = await api.post("/pedidos", pedidoData);
       
       if (res.status === 201) {
-        setNumeroPedido(res.data.numero_pedido);
+        window.scrollTo({ top: 0, behavior: 'instant' });
+
+        // 🔥 PRIMERO ACTIVAR MENSAJE DE ÉXITO (esto hace que la vista cambie)
         setMensajeExito(`✅ ¡Pedido #${res.data.numero_pedido} creado exitosamente!`);
+        setNumeroPedido(res.data.numero_pedido);
         
-        // Limpiar todo
+        // 🔥 DESPUÉS LIMPIAR CARRITO Y CLIENTE
         setCarrito([]);
-        setCliente({ nombre: "", email: "", celular: "", comentarios: "" });
+        setCliente({ 
+          nombre: "", 
+          email: "", 
+          celular: "", 
+          comentarios: "",
+          diaEntrega: "",
+          horaEntrega: ""
+        });
         sessionStorage.removeItem("carritoPedido");
         sessionStorage.removeItem("clientePedido");
+        
+        // 🔥 IMPORTANTE: Desactivar mostrarMensaje para que no interfiera
+        setMostrarMensaje(false);
       }
     } catch (error) {
       console.error("Error al guardar pedido:", error);
@@ -545,7 +777,6 @@ export default function Pedido() {
     }
   };
 
-  // Ir a la página de productos para agregar
   const irAProductos = () => {
     productoAgregadoRef.current = false;
     ultimoProductoAgregadoRef.current = null;
@@ -561,7 +792,282 @@ export default function Pedido() {
     setMostrarMensaje(false);
   };
 
-  // Si está mostrando el mensaje informativo Y el carrito está vacío
+  // =====================================================
+  // 🔥 VISTA 2: MENSAJE DE ÉXITO CON FOLIO (PRIORIDAD MÁXIMA)
+  // ⚠️ ESTA VISTA VA PRIMERO PARA QUE GANE SOBRE "mostrarMensaje"
+  // =====================================================
+  if (mensajeExito) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: darkMode ? '#0a0a2a' : '#f8fafc',
+        color: darkMode ? '#fff' : '#111827',
+        fontFamily: "'Inter', sans-serif",
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: 0,
+        margin: 0,
+        boxSizing: 'border-box'
+      }}>
+        <style>{`
+          @keyframes pulseGlow {
+            0% { box-shadow: 0 0 30px rgba(34, 197, 94, 0.3); }
+            50% { box-shadow: 0 0 60px rgba(34, 197, 94, 0.5); }
+            100% { box-shadow: 0 0 30px rgba(34, 197, 94, 0.3); }
+          }
+          @keyframes folioPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+          }
+          @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-40px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes checkmark {
+            0% { transform: scale(0) rotate(-180deg); }
+            60% { transform: scale(1.2) rotate(10deg); }
+            100% { transform: scale(1) rotate(0deg); }
+          }
+        `}</style>
+
+        <Navbar
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          productos={productosDisponibles}
+          favoritos={favoritos}
+          toggleFavorito={toggleFavorito}
+          esFavorito={esFavorito}
+          categorias={categorias}
+          subcategorias={subcategorias}
+          tipos={tipos}
+        />
+
+        <div 
+          ref={mensajeExitoRef}
+          style={{
+            width: '100%',
+            maxWidth: '750px',
+            padding: '20px',
+            paddingTop: '110px',
+            paddingBottom: '40px',
+            boxSizing: 'border-box'
+          }}>
+          <div style={{
+            background: darkMode 
+              ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.08))' 
+              : 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
+            border: darkMode ? '3px solid rgba(34, 197, 94, 0.4)' : '3px solid #86efac',
+            borderRadius: '28px',
+            padding: '45px 35px',
+            textAlign: 'center',
+            animation: 'slideDown 0.6s ease-out, pulseGlow 3s ease-in-out infinite',
+            position: 'relative',
+            overflow: 'hidden',
+            boxShadow: darkMode 
+              ? '0 25px 80px rgba(0, 0, 0, 0.9), 0 0 60px rgba(34, 197, 94, 0.15)'
+              : '0 25px 80px rgba(0, 0, 0, 0.1), 0 0 60px rgba(34, 197, 94, 0.1)'
+          }}>
+            
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '6px',
+              background: 'linear-gradient(90deg, #22c55e, #10b981, #34d399, #6ee7b7)'
+            }} />
+
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100px',
+              height: '100px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+              marginBottom: '28px',
+              boxShadow: '0 12px 45px rgba(34, 197, 94, 0.5)',
+              animation: 'checkmark 0.8s ease-out'
+            }}>
+              <FaCheck size={48} color="#fff" />
+            </div>
+
+            <div style={{ 
+              fontSize: '30px', 
+              fontWeight: '900', 
+              color: darkMode ? '#86efac' : '#166534',
+              marginBottom: '10px',
+              letterSpacing: '-0.5px',
+              lineHeight: '1.2'
+            }}>
+              ¡Pedido Creado Exitosamente!
+            </div>
+
+            <div style={{
+              color: darkMode ? '#a7f3d0' : '#15803d',
+              fontSize: '16px',
+              marginBottom: '35px',
+              fontWeight: '500'
+            }}>
+              Tu pedido ha sido registrado correctamente
+            </div>
+
+            <div style={{
+              background: darkMode 
+                ? 'linear-gradient(135deg, #1e293b, #0f172a)' 
+                : 'linear-gradient(135deg, #ffffff, #f8fafc)',
+              borderRadius: '24px',
+              padding: '32px 28px',
+              marginBottom: '28px',
+              border: darkMode ? '3px dashed #fbbf24' : '3px dashed #f59e0b',
+              boxShadow: darkMode 
+                ? '0 8px 30px rgba(251, 191, 36, 0.15)' 
+                : '0 8px 30px rgba(251, 191, 36, 0.25)',
+              position: 'relative'
+            }}>
+              <div style={{
+                display: 'inline-block',
+                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                color: '#fff',
+                padding: '8px 22px',
+                borderRadius: '22px',
+                fontSize: '13px',
+                fontWeight: '800',
+                letterSpacing: '1.5px',
+                marginBottom: '20px',
+                textTransform: 'uppercase',
+                boxShadow: '0 4px 15px rgba(251, 191, 36, 0.4)'
+              }}>
+                📋 Tu Folio de Pedido
+              </div>
+
+              <div style={{
+                fontSize: '42px',
+                fontWeight: '900',
+                color: '#fbbf24',
+                letterSpacing: '2px',
+                marginBottom: '16px',
+                fontFamily: "'Courier New', monospace",
+                textShadow: darkMode ? '0 0 25px rgba(251, 191, 36, 0.6)' : '0 3px 6px rgba(251, 191, 36, 0.4)',
+                animation: 'folioPulse 2s ease-in-out infinite',
+                wordBreak: 'break-all',
+                lineHeight: '1.1'
+              }}>
+                {numeroPedido}
+              </div>
+
+              <button
+                onClick={copiarFolio}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: folioCopiado 
+                    ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+                    : darkMode 
+                      ? 'rgba(251, 191, 36, 0.15)' 
+                      : '#fffbeb',
+                  color: folioCopiado 
+                    ? '#fff' 
+                    : darkMode 
+                      ? '#fcd34d' 
+                      : '#92400e',
+                  border: folioCopiado 
+                    ? 'none' 
+                    : darkMode 
+                      ? '2px solid rgba(251, 191, 36, 0.4)' 
+                      : '2px solid #fde68a',
+                  padding: '10px 22px',
+                  borderRadius: '22px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: folioCopiado ? '0 4px 15px rgba(34, 197, 94, 0.4)' : 'none'
+                }}
+              >
+                {folioCopiado ? (
+                  <><FaCheck size={13} /> ¡Copiado!</>
+                ) : (
+                  <><FaCopy size={13} /> Copiar folio</>
+                )}
+              </button>
+            </div>
+
+            <div style={{
+              background: darkMode ? 'rgba(251, 191, 36, 0.12)' : '#fffbeb',
+              border: darkMode ? '2px solid rgba(251, 191, 36, 0.35)' : '2px solid #fde68a',
+              borderRadius: '18px',
+              padding: '20px 24px',
+              marginBottom: '28px',
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '14px'
+            }}>
+              <div style={{ fontSize: '32px', flexShrink: 0, lineHeight: '1' }}>⚠️</div>
+              <div>
+                <div style={{
+                  color: darkMode ? '#fcd34d' : '#92400e',
+                  fontSize: '17px',
+                  fontWeight: '900',
+                  marginBottom: '8px',
+                  letterSpacing: '0.3px'
+                }}>
+                  ¡IMPORTANTE!
+                </div>
+                <div style={{
+                  color: darkMode ? '#fcd34d' : '#92400e',
+                  fontSize: '15px',
+                  lineHeight: '1.7',
+                  fontWeight: '500'
+                }}>
+                  Anota tu número de pedido. Será <strong>necesario</strong> para la entrega en tienda física.
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate("/")}
+              style={{
+                padding: '16px 55px',
+                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '16px',
+                fontSize: '17px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 8px 30px rgba(59, 130, 246, 0.45)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05) translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 12px 40px rgba(59, 130, 246, 0.65)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1) translateY(0)';
+                e.currentTarget.style.boxShadow = '0 8px 30px rgba(59, 130, 246, 0.45)';
+              }}
+            >
+              Ir al Inicio <FaArrowRight />
+            </button>
+          </div>
+        </div>
+
+        <Footer darkMode={darkMode} />
+      </div>
+    );
+  }
+
+  // =====================================================
+  // 🔥 VISTA 1: MENSAJE INFORMATIVO INICIAL (SOLO SI NO HAY ÉXITO)
+  // =====================================================
   if (mostrarMensaje && carrito.length === 0) {
     return (
       <div style={{
@@ -640,23 +1146,11 @@ export default function Pedido() {
                 fontSize: '20px',
                 marginBottom: '10px'
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.1) rotate(90deg)';
-                e.currentTarget.style.background = darkMode ? 'rgba(59, 130, 246, 0.2)' : '#e2e8f0';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-                e.currentTarget.style.background = darkMode ? 'rgba(59, 130, 246, 0.1)' : '#f1f5f9';
-              }}
             >
               <FaTimes />
             </button>
 
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              marginBottom: '20px'
-            }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
               <div style={{
                 background: darkMode 
                   ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1))'
@@ -800,11 +1294,7 @@ export default function Pedido() {
               </span>
             </div>
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '12px'
-            }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <button
                 onClick={() => navigate(-1)}
                 style={{
@@ -817,12 +1307,6 @@ export default function Pedido() {
                   fontWeight: '600',
                   cursor: 'pointer',
                   transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = darkMode ? 'rgba(239, 68, 68, 0.25)' : '#fee2e2';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = darkMode ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2';
                 }}
               >
                 Cerrar
@@ -846,14 +1330,6 @@ export default function Pedido() {
                   justifyContent: 'center',
                   gap: '8px'
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                  e.currentTarget.style.boxShadow = '0 6px 40px rgba(59, 130, 246, 0.6)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = '0 4px 30px rgba(59, 130, 246, 0.4)';
-                }}
               >
                 Continuar <FaArrowRight />
               </button>
@@ -866,7 +1342,9 @@ export default function Pedido() {
     );
   }
 
-  // Formulario de pedido
+  // =====================================================
+  // 🔥 VISTA 3: FORMULARIO DE PEDIDO (DEFAULT)
+  // =====================================================
   return (
     <div style={{
       minHeight: '100vh',
@@ -926,12 +1404,6 @@ export default function Pedido() {
               fontSize: '14px',
               marginBottom: '20px'
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = darkMode ? 'rgba(59, 130, 246, 0.2)' : '#e2e8f0';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = darkMode ? 'rgba(59, 130, 246, 0.1)' : '#f1f5f9';
-            }}
           >
             <FaArrowLeft /> Volver
           </button>
@@ -956,86 +1428,6 @@ export default function Pedido() {
             Completa el formulario para realizar tu pedido. Un asesor te contactará para confirmar.
           </p>
 
-          {/* MENSAJE DE ÉXITO */}
-          {mensajeExito && (
-            <div style={{
-              background: darkMode ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4',
-              border: darkMode ? '2px solid rgba(34, 197, 94, 0.3)' : '2px solid #bbf7d0',
-              borderRadius: '16px',
-              padding: '24px',
-              marginBottom: '20px',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '48px', marginBottom: '10px' }}>✅</div>
-              <div style={{ 
-                fontSize: '22px', 
-                fontWeight: '800', 
-                color: darkMode ? '#86efac' : '#166534',
-                marginBottom: '6px'
-              }}>
-                ¡Pedido Creado Exitosamente!
-              </div>
-              <div style={{ 
-                fontSize: '32px', 
-                fontWeight: '900', 
-                color: '#fbbf24',
-                background: darkMode ? 'rgba(251, 191, 36, 0.1)' : '#fffbeb',
-                padding: '10px 20px',
-                borderRadius: '12px',
-                display: 'inline-block',
-                marginBottom: '12px',
-                letterSpacing: '1px'
-              }}>
-                📋 {numeroPedido}
-              </div>
-              <div style={{
-                background: darkMode ? 'rgba(251, 191, 36, 0.15)' : '#fffbeb',
-                border: darkMode ? '2px solid rgba(251, 191, 36, 0.3)' : '2px solid #fde68a',
-                borderRadius: '12px',
-                padding: '16px 20px',
-                margin: '12px 0',
-                color: darkMode ? '#fcd34d' : '#92400e'
-              }}>
-                ⚠️ <strong>¡IMPORTANTE!</strong> Anota tu número de pedido. 
-                <br />
-                <span style={{ fontSize: '14px' }}>Será necesario para la entrega en tienda física.</span>
-              </div>
-              <div style={{
-                color: darkMode ? '#94a3b8' : '#64748b',
-                fontSize: '14px',
-                marginTop: '8px'
-              }}>
-                Un asesor se pondrá en contacto contigo para confirmar tu pedido.
-              </div>
-              <button
-                onClick={() => navigate("/")}
-                style={{
-                  marginTop: '16px',
-                  padding: '12px 40px',
-                  background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                  e.currentTarget.style.boxShadow = '0 6px 30px rgba(59, 130, 246, 0.5)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = '0 4px 20px rgba(59, 130, 246, 0.3)';
-                }}
-              >
-                Ir al Inicio
-              </button>
-            </div>
-          )}
-
           {mensajeError && (
             <div style={{
               background: darkMode ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
@@ -1049,513 +1441,817 @@ export default function Pedido() {
             </div>
           )}
 
-          {!mensajeExito && (
-            <>
-              <div style={{
-                background: darkMode ? 'rgba(59, 130, 246, 0.05)' : '#f8fafc',
-                borderRadius: '16px',
-                padding: '20px',
-                marginBottom: '20px',
-                border: darkMode ? '1px solid rgba(59, 130, 246, 0.1)' : '1px solid #e5e7eb'
-              }}>
-                <h3 style={{ color: '#60a5fa', fontSize: '16px', marginBottom: '16px' }}>
-                  👤 Datos del Cliente
-                </h3>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                  <div>
-                    <label style={{ 
-                      color: darkMode ? '#94a3b8' : '#64748b', 
-                      fontSize: '13px', 
-                      fontWeight: '600', 
-                      display: 'block', 
-                      marginBottom: '4px' 
-                    }}>
-                      Nombre completo *
-                    </label>
-                    <input
-                      type="text"
-                      value={cliente.nombre}
-                      onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })}
-                      placeholder="Ej: Juan Pérez"
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
-                        background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
-                        color: darkMode ? '#fff' : '#111827',
-                        fontSize: '14px',
-                        outline: 'none',
-                        transition: 'all 0.3s ease',
-                        boxSizing: 'border-box'
-                      }}
-                      onFocus={(e) => e.currentTarget.style.borderColor = '#60a5fa'}
-                      onBlur={(e) => e.currentTarget.style.borderColor = darkMode ? 'rgba(59, 130, 246, 0.15)' : '#e5e7eb'}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label style={{ 
-                      color: darkMode ? '#94a3b8' : '#64748b', 
-                      fontSize: '13px', 
-                      fontWeight: '600', 
-                      display: 'block', 
-                      marginBottom: '4px' 
-                    }}>
-                      Correo Electrónico *
-                    </label>
-                    <input
-                      type="email"
-                      value={cliente.email}
-                      onChange={(e) => setCliente({ ...cliente, email: e.target.value })}
-                      placeholder="Ej: cliente@email.com"
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
-                        background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
-                        color: darkMode ? '#fff' : '#111827',
-                        fontSize: '14px',
-                        outline: 'none',
-                        transition: 'all 0.3s ease',
-                        boxSizing: 'border-box'
-                      }}
-                      onFocus={(e) => e.currentTarget.style.borderColor = '#60a5fa'}
-                      onBlur={(e) => e.currentTarget.style.borderColor = darkMode ? 'rgba(59, 130, 246, 0.15)' : '#e5e7eb'}
-                    />
-                  </div>
-                </div>
+          <div style={{
+            background: darkMode ? 'rgba(59, 130, 246, 0.05)' : '#f8fafc',
+            borderRadius: '16px',
+            padding: '20px',
+            marginBottom: '20px',
+            border: darkMode ? '1px solid rgba(59, 130, 246, 0.1)' : '1px solid #e5e7eb'
+          }}>
+            <h3 style={{ color: '#60a5fa', fontSize: '16px', marginBottom: '16px' }}>
+              👤 Datos del Cliente
+            </h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div>
+                <label style={{ 
+                  color: darkMode ? '#94a3b8' : '#64748b', 
+                  fontSize: '13px', 
+                  fontWeight: '600', 
+                  display: 'block', 
+                  marginBottom: '4px' 
+                }}>
+                  Nombre completo *
+                </label>
+                <input
+                  type="text"
+                  value={cliente.nombre}
+                  onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })}
+                  placeholder="Ej: Juan Pérez"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
+                    background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
+                    color: darkMode ? '#fff' : '#111827',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'all 0.3s ease',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ 
+                  color: darkMode ? '#94a3b8' : '#64748b', 
+                  fontSize: '13px', 
+                  fontWeight: '600', 
+                  display: 'block', 
+                  marginBottom: '4px' 
+                }}>
+                  Correo Electrónico *
+                </label>
+                <input
+                  type="email"
+                  value={cliente.email}
+                  onChange={(e) => setCliente({ ...cliente, email: e.target.value })}
+                  placeholder="Ej: cliente@email.com"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
+                    background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
+                    color: darkMode ? '#fff' : '#111827',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'all 0.3s ease',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '14px' }}>
-                  <div>
-                    <label style={{ 
-                      color: darkMode ? '#94a3b8' : '#64748b', 
-                      fontSize: '13px', 
-                      fontWeight: '600', 
-                      display: 'block', 
-                      marginBottom: '4px' 
-                    }}>
-                      Celular *
-                    </label>
-                    <input
-                      type="tel"
-                      value={cliente.celular}
-                      onChange={(e) => setCliente({ ...cliente, celular: e.target.value })}
-                      placeholder="Ej: 5512345678"
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
-                        background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
-                        color: darkMode ? '#fff' : '#111827',
-                        fontSize: '14px',
-                        outline: 'none',
-                        transition: 'all 0.3s ease',
-                        boxSizing: 'border-box'
-                      }}
-                      onFocus={(e) => e.currentTarget.style.borderColor = '#60a5fa'}
-                      onBlur={(e) => e.currentTarget.style.borderColor = darkMode ? 'rgba(59, 130, 246, 0.15)' : '#e5e7eb'}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label style={{ 
-                      color: darkMode ? '#94a3b8' : '#64748b', 
-                      fontSize: '13px', 
-                      fontWeight: '600', 
-                      display: 'block', 
-                      marginBottom: '4px' 
-                    }}>
-                      Comentarios (opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={cliente.comentarios}
-                      onChange={(e) => setCliente({ ...cliente, comentarios: e.target.value })}
-                      placeholder="Ej: Piso para sala"
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
-                        background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
-                        color: darkMode ? '#fff' : '#111827',
-                        fontSize: '14px',
-                        outline: 'none',
-                        transition: 'all 0.3s ease',
-                        boxSizing: 'border-box'
-                      }}
-                      onFocus={(e) => e.currentTarget.style.borderColor = '#60a5fa'}
-                      onBlur={(e) => e.currentTarget.style.borderColor = darkMode ? 'rgba(59, 130, 246, 0.15)' : '#e5e7eb'}
-                    />
-                  </div>
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '14px' }}>
+              <div>
+                <label style={{ 
+                  color: darkMode ? '#94a3b8' : '#64748b', 
+                  fontSize: '13px', 
+                  fontWeight: '600', 
+                  display: 'block', 
+                  marginBottom: '4px' 
+                }}>
+                  Celular *
+                </label>
+                <input
+                  type="tel"
+                  value={cliente.celular}
+                  onChange={(e) => setCliente({ ...cliente, celular: e.target.value })}
+                  placeholder="Ej: 5512345678"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
+                    background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
+                    color: darkMode ? '#fff' : '#111827',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'all 0.3s ease',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ 
+                  color: darkMode ? '#94a3b8' : '#64748b', 
+                  fontSize: '13px', 
+                  fontWeight: '600', 
+                  display: 'block', 
+                  marginBottom: '4px' 
+                }}>
+                  Comentarios (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={cliente.comentarios}
+                  onChange={(e) => setCliente({ ...cliente, comentarios: e.target.value })}
+                  placeholder="Ej: Piso para sala"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
+                    background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
+                    color: darkMode ? '#fff' : '#111827',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'all 0.3s ease',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 🔥 SECCIÓN DE FECHA Y HORA DE ENTREGA */}
+          <div style={{
+            background: darkMode ? 'rgba(59, 130, 246, 0.05)' : '#f8fafc',
+            borderRadius: '16px',
+            padding: '20px',
+            marginBottom: '20px',
+            border: darkMode ? '1px solid rgba(59, 130, 246, 0.1)' : '1px solid #e5e7eb'
+          }}>
+            <h3 style={{ 
+              color: '#60a5fa', 
+              fontSize: '16px', 
+              marginBottom: '16px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px' 
+            }}>
+              <FaCalendarAlt /> Día y Hora de Entrega
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div>
+                <label style={{ 
+                  color: darkMode ? '#94a3b8' : '#64748b', 
+                  fontSize: '13px', 
+                  fontWeight: '600', 
+                  display: 'block', 
+                  marginBottom: '4px' 
+                }}>
+                  Día de entrega *
+                </label>
+                <select
+                  value={cliente.diaEntrega}
+                  onChange={(e) => {
+                    setCliente({ ...cliente, diaEntrega: e.target.value, horaEntrega: "" });
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
+                    background: darkMode ? 'rgba(15, 26, 58, 0.95)' : '#ffffff',
+                    color: darkMode ? '#fff' : '#111827',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">Selecciona un día</option>
+                  {diasDisponibles.map((dia) => (
+                    <option key={dia.valor} value={dia.valor}>
+                      {dia.etiqueta}
+                    </option>
+                  ))}
+                </select>
               </div>
 
+              <div>
+                <label style={{ 
+                  color: darkMode ? '#94a3b8' : '#64748b', 
+                  fontSize: '13px', 
+                  fontWeight: '600', 
+                  display: 'block', 
+                  marginBottom: '4px' 
+                }}>
+                  Hora de entrega *
+                </label>
+                <select
+                  value={cliente.horaEntrega}
+                  onChange={(e) => setCliente({ ...cliente, horaEntrega: e.target.value })}
+                  disabled={!cliente.diaEntrega}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: darkMode ? '2px solid rgba(59, 130, 246, 0.15)' : '2px solid #e5e7eb',
+                    background: darkMode ? 'rgba(15, 26, 58, 0.95)' : '#ffffff',
+                    color: darkMode ? '#fff' : '#111827',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    cursor: cliente.diaEntrega ? 'pointer' : 'not-allowed',
+                    opacity: cliente.diaEntrega ? 1 : 0.6
+                  }}
+                >
+                  <option value="">Selecciona una hora</option>
+                  {horasDisponibles.map((hora) => (
+                    <option key={hora.valor} value={hora.valor}>
+                      {hora.etiqueta}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{
+              marginTop: '18px',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '10px'
+            }}>
               <div style={{
-                background: darkMode ? 'rgba(59, 130, 246, 0.05)' : '#f8fafc',
-                borderRadius: '16px',
-                padding: '20px',
-                marginBottom: '20px',
-                border: darkMode ? '1px solid rgba(59, 130, 246, 0.1)' : '1px solid #e5e7eb'
+                background: darkMode 
+                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.06))'
+                  : 'linear-gradient(135deg, #eff6ff, #dbeafe)',
+                borderRadius: '12px',
+                padding: '14px',
+                border: darkMode 
+                  ? '1.5px solid rgba(59, 130, 246, 0.25)' 
+                  : '1.5px solid #bfdbfe',
+                position: 'relative',
+                overflow: 'hidden'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                  <h3 style={{ color: '#60a5fa', fontSize: '16px', margin: 0 }}>
-                    🛒 Carrito de Pedido ({carrito.length} productos)
-                  </h3>
-                  <button
-                    onClick={irAProductos}
-                    style={{
-                      padding: '8px 16px',
-                      background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '10px',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      transition: 'all 0.3s ease',
-                      boxShadow: '0 2px 20px rgba(59, 130, 246, 0.3)'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'scale(1.05)';
-                      e.currentTarget.style.boxShadow = '0 4px 30px rgba(59, 130, 246, 0.5)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'scale(1)';
-                      e.currentTarget.style.boxShadow = '0 2px 20px rgba(59, 130, 246, 0.3)';
-                    }}
-                  >
-                    <FaPlus size={12} /> Agregar Productos
-                  </button>
-                </div>
-                
-                {carrito.length === 0 ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '8px'
+                }}>
                   <div style={{
-                    textAlign: 'center',
-                    padding: '40px 20px',
-                    color: darkMode ? '#64748b' : '#94a3b8'
+                    background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                    borderRadius: '8px',
+                    padding: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}>
-                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>🛒</div>
-                    <p style={{ margin: 0 }}>No hay productos en el carrito</p>
-                    <p style={{ fontSize: '13px', marginTop: '4px' }}>Haz clic en "Agregar Productos" para seleccionar</p>
+                    <FaClock size={14} color="#fff" />
                   </div>
-                ) : (
-                  <>
-                    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                      {carrito.map(item => {
-                        const imagenProducto = item.imagen || obtenerImagenProducto(item);
-                        const esPorMetros = esVentaPorMetros(item.tipoVenta);
-                        const unidad = obtenerUnidadMostrar(item.tipoVenta);
-                        const paso = obtenerPaso(item.tipoVenta);
-                        const esDecimal = paso < 1;
-                        const subtotal = calcularSubtotal(item);
-                        
-                        return (
-                          <div key={item.id} style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '14px',
-                            padding: '10px 12px',
-                            borderBottom: darkMode ? '1px solid rgba(59,130,246,0.05)' : '1px solid #f1f5f9',
-                            flexWrap: 'wrap'
-                          }}>
-                            {/* IMAGEN */}
-                            <div style={{
-                              width: '60px',
-                              height: '60px',
-                              flexShrink: 0,
-                              borderRadius: '8px',
-                              overflow: 'hidden',
-                              background: darkMode ? '#1a1a3a' : '#f1f5f9',
-                              border: darkMode ? '1px solid rgba(59,130,246,0.1)' : '1px solid #e5e7eb'
-                            }}>
-                              <img 
-                                src={imagenProducto}
-                                alt={item.nombre}
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  objectFit: 'cover'
-                                }}
-                                onError={(e) => {
-                                  e.target.src = 'https://via.placeholder.com/60?text=Sin+imagen';
-                                }}
-                              />
-                            </div>
-                            
-                            {/* INFO PRODUCTO */}
-                            <div style={{ flex: 2, minWidth: '120px' }}>
-                              <div style={{ color: darkMode ? '#fff' : '#111827', fontSize: '14px', fontWeight: '600' }}>
-                                {item.nombre}
-                              </div>
-                              <div style={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '11px' }}>
-                                SKU: {item.sku || 'N/A'}
-                              </div>
-                              {/* TIPO DE VENTA */}
-                              <div style={{ 
-                                color: '#60a5fa', 
-                                fontSize: '10px', 
-                                fontWeight: '600',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                marginTop: '2px',
-                                flexWrap: 'wrap'
-                              }}>
-                                {obtenerIconoTipo(item.tipoVenta)} 
-                                <span>{obtenerTipoVenta(item.tipoVenta)}</span>
-                                {esPorMetros && item.anchoProducto > 0 && (
-                                  <span style={{ 
-                                    color: darkMode ? '#94a3b8' : '#64748b', 
-                                    fontWeight: '400',
-                                    background: darkMode ? 'rgba(59,130,246,0.1)' : '#eef2ff',
-                                    padding: '0 8px',
-                                    borderRadius: '4px'
-                                  }}>
-                                    📏 Ancho: {item.anchoProducto} m
-                                  </span>
-                                )}
-                                {item.cobertura > 0 && (
-                                  <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: '400' }}>
-                                    • {item.cobertura} m²
-                                  </span>
-                                )}
-                                {item.presentacion && item.tipoVenta === 'presentacion' && (
-                                  <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: '400' }}>
-                                    • {item.presentacion}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            
-                            {/* 🔥 CONTROLES DE CANTIDAD */}
-                            {editandoCantidad === item.id ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <input
-                                  type="number"
-                                  value={cantidadInput}
-                                  onChange={(e) => setCantidadInput(e.target.value)}
-                                  step={esDecimal ? "0.5" : "1"}
-                                  min="0"
-                                  style={{
-                                    width: '80px',
-                                    padding: '6px 8px',
-                                    borderRadius: '6px',
-                                    border: '2px solid #60a5fa',
-                                    background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff',
-                                    color: darkMode ? '#fff' : '#111827',
-                                    fontSize: '14px',
-                                    fontWeight: '600',
-                                    textAlign: 'center',
-                                    outline: 'none'
-                                  }}
-                                  autoFocus
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') guardarEdicionCantidad(item.id);
-                                    if (e.key === 'Escape') cancelarEdicionCantidad();
-                                  }}
-                                />
-                                <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600' }}>
-                                  {unidad}
-                                </span>
-                                <button
-                                  onClick={() => guardarEdicionCantidad(item.id)}
-                                  style={{
-                                    background: '#16a34a',
-                                    border: 'none',
-                                    color: '#fff',
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    fontSize: '12px'
-                                  }}
-                                >
-                                  <FaSave size={12} />
-                                </button>
-                                <button
-                                  onClick={cancelarEdicionCantidad}
-                                  style={{
-                                    background: '#6b7280',
-                                    border: 'none',
-                                    color: '#fff',
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    fontSize: '12px'
-                                  }}
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <button
-                                  onClick={() => decrementarCantidad(item.id, paso)}
-                                  style={{
-                                    width: '26px',
-                                    height: '26px',
-                                    borderRadius: '6px',
-                                    border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
-                                    background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
-                                    color: darkMode ? '#fff' : '#111827',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '10px'
-                                  }}
-                                >
-                                  <FaMinus size={8} />
-                                </button>
-                                
-                                <span 
-                                  style={{ 
-                                    color: darkMode ? '#fff' : '#111827', 
-                                    fontSize: '14px', 
-                                    fontWeight: '600', 
-                                    minWidth: '40px', 
-                                    textAlign: 'center',
-                                    cursor: 'pointer',
-                                    borderBottom: '2px dashed #60a5fa',
-                                    padding: '0 4px'
-                                  }}
-                                  onClick={() => iniciarEdicionCantidad(item)}
-                                  title="Haz clic para editar la cantidad"
-                                >
-                                  {item.cantidad}
-                                </span>
-                                
-                                <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600' }}>
-                                  {unidad}
-                                </span>
-                                
-                                <button
-                                  onClick={() => incrementarCantidad(item.id, paso)}
-                                  style={{
-                                    width: '26px',
-                                    height: '26px',
-                                    borderRadius: '6px',
-                                    border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
-                                    background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
-                                    color: darkMode ? '#fff' : '#111827',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '10px'
-                                  }}
-                                >
-                                  <FaPlus size={8} />
-                                </button>
-                                
-                                <button
-                                  onClick={() => iniciarEdicionCantidad(item)}
-                                  style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: '#60a5fa',
-                                    cursor: 'pointer',
-                                    padding: '2px 4px',
-                                    fontSize: '12px'
-                                  }}
-                                  title="Editar cantidad"
-                                >
-                                  <FaEdit size={10} />
-                                </button>
-                              </div>
-                            )}
-                            
-                            <div style={{ color: '#60a5fa', fontSize: '14px', fontWeight: '600', minWidth: '70px', textAlign: 'right' }}>
-                              ${subtotal.toFixed(2)}
-                            </div>
-                            
-                            <button
-                              onClick={() => eliminarDelCarrito(item.id)}
-                              style={{
-                                background: darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2',
-                                border: 'none',
-                                color: darkMode ? '#fca5a5' : '#991b1b',
-                                cursor: 'pointer',
-                                padding: '4px 8px',
-                                borderRadius: '6px',
-                                transition: 'all 0.3s ease'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.background = darkMode ? 'rgba(239,68,68,0.2)' : '#fee2e2'}
-                              onMouseLeave={(e) => e.currentTarget.style.background = darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2'}
-                            >
-                              <FaTrash size={12} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      padding: '14px 12px 0',
-                      borderTop: darkMode ? '2px solid rgba(59,130,246,0.1)' : '2px solid #f1f5f9',
-                      marginTop: '8px'
-                    }}>
-                      <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '16px' }}>Total:</span>
-                      <span style={{ color: '#60a5fa', fontSize: '20px', fontWeight: '800' }}>
-                        ${totalCarrito.toFixed(2)}
-                      </span>
-                    </div>
-                  </>
-                )}
+                  <span style={{
+                    color: darkMode ? '#93c5fd' : '#1e40af',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    letterSpacing: '0.5px',
+                    textTransform: 'uppercase'
+                  }}>
+                    Lunes a Viernes
+                  </span>
+                </div>
+                <div style={{
+                  color: darkMode ? '#e0e7ff' : '#1e293b',
+                  fontSize: '16px',
+                  fontWeight: '800',
+                  letterSpacing: '0.3px'
+                }}>
+                  12:00 PM – 6:00 PM
+                </div>
+                <div style={{
+                  color: darkMode ? '#94a3b8' : '#64748b',
+                  fontSize: '11px',
+                  marginTop: '4px',
+                  fontWeight: '500'
+                }}>
+                  Horario continuo
+                </div>
               </div>
 
-              <button
-                onClick={enviarPedido}
-                disabled={cargando || carrito.length === 0}
-                style={{
-                  width: '100%',
-                  padding: '16px',
-                  borderRadius: '14px',
-                  border: 'none',
-                  background: carrito.length > 0 ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : darkMode ? 'rgba(59,130,246,0.2)' : '#e5e7eb',
-                  color: carrito.length > 0 ? '#fff' : darkMode ? '#64748b' : '#94a3b8',
-                  fontSize: '18px',
-                  fontWeight: '700',
-                  cursor: carrito.length > 0 && !cargando ? 'pointer' : 'not-allowed',
-                  transition: 'all 0.3s ease',
-                  boxShadow: carrito.length > 0 ? '0 4px 30px rgba(59, 130, 246, 0.4)' : 'none',
+              <div style={{
+                background: darkMode 
+                  ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(245, 158, 11, 0.06))'
+                  : 'linear-gradient(135deg, #fffbeb, #fef3c7)',
+                borderRadius: '12px',
+                padding: '14px',
+                border: darkMode 
+                  ? '1.5px solid rgba(251, 191, 36, 0.25)' 
+                  : '1.5px solid #fde68a',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '8px'
+                }}>
+                  <div style={{
+                    background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                    borderRadius: '8px',
+                    padding: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <FaClock size={14} color="#fff" />
+                  </div>
+                  <span style={{
+                    color: darkMode ? '#fcd34d' : '#92400e',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    letterSpacing: '0.5px',
+                    textTransform: 'uppercase'
+                  }}>
+                    Sábado
+                  </span>
+                </div>
+                <div style={{
+                  color: darkMode ? '#fef3c7' : '#78350f',
+                  fontSize: '16px',
+                  fontWeight: '800',
+                  letterSpacing: '0.3px'
+                }}>
+                  12:00 PM – 5:00 PM
+                </div>
+                <div style={{
+                  color: darkMode ? '#fcd34d' : '#92400e',
+                  fontSize: '11px',
+                  marginTop: '4px',
+                  fontWeight: '500'
+                }}>
+                  Horario reducido
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+              marginTop: '14px',
+              background: darkMode 
+                ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(124, 58, 237, 0.06))'
+                : 'linear-gradient(135deg, #f5f3ff, #ede9fe)',
+              borderRadius: '14px',
+              padding: '16px 18px',
+              border: darkMode 
+                ? '1.5px solid rgba(139, 92, 246, 0.3)' 
+                : '1.5px solid #ddd6fe',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '3px',
+                background: 'linear-gradient(90deg, #8b5cf6, #a78bfa, #c4b5fd)'
+              }} />
+
+              <div style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '12px'
+              }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                  borderRadius: '10px',
+                  padding: '10px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '10px'
-                }}
-                onMouseEnter={(e) => {
-                  if (carrito.length > 0 && !cargando) {
-                    e.currentTarget.style.transform = 'scale(1.02)';
-                    e.currentTarget.style.boxShadow = '0 6px 40px rgba(59, 130, 246, 0.6)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (carrito.length > 0 && !cargando) {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = '0 4px 30px rgba(59, 130, 246, 0.4)';
-                  }
+                  flexShrink: 0,
+                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
+                }}>
+                  <FaInfoCircle size={18} color="#fff" />
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    color: darkMode ? '#c4b5fd' : '#5b21b6',
+                    fontSize: '13px',
+                    fontWeight: '800',
+                    marginBottom: '6px',
+                    letterSpacing: '0.3px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    📅 DÍAS FESTIVOS Y HORARIOS ESPECIALES
+                  </div>
+                  <div style={{
+                    color: darkMode ? '#e9d5ff' : '#6b21a8',
+                    fontSize: '13px',
+                    lineHeight: '1.6',
+                    fontWeight: '500'
+                  }}>
+                    Los horarios pueden variar en días festivos oficiales. 
+                    Te recomendamos <strong style={{ color: darkMode ? '#c4b5fd' : '#7c3aed' }}>consultar previamente</strong> antes de tu visita.
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    gap: '8px',
+                    marginTop: '12px',
+                    flexWrap: 'wrap'
+                  }}>
+                    <a
+                      href="tel:+525511164545"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: darkMode 
+                          ? 'rgba(139, 92, 246, 0.2)' 
+                          : '#ffffff',
+                        color: darkMode ? '#c4b5fd' : '#7c3aed',
+                        padding: '7px 14px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        textDecoration: 'none',
+                        border: darkMode 
+                          ? '1.5px solid rgba(139, 92, 246, 0.4)' 
+                          : '1.5px solid #c4b5fd',
+                        transition: 'all 0.2s ease',
+                        boxShadow: darkMode ? 'none' : '0 2px 6px rgba(139, 92, 246, 0.15)'
+                      }}
+                    >
+                      <FaPhoneAlt size={11} />
+                      55 1116 4545
+                    </a>
+                    <a
+                      href="https://wa.me/525511164545?text=Hola,%20quisiera%20consultar%20los%20horarios%20de%20d%C3%ADas%20festivos"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                        color: '#ffffff',
+                        padding: '7px 14px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        textDecoration: 'none',
+                        border: 'none',
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 2px 8px rgba(37, 211, 102, 0.3)'
+                      }}
+                    >
+                      <FaWhatsapp size={12} />
+                      Consultar por WhatsApp
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            background: darkMode ? 'rgba(59, 130, 246, 0.05)' : '#f8fafc',
+            borderRadius: '16px',
+            padding: '20px',
+            marginBottom: '20px',
+            border: darkMode ? '1px solid rgba(59, 130, 246, 0.1)' : '1px solid #e5e7eb'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <h3 style={{ color: '#60a5fa', fontSize: '16px', margin: 0 }}>
+                🛒 Carrito de Pedido ({carrito.length} productos)
+              </h3>
+              <button
+                onClick={irAProductos}
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 2px 20px rgba(59, 130, 246, 0.3)'
                 }}
               >
-                {cargando ? (
-                  'Enviando...'
-                ) : (
-                  <>
-                    <FaCheck /> Enviar Pedido
-                  </>
-                )}
+                <FaPlus size={12} /> Agregar Productos
               </button>
-            </>
-          )}
+            </div>
+            
+            {carrito.length === 0 ? (
+              <div style={{
+                textAlign: 'center',
+                padding: '40px 20px',
+                color: darkMode ? '#64748b' : '#94a3b8'
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '12px' }}>🛒</div>
+                <p style={{ margin: 0 }}>No hay productos en el carrito</p>
+                <p style={{ fontSize: '13px', marginTop: '4px' }}>Haz clic en "Agregar Productos" para seleccionar</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                  {carrito.map(item => {
+                    const imagenProducto = item.imagen || obtenerImagenProducto(item);
+                    const esPorMetros = esVentaPorMetros(item.tipoVenta);
+                    const unidad = obtenerUnidadMostrar(item.tipoVenta);
+                    const unidadSingular = obtenerUnidadSingular(item.tipoVenta);
+                    const paso = obtenerPaso(item.tipoVenta);
+                    const esDecimal = paso < 1;
+                    const subtotal = calcularSubtotal(item);
+                    const infoExtra = obtenerInfoExtra(item);
+                    
+                    return (
+                      <div key={item.id} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '14px',
+                        padding: '12px',
+                        borderBottom: darkMode ? '1px solid rgba(59,130,246,0.05)' : '1px solid #f1f5f9',
+                        flexWrap: 'wrap',
+                        background: darkMode ? 'rgba(255,255,255,0.02)' : '#fff',
+                        borderRadius: '10px',
+                        marginBottom: '8px'
+                      }}>
+                        <div style={{
+                          width: '70px',
+                          height: '70px',
+                          flexShrink: 0,
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                          background: darkMode ? '#1a1a3a' : '#f1f5f9',
+                          border: darkMode ? '1px solid rgba(59,130,246,0.1)' : '1px solid #e5e7eb'
+                        }}>
+                          <img 
+                            src={imagenProducto}
+                            alt={item.nombre}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/70?text=Sin+imagen';
+                            }}
+                          />
+                        </div>
+                        
+                        <div style={{ flex: 2, minWidth: '140px' }}>
+                          <div style={{ color: darkMode ? '#fff' : '#111827', fontSize: '14px', fontWeight: '600' }}>
+                            {item.nombre}
+                          </div>
+                          <div style={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '11px' }}>
+                            SKU: {item.sku || 'N/A'}
+                          </div>
+                          
+                          <div style={{ 
+                            color: '#60a5fa', 
+                            fontSize: '11px', 
+                            fontWeight: '600',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            marginTop: '4px',
+                            flexWrap: 'wrap'
+                          }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              {obtenerIconoTipo(item.tipoVenta)} 
+                              <span>{obtenerTipoVenta(item.tipoVenta)}</span>
+                            </span>
+                            
+                            {infoExtra.map((info, idx) => (
+                              <span 
+                                key={idx}
+                                style={{ 
+                                  color: darkMode ? '#94a3b8' : '#64748b', 
+                                  fontWeight: '500',
+                                  background: darkMode ? 'rgba(59,130,246,0.1)' : '#eef2ff',
+                                  padding: '1px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '10px'
+                                }}
+                              >
+                                {info.icono} {info.texto}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {editandoCantidad === item.id ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <input
+                              type="number"
+                              value={cantidadInput}
+                              onChange={(e) => setCantidadInput(e.target.value)}
+                              step={esDecimal ? "0.5" : "1"}
+                              min="0"
+                              style={{
+                                width: '90px',
+                                padding: '6px 8px',
+                                borderRadius: '6px',
+                                border: '2px solid #60a5fa',
+                                background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff',
+                                color: darkMode ? '#fff' : '#111827',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                textAlign: 'center',
+                                outline: 'none'
+                              }}
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') guardarEdicionCantidad(item.id);
+                                if (e.key === 'Escape') cancelarEdicionCantidad();
+                              }}
+                            />
+                            <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600' }}>
+                              {unidad}
+                            </span>
+                            <button
+                              onClick={() => guardarEdicionCantidad(item.id)}
+                              style={{
+                                background: '#16a34a',
+                                border: 'none',
+                                color: '#fff',
+                                padding: '5px 8px',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                              }}
+                            >
+                              <FaSave size={12} />
+                            </button>
+                            <button
+                              onClick={cancelarEdicionCantidad}
+                              style={{
+                                background: '#6b7280',
+                                border: 'none',
+                                color: '#fff',
+                                padding: '5px 8px',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button
+                              onClick={() => decrementarCantidad(item.id, paso)}
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '7px',
+                                border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
+                                background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
+                                color: darkMode ? '#fff' : '#111827',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '10px'
+                              }}
+                            >
+                              <FaMinus size={8} />
+                            </button>
+                            
+                            <span 
+                              style={{ 
+                                color: darkMode ? '#fff' : '#111827', 
+                                fontSize: '14px', 
+                                fontWeight: '700', 
+                                minWidth: '46px', 
+                                textAlign: 'center',
+                                cursor: 'pointer',
+                                borderBottom: '2px dashed #60a5fa',
+                                padding: '0 4px'
+                              }}
+                              onClick={() => iniciarEdicionCantidad(item)}
+                              title="Haz clic para editar la cantidad"
+                            >
+                              {esDecimal ? Number(item.cantidad).toFixed(2) : item.cantidad}
+                            </span>
+                            
+                            <span style={{ fontSize: '11px', color: darkMode ? '#94a3b8' : '#6b7280', fontWeight: '600', minWidth: '44px' }}>
+                              {unidad}
+                            </span>
+                            
+                            <button
+                              onClick={() => incrementarCantidad(item.id, paso)}
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '7px',
+                                border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
+                                background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
+                                color: darkMode ? '#fff' : '#111827',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '10px'
+                              }}
+                            >
+                              <FaPlus size={8} />
+                            </button>
+                            
+                            <button
+                              onClick={() => iniciarEdicionCantidad(item)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#60a5fa',
+                                cursor: 'pointer',
+                                padding: '2px 4px',
+                                fontSize: '12px'
+                              }}
+                              title="Editar cantidad"
+                            >
+                              <FaEdit size={11} />
+                            </button>
+                          </div>
+                        )}
+                        
+                        <div style={{ color: '#60a5fa', fontSize: '15px', fontWeight: '700', minWidth: '80px', textAlign: 'right' }}>
+                          ${subtotal.toFixed(2)}
+                        </div>
+                        
+                        <button
+                          onClick={() => eliminarDelCarrito(item.id)}
+                          style={{
+                            background: darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2',
+                            border: 'none',
+                            color: darkMode ? '#fca5a5' : '#991b1b',
+                            cursor: 'pointer',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            transition: 'all 0.3s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = darkMode ? 'rgba(239,68,68,0.2)' : '#fee2e2'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2'}
+                        >
+                          <FaTrash size={12} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '14px 12px 0',
+                  borderTop: darkMode ? '2px solid rgba(59,130,246,0.1)' : '2px solid #f1f5f9',
+                  marginTop: '8px'
+                }}>
+                  <span style={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '16px' }}>Total:</span>
+                  <span style={{ color: '#60a5fa', fontSize: '20px', fontWeight: '800' }}>
+                    ${totalCarrito.toFixed(2)}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          <button
+            onClick={enviarPedido}
+            disabled={cargando || carrito.length === 0}
+            style={{
+              width: '100%',
+              padding: '16px',
+              borderRadius: '14px',
+              border: 'none',
+              background: carrito.length > 0 ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : darkMode ? 'rgba(59,130,246,0.2)' : '#e5e7eb',
+              color: carrito.length > 0 ? '#fff' : darkMode ? '#64748b' : '#94a3b8',
+              fontSize: '18px',
+              fontWeight: '700',
+              cursor: carrito.length > 0 && !cargando ? 'pointer' : 'not-allowed',
+              transition: 'all 0.3s ease',
+              boxShadow: carrito.length > 0 ? '0 4px 30px rgba(59, 130, 246, 0.4)' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px'
+            }}
+          >
+            {cargando ? (
+              'Enviando...'
+            ) : (
+              <>
+                <FaCheck /> Enviar Pedido
+              </>
+            )}
+          </button>
         </div>
       </div>
 

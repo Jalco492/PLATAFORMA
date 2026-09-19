@@ -1,39 +1,107 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
-import api from "../services/api";
-
-// 🔥 FUNCIÓN PARA GENERAR URL DE IMAGEN
-const getImageUrl = (imagen) => {
-  if (!imagen) {
-    return "https://via.placeholder.com/300x300?text=Sin+Imagen";
-  }
-
-  if (imagen.startsWith("http://") || imagen.startsWith("https://")) {
-    return imagen;
-  }
-
-  if (imagen.startsWith("/")) {
-    return `https://backend-zuib.onrender.com${imagen}`;
-  }
-
-  return `https://backend-zuib.onrender.com/${imagen}`;
-};
+import {
+  FaShoppingCart, FaTrash, FaArrowLeft, FaCheck, FaTimes,
+  FaTrophy, FaChartBar, FaEyeSlash, FaEye, FaFire,
+  FaStar, FaBoxOpen, FaRulerCombined, FaPalette, FaTruck
+} from "react-icons/fa";
 
 export default function Comparar() {
-  const [comparador, setComparador] = useState([]);
-  const [productos, setProductos] = useState([]);
-  const [categorias, setCategorias] = useState([]);
-  const [subcategorias, setSubcategorias] = useState([]);
+  const navigate = useNavigate();
 
-  /* 🌙 DARK MODE */
+  // 🌙 DARKMODE
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem("darkMode") === "true";
   });
 
-  // Control responsivo dinámico
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    localStorage.setItem("darkMode", darkMode);
+  }, [darkMode]);
 
+  // ⚖️ PRODUCTOS DEL COMPARADOR
+  const [comparador, setComparador] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("comparador")) || [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("comparador", JSON.stringify(comparador));
+  }, [comparador]);
+
+  // ❤️ FAVORITOS (para el Navbar)
+  const [favoritos, setFavoritos] = useState(() => {
+    const guardados = localStorage.getItem("favoritos");
+    return guardados ? JSON.parse(guardados) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("favoritos", JSON.stringify(favoritos));
+  }, [favoritos]);
+
+  const obtenerImagen = (producto) => {
+    if (!producto) return "https://via.placeholder.com/200";
+    if (producto.imagen) return producto.imagen;
+    let img = "";
+    if (producto.imagenes && producto.imagenes.trim() !== "") {
+      img = producto.imagenes.split(",")[0].trim();
+    }
+    if (!img) return "https://via.placeholder.com/200";
+    if (img.startsWith("http")) return img;
+    return `https://backend-zuib.onrender.com${img}`;
+  };
+
+  const toggleFavorito = (producto) => {
+    const productoCompleto = {
+      id: producto.id,
+      nombre: producto.nombre,
+      descripcion: producto.descripcion,
+      precio: producto.precio,
+      imagen: obtenerImagen(producto)
+    };
+    const existe = favoritos.find(fav => Number(fav.id) === Number(producto.id));
+    if (existe) setFavoritos(favoritos.filter(f => Number(f.id) !== Number(producto.id)));
+    else setFavoritos([...favoritos, productoCompleto]);
+  };
+
+  const esFavorito = (id) => favoritos.some(f => Number(f.id) === Number(id));
+
+  // 🛒 PEDIDO
+  const [pedido, setPedido] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("carritoPedido")) || [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem("carritoPedido", JSON.stringify(pedido));
+  }, [pedido]);
+
+  // 📋 COTIZADOR (para el Navbar si lo usa)
+  const [cotizador, setCotizador] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("cotizador")) || [];
+    } catch {
+      return [];
+    }
+  });
+
+  // 🔔 NOTIFICACIÓN
+  const [notificacion, setNotificacion] = useState(null);
+
+  const mostrarNotificacion = (mensaje, tipo = "success") => {
+    setNotificacion({ mensaje, tipo });
+    setTimeout(() => setNotificacion(null), 2500);
+  };
+
+  // 📱 RESPONSIVE
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener("resize", handleResize);
@@ -41,496 +109,798 @@ export default function Comparar() {
   }, []);
 
   const isMobile = windowWidth < 768;
+  const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
-  // 🔥 FUNCIÓN PARA OBTENER IMAGEN DEL PRODUCTO
-  const obtenerImagen = (producto) => {
-    if (!producto) return "https://via.placeholder.com/300x300?text=Sin+Imagen";
+  // 👁️ SOLO MOSTRAR DIFERENCIAS
+  const [soloDiferencias, setSoloDiferencias] = useState(false);
 
-    let imagenUrl = "";
+  // 🔤 CARGAR DATA PARA NAVBAR (categorías, subcategorías, productos)
+  const [productos, setProductos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [subcategorias, setSubcategorias] = useState([]);
 
-    if (producto.imagenes && producto.imagenes.trim() !== "") {
-      imagenUrl = producto.imagenes.split(",")[0].trim();
-    } else if (producto.imagen && producto.imagen.trim() !== "") {
-      imagenUrl = producto.imagen.trim();
+  useEffect(() => {
+    // Import dinámico para no romper si falla la API
+    import("../services/api").then(({ default: api }) => {
+      api.get("/productos").then((res) => setProductos(res.data)).catch(() => {});
+      api.get("/categorias").then((res) => setCategorias(res.data)).catch(() => {});
+      api.get("/subcategorias").then((res) => setSubcategorias(res.data)).catch(() => {});
+    });
+  }, []);
+
+  // ❌ QUITAR DEL COMPARADOR
+  const quitarDelComparador = (id) => {
+    const nuevo = comparador.filter(p => Number(p.id) !== Number(id));
+    setComparador(nuevo);
+    mostrarNotificacion("🗑 Producto quitado del comparador", "warning");
+  };
+
+  const limpiarComparador = () => {
+    if (!window.confirm("¿Vaciar todo el comparador?")) return;
+    setComparador([]);
+    mostrarNotificacion("🗑 Comparador vaciado", "warning");
+  };
+
+  // 🛒 AGREGAR AL PEDIDO
+  const agregarAlPedido = (producto) => {
+    const precio = Number(producto.oferta ? producto.precioOferta : producto.precio) || 0;
+    const existe = pedido.find(p => Number(p.id) === Number(producto.id));
+
+    let nuevoPedido;
+    if (existe) {
+      nuevoPedido = pedido.map(p =>
+        Number(p.id) === Number(producto.id)
+          ? { ...p, cantidad: Number(p.cantidad) + 1, subtotal: precio * (Number(p.cantidad) + 1) }
+          : p
+      );
+      mostrarNotificacion(`✅ "${producto.nombre}" +1 al pedido`, "success");
     } else {
-      return "https://via.placeholder.com/300x300?text=Sin+Imagen";
+      nuevoPedido = [...pedido, {
+        id: producto.id,
+        nombre: producto.nombre || 'Producto',
+        sku: producto.sku || 'N/A',
+        precio,
+        imagen: obtenerImagen(producto),
+        tipoVenta: producto.tipoVenta || 'unidad',
+        presentacion: producto.presentacion || 'Unidad',
+        categoria: producto.categoria || '',
+        subcategoria: producto.subcategoria || '',
+        cantidad: 1,
+        subtotal: precio
+      }];
+      mostrarNotificacion(`✅ "${producto.nombre}" agregado al pedido`, "success");
     }
 
-    return getImageUrl(imagenUrl);
+    setPedido(nuevoPedido);
+    window.dispatchEvent(new Event("pedidoActualizado"));
   };
 
-  // 🔥 CARGAR PRODUCTOS DEL COMPARADOR
-  useEffect(() => {
-    const guardados = localStorage.getItem("comparador");
-    if (guardados) {
-      setComparador(JSON.parse(guardados));
-    }
-  }, []);
+  const estaEnPedido = (id) => pedido.some(p => Number(p.id) === Number(id));
 
-  useEffect(() => {
-    if (comparador.length <= 1) return;
+  // ============================================================
+  // 🧠 HELPERS INTELIGENTES
+  // ============================================================
 
-    const categoriaBase = comparador[0].categoria_id;
-    const validos = comparador.filter(
-      p => Number(p.categoria_id) === Number(categoriaBase)
-    );
-
-    if (validos.length !== comparador.length) {
-      setComparador(validos);
-      localStorage.setItem("comparador", JSON.stringify(validos));
-      alert("Se eliminaron productos de categorías diferentes.");
-    }
-  }, [comparador]);
-
-  // 🔥 CARGAR PRODUCTOS, CATEGORÍAS Y SUBCATEGORÍAS
-  useEffect(() => {
-    api.get("/productos")
-      .then((res) => setProductos(res.data))
-      .catch((err) => console.log(err));
-
-    api.get("/categorias")
-      .then((res) => setCategorias(res.data))
-      .catch((err) => console.log(err));
-
-    api.get("/subcategorias")
-      .then((res) => setSubcategorias(res.data))
-      .catch((err) => console.log(err));
-  }, []);
-
-  // ❌ ELIMINAR
-  const eliminarProducto = (id) => {
-    const nuevos = comparador.filter(p => Number(p.id) !== Number(id));
-    setComparador(nuevos);
-    localStorage.setItem("comparador", JSON.stringify(nuevos));
+  const getPrecioFinal = (p) => {
+    if (!p) return 0;
+    return Number(p.oferta ? p.precioOferta : p.precio) || 0;
   };
 
-  // 🏷 FORMATEAR NOMBRES
-  const formatearCampo = (campo) => {
-    const nombres = {
-      nombre: "Nombre",
-      descripcion: "Descripción",
-      precio: "Precio",
-      precioOferta: "Precio Oferta",
-      oferta: "Oferta",
-      stock: "Stock",
-      imagenes: "Imágenes",
-      destacado: "Destacado",
-      sku: "SKU",
-      ancho: "Ancho",
-      alto: "Alto",
-      grueso: "Grosor",
-      cobertura: "Cobertura",
-      tipoVenta: "Tipo Venta",
-      tipoCobertura: "Tipo Cobertura",
-      especificaciones: "Especificaciones",
-      informacionAdicional: "Información Adicional",
-      piezasCaja: "Piezas por Caja",
-      variante: "Variante",
-      presentacion: "Presentación",
-      uso: "🏠 Uso",
-      aplicacion: "📋 Aplicación",
-      tipo_diseno: "🎨 Tipo de Diseño",
-      material: "🧱 Material",
-      acabado: "✨ Acabado",
-      tipo_instalacion: "🔧 Tipo de Instalación",
-      espesor_capa_desgaste: "📏 Espesor Capa Desgaste"
+  const getTipoVentaAmigable = (tipoVenta) => {
+    const map = {
+      'metro_cuadrado': '📐 Metro cuadrado',
+      'metro_lineal': '📏 Metro lineal',
+      'caja': '📦 Caja',
+      'paquete': '🎁 Paquete',
+      'pieza': '🧩 Pieza',
+      'presentacion': '🔢 Unidad',
+      'unidad': '🔢 Unidad',
+      'tramo': '🪵 Tramo',
     };
-    return nombres[campo] || campo;
+    return map[tipoVenta] || (tipoVenta ? `🏷️ ${tipoVenta}` : 'Otros');
   };
 
-  // 🧠 MEJOR PRODUCTO
-  const mejorProducto = [...comparador].sort((a, b) => {
-    const precioA = Number(a.precioOferta || a.precio);
-    const precioB = Number(b.precioOferta || b.precio);
-    const scoreA = Number(a.stock || 0) + Number(a.cobertura || 0) + (a.destacado ? 50 : 0) - precioA / 10;
-    const scoreB = Number(b.stock || 0) + Number(b.cobertura || 0) + (b.destacado ? 50 : 0) - precioB / 10;
-    return scoreB - scoreA;
-  })[0];
+  const getColorTipoVenta = (tipoVenta) => {
+    const map = {
+      'metro_cuadrado': { bg: "#dbeafe", color: "#1e40af" },
+      'metro_lineal': { bg: "#e0f2fe", color: "#075985" },
+      'caja': { bg: "#fef3c7", color: "#92400e" },
+      'paquete': { bg: "#fce7f3", color: "#9d174d" },
+      'pieza': { bg: "#ede9fe", color: "#5b21b6" },
+      'presentacion': { bg: "#f1f5f9", color: "#334155" },
+      'unidad': { bg: "#f1f5f9", color: "#334155" },
+      'tramo': { bg: "#fed7aa", color: "#9a3412" },
+    };
+    return map[tipoVenta] || { bg: "#f1f5f9", color: "#334155" };
+  };
 
-  // 💲 MÁS BARATO
-  const masBarato = [...comparador].sort((a, b) => {
-    return Number(a.precioOferta || a.precio) - Number(b.precioOferta || b.precio);
-  })[0];
+  // ============================================================
+  // 📊 DEFINICIÓN DE FILAS (con lógica de "mejor")
+  // ============================================================
+  const FILAS_COMPARACION = useMemo(() => [
+    {
+      grupo: "💰 Precio y oferta",
+      icono: "💰",
+      filas: [
+        {
+          key: "precioFinal",
+          label: "Precio final",
+          formato: (p) => {
+            const p1 = Number(p.precio) || 0;
+            const pf = getPrecioFinal(p);
+            return p.oferta ? `$${pf.toFixed(2)}` : `$${p1.toFixed(2)}`;
+          },
+          valorNumerico: (p) => getPrecioFinal(p),
+          mejor: "menor", // el más barato gana
+          barra: true
+        },
+        {
+          key: "precio",
+          label: "Precio original",
+          formato: (p) => `$${Number(p.precio || 0).toFixed(2)}`,
+          valorNumerico: (p) => Number(p.precio) || 0,
+          mejor: "menor",
+          barra: true
+        },
+        {
+          key: "descuento",
+          label: "Descuento",
+          formato: (p) => {
+            if (!p.oferta || !p.precioOferta) return "—";
+            const orig = Number(p.precio) || 0;
+            const of = Number(p.precioOferta) || 0;
+            if (orig <= 0) return "—";
+            const pct = ((orig - of) / orig) * 100;
+            return `${pct.toFixed(0)}% off`;
+          },
+          valorNumerico: (p) => {
+            if (!p.oferta || !p.precioOferta) return 0;
+            const orig = Number(p.precio) || 0;
+            const of = Number(p.precioOferta) || 0;
+            if (orig <= 0) return 0;
+            return ((orig - of) / orig) * 100;
+          },
+          mejor: "mayor",
+          destacar: true
+        },
+      ]
+    },
+    {
+      grupo: "📦 Información general",
+      icono: "📦",
+      filas: [
+        { key: "sku", label: "SKU" },
+        { key: "categoria", label: "Categoría" },
+        { key: "subcategoria", label: "Subcategoría" },
+        { key: "tipo", label: "Tipo de producto" },
+        { key: "material", label: "Material" },
+        { key: "acabado", label: "Acabado" },
+        { key: "tipo_diseno", label: "Tipo de diseño" },
+      ]
+    },
+    {
+      grupo: "🚚 Venta y medidas",
+      icono: "🚚",
+      filas: [
+        {
+          key: "tipoVenta",
+          label: "Tipo de venta",
+          formato: (p) => getTipoVentaAmigable(p.tipoVenta),
+          chip: (p) => {
+            const c = getColorTipoVenta(p.tipoVenta);
+            return { bg: c.bg, color: c.color };
+          }
+        },
+        {
+          key: "ancho",
+          label: "Ancho",
+          formato: (p) => p.ancho ? `${p.ancho} ${p.unidadAncho || 'cm'}` : "—",
+          valorNumerico: (p) => Number(p.ancho) || null,
+          barra: true
+        },
+        {
+          key: "alto",
+          label: "Alto",
+          formato: (p) => p.alto ? `${p.alto} ${p.unidadAlto || 'cm'}` : "—",
+          valorNumerico: (p) => Number(p.alto) || null,
+          barra: true
+        },
+        {
+          key: "grueso",
+          label: "Grueso",
+          formato: (p) => p.grueso ? `${p.grueso} ${p.unidadGrueso || 'mm'}` : "—",
+          valorNumerico: (p) => Number(p.grueso) || null,
+          barra: true
+        },
+        {
+          key: "cobertura",
+          label: "Cobertura",
+          formato: (p) => p.cobertura ? `${p.cobertura} m²` : "—",
+          valorNumerico: (p) => Number(p.cobertura) || null,
+          mejor: "mayor",
+          barra: true
+        },
+        {
+          key: "piezasCaja",
+          label: "Piezas por caja",
+          formato: (p) => p.piezasCaja || "—",
+          valorNumerico: (p) => Number(p.piezasCaja) || null
+        },
+        {
+          key: "metrosCuadrados",
+          label: "Metros cuadrados",
+          formato: (p) => p.metrosCuadrados ? `${p.metrosCuadrados} m²` : "—",
+          valorNumerico: (p) => Number(p.metrosCuadrados) || null,
+          mejor: "mayor",
+          barra: true
+        },
+        {
+          key: "metrosPorRollo",
+          label: "Metros por rollo",
+          formato: (p) => p.metrosPorRollo ? `${p.metrosPorRollo} m` : "—",
+          valorNumerico: (p) => Number(p.metrosPorRollo) || null,
+          mejor: "mayor",
+          barra: true
+        },
+      ]
+    },
+    {
+      grupo: "🏠 Uso y aplicación",
+      icono: "🏠",
+      filas: [
+        { key: "uso", label: "Uso" },
+        { key: "aplicacion", label: "Aplicación" },
+        { key: "tipo_instalacion", label: "Instalación" },
+      ]
+    },
+    {
+      grupo: "📊 Disponibilidad",
+      icono: "📊",
+      filas: [
+        {
+          key: "stock",
+          label: "Stock",
+          formato: (p) => p.stock > 0 ? `${p.stock} uds` : "Sin stock",
+          valorNumerico: (p) => Number(p.stock) || 0,
+          mejor: "mayor",
+          barra: true,
+          chip: (p) => p.stock > 0
+            ? { bg: "#d1fae5", color: "#065f46" }
+            : { bg: "#fee2e2", color: "#991b1b" }
+        },
+        {
+          key: "nuevo",
+          label: "Nuevo",
+          formato: (p) => (p.nuevo === 1 || p.nuevo === true) ? "Sí" : "—",
+          chip: (p) => (p.nuevo === 1 || p.nuevo === true)
+            ? { bg: "#d1fae5", color: "#065f46" }
+            : null
+        },
+        {
+          key: "destacado",
+          label: "Destacado",
+          formato: (p) => (p.destacado === 1 || p.destacado === true) ? "Sí" : "—",
+          chip: (p) => (p.destacado === 1 || p.destacado === true)
+            ? { bg: "#fef3c7", color: "#92400e" }
+            : null
+        },
+      ]
+    },
+  ], []);
 
-  // 🏆 MAYOR COBERTURA
-  const mayorCobertura = [...comparador].sort((a, b) => {
-    return Number(b.cobertura || 0) - Number(a.cobertura || 0);
-  })[0];
+  // ============================================================
+  // 🧠 DETECCIÓN DE "MEJOR" POR FILA
+  // ============================================================
+  const calcularMejorPorFila = (fila) => {
+    if (!fila.valorNumerico || comparador.length < 2) return null;
+    const valores = comparador
+      .map(p => ({ id: p.id, valor: fila.valorNumerico(p) }))
+      .filter(v => v.valor !== null && v.valor !== undefined && !isNaN(v.valor));
 
-  // 📏 MAYOR GROSOR
-  const mayorGrueso = [...comparador].sort((a, b) => {
-    return Number(b.grueso || 0) - Number(a.grueso || 0);
-  })[0];
+    if (valores.length === 0) return null;
 
-  // 🧱 MEJOR MATERIAL
-  const mejorMaterial = [...comparador].sort((a, b) => {
-    const prioridad = { "SPC": 5, "LVT": 4, "PVC": 3, "Laminado": 2, "Madera": 1 };
-    const scoreA = prioridad[a.material] || 0;
-    const scoreB = prioridad[b.material] || 0;
-    return scoreB - scoreA;
-  })[0];
+    const todosIguales = valores.every(v => v.valor === valores[0].valor);
+    if (todosIguales) return null;
 
-  // 🏷️ CAMPOS QUE NO SE MUESTRAN EN EL COMPARADOR
-  const camposExcluidos = [
-    "id", "created_at", "updated_at", "visible", 
-    "nuevo", "imagen", "rebaja", "fichaTecnica",
-    "categoria_id", "subcategoria_id", "tipo_id",
-    "categoria", "subcategoria", "tipo",
-    "sugerencias", "colores_ids"
-  ];
+    let ganador;
+    if (fila.mejor === "menor") {
+      ganador = valores.reduce((a, b) => (a.valor < b.valor ? a : b));
+    } else if (fila.mejor === "mayor") {
+      ganador = valores.reduce((a, b) => (a.valor > b.valor ? a : b));
+    } else {
+      return null;
+    }
+    return ganador.id;
+  };
 
+  // ============================================================
+  // 📊 BARRAS VISUALES
+  // ============================================================
+  const getRangoFila = (fila) => {
+    if (!fila.valorNumerico) return null;
+    const valores = comparador
+      .map(p => fila.valorNumerico(p))
+      .filter(v => v !== null && v !== undefined && !isNaN(v));
+    if (valores.length === 0) return null;
+    const min = Math.min(...valores);
+    const max = Math.max(...valores);
+    if (min === max) return null;
+    return { min, max };
+  };
+
+  const normalizar = (v) => {
+    if (v === null || v === undefined || v === "") return "";
+    return String(v).trim().toLowerCase();
+  };
+
+  const filaTieneDiferencia = (fila) => {
+    if (comparador.length < 2) return false;
+    const valores = comparador.map(p => {
+      const valorCrudo = fila.formato ? fila.formato(p) : p[fila.key];
+      return normalizar(valorCrudo);
+    });
+    const primero = valores[0];
+    return valores.some(v => v !== primero);
+  };
+
+  // ============================================================
+  // 🏆 PUNTUACIÓN GENERAL
+  // ============================================================
+  const calcularPuntuaciones = () => {
+    if (comparador.length < 2) return [];
+
+    const criterios = [
+      { key: "precio", peso: 30, mejor: "menor", valor: (p) => getPrecioFinal(p) },
+      { key: "stock", peso: 20, mejor: "mayor", valor: (p) => Number(p.stock) || 0 },
+      { key: "oferta", peso: 15, mejor: "mayor", valor: (p) => (p.oferta === 1 || p.oferta === true) ? 1 : 0 },
+      { key: "destacado", peso: 10, mejor: "mayor", valor: (p) => (p.destacado === 1 || p.destacado === true) ? 1 : 0 },
+      { key: "nuevo", peso: 10, mejor: "mayor", valor: (p) => (p.nuevo === 1 || p.nuevo === true) ? 1 : 0 },
+      { key: "cobertura", peso: 15, mejor: "mayor", valor: (p) => Number(p.cobertura) || 0 },
+    ];
+
+    const puntuaciones = comparador.map(p => {
+      let total = 0;
+      criterios.forEach(c => {
+        const valores = comparador.map(x => c.valor(x));
+        const min = Math.min(...valores);
+        const max = Math.max(...valores);
+        const val = c.valor(p);
+
+        if (max === min) {
+          total += c.peso * 0.5;
+        } else if (c.mejor === "menor") {
+          // menor = mejor → invertir
+          const norm = 1 - ((val - min) / (max - min));
+          total += c.peso * norm;
+        } else {
+          const norm = (val - min) / (max - min);
+          total += c.peso * norm;
+        }
+      });
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        imagen: obtenerImagen(p),
+        puntuacion: Math.round(total),
+        precio: getPrecioFinal(p)
+      };
+    });
+
+    return puntuaciones.sort((a, b) => b.puntuacion - a.puntuacion);
+  };
+
+  const puntuaciones = useMemo(() => calcularPuntuaciones(), [comparador]);
+
+  // ============================================================
+  // 💡 INSIGHTS AUTOMÁTICOS
+  // ============================================================
+  const generarInsights = () => {
+    if (comparador.length < 2) return [];
+
+    const insights = [];
+    const precios = comparador.map(p => ({ nombre: p.nombre, precio: getPrecioFinal(p) }));
+    const ordenados = [...precios].sort((a, b) => a.precio - b.precio);
+
+    if (ordenados[0].precio > 0 && ordenados.length > 1) {
+      const diff = ordenados[ordenados.length - 1].precio - ordenados[0].precio;
+      const pct = ((diff / ordenados[ordenados.length - 1].precio) * 100).toFixed(0);
+      if (diff > 0) {
+        insights.push({
+          icono: "💰",
+          texto: `"${ordenados[0].nombre}" es ${pct}% más económico que "${ordenados[ordenados.length - 1].nombre}"`,
+          tipo: "success"
+        });
+      }
+    }
+
+    const conStock = comparador.filter(p => p.stock > 0);
+    const sinStock = comparador.filter(p => !p.stock || p.stock <= 0);
+
+    if (sinStock.length > 0 && conStock.length > 0) {
+      insights.push({
+        icono: "⚠️",
+        texto: `${sinStock.length} producto${sinStock.length > 1 ? "s" : ""} sin stock. Disponible${conStock.length > 1 ? "s" : ""}: ${conStock.map(p => p.nombre).join(", ")}`,
+        tipo: "warning"
+      });
+    } else if (conStock.length === comparador.length) {
+      insights.push({
+        icono: "✅",
+        texto: "Todos los productos tienen stock disponible",
+        tipo: "success"
+      });
+    }
+
+    const ofertas = comparador.filter(p => p.oferta === 1 || p.oferta === true);
+    if (ofertas.length > 0) {
+      insights.push({
+        icono: "🔥",
+        texto: `${ofertas.length} producto${ofertas.length > 1 ? "s" : ""} en oferta: ${ofertas.map(p => p.nombre).join(", ")}`,
+        tipo: "info"
+      });
+    }
+
+    return insights;
+  };
+
+  const insights = useMemo(() => generarInsights(), [comparador]);
+
+  // ============================================================
+  // 🎨 RENDER
+  // ============================================================
   return (
     <div style={styles.page(darkMode)}>
-      {/* 🔥 NAVBAR */}
+      {notificacion && (
+        <div style={{
+          position: "fixed", top: "90px", right: "20px",
+          background: notificacion.tipo === "warning"
+            ? "linear-gradient(135deg, #f59e0b, #d97706)"
+            : "linear-gradient(135deg, #10b981, #059669)",
+          color: "#fff", padding: "14px 22px", borderRadius: "12px",
+          fontSize: "14px", fontWeight: "600",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+          zIndex: 9999, animation: "slideInRight 0.4s ease",
+          maxWidth: "90%", display: "flex", alignItems: "center", gap: "8px"
+        }}>
+          {notificacion.mensaje}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideInRight {
+          from { transform: translateX(120px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeInUp {
+          from { transform: translateY(10px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .comp-row-hover:hover {
+          background: rgba(99, 102, 241, 0.04) !important;
+        }
+      `}</style>
+
+      {/* ✅ NAVBAR COMPLETO (todas las props de Productos.js) */}
       <Navbar
-        categorias={categorias}
-        subcategorias={subcategorias}
-        productos={productos}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
-        favoritos={comparador}
-        esFavorito={(id) => comparador.some(p => p.id === id)}
-        toggleFavorito={(producto) => {
-          const existe = comparador.some(p => p.id === producto.id);
-          let nuevos;
-          if (existe) {
-            nuevos = comparador.filter(p => p.id !== producto.id);
-          } else {
-            if (comparador.length > 0) {
-              const categoriaActual = comparador[0].categoria_id;
-              if (Number(producto.categoria_id) !== Number(categoriaActual)) {
-                alert("Solo puedes comparar productos de la misma categoría.");
-                return;
-              }
-            }
-            nuevos = [...comparador, producto];
-          }
-          setComparador(nuevos);
-          localStorage.setItem("comparador", JSON.stringify(nuevos));
-        }}
+        productos={productos}
+        favoritos={favoritos}
+        toggleFavorito={toggleFavorito}
+        esFavorito={esFavorito}
+        categorias={categorias}
+        subcategorias={subcategorias}
       />
 
-      <div style={styles.container}>
-        {/* TÍTULO CON DECORACIÓN */}
-        <div style={styles.headerSection}>
-          <div style={styles.titleWrapper}>
-            <span style={styles.titleIcon}>⚖️</span>
-            <h1 style={styles.title(darkMode, isMobile)}>
-              Comparador de Productos
+      <div style={styles.container(isMobile)}>
+        {/* HEADER */}
+        <div style={styles.header}>
+          <button onClick={() => navigate(-1)} style={styles.backBtn(darkMode)}>
+            <FaArrowLeft /> Volver
+          </button>
+
+          <div style={{ flex: 1, minWidth: "200px" }}>
+            <h1 style={styles.title(darkMode)}>
+              <FaTrophy style={{ color: "#f59e0b", marginRight: "10px" }} />
+              Comparador Inteligente
             </h1>
+            <p style={styles.subtitle(darkMode)}>
+              {comparador.length === 0
+                ? "No hay productos en el comparador"
+                : `Comparando ${comparador.length} producto${comparador.length !== 1 ? "s" : ""}`}
+            </p>
           </div>
-          <p style={styles.subtitle(darkMode)}>
-            Compara hasta 3 productos lado a lado y encuentra el mejor para ti
-          </p>
-          <div style={styles.headerStats}>
-            <span style={styles.headerStat(darkMode)}>
-              <span style={styles.headerStatNumber}>{comparador.length}</span>
-              Productos en comparación
-            </span>
-          </div>
+
+          {comparador.length > 1 && (
+            <button
+              onClick={() => setSoloDiferencias(!soloDiferencias)}
+              style={styles.toggleDiffBtn(darkMode, soloDiferencias)}
+              title={soloDiferencias ? "Mostrar todo" : "Solo mostrar diferencias"}
+            >
+              {soloDiferencias ? <FaEye /> : <FaEyeSlash />}
+              {soloDiferencias ? "Mostrar todo" : "Solo diferencias"}
+            </button>
+          )}
+
+          {comparador.length > 0 && (
+            <button onClick={limpiarComparador} style={styles.clearBtn}>
+              <FaTrash /> Vaciar
+            </button>
+          )}
         </div>
 
-        {/* ⭐ MEJOR OPCIÓN - REDISEÑADA */}
-        {mejorProducto && (
-          <div style={styles.bestBox(darkMode, isMobile)}>
-            <div style={styles.bestBadge}>⭐ RECOMENDADO</div>
-            <div style={styles.bestContent}>
-              <div style={styles.bestInfo}>
-                <h2 style={styles.bestTitle(isMobile)}>
-                  {mejorProducto.nombre}
-                </h2>
-                <p style={styles.bestText(darkMode, isMobile)}>
-                  {mejorProducto.descripcion || "Producto destacado con excelente relación calidad-precio"}
-                </p>
-                <div style={styles.bestAttributes}>
-                  {mejorProducto.material && (
-                    <span style={styles.bestAttribute}>🧱 {mejorProducto.material}</span>
-                  )}
-                  {mejorProducto.uso && (
-                    <span style={styles.bestAttribute}>🏠 {mejorProducto.uso}</span>
-                  )}
-                  {mejorProducto.grueso && (
-                    <span style={styles.bestAttribute}>📏 {mejorProducto.grueso} mm</span>
-                  )}
-                  {mejorProducto.espesor_capa_desgaste && (
-                    <span style={styles.bestAttribute}>📏 {mejorProducto.espesor_capa_desgaste} mm</span>
-                  )}
-                  {mejorProducto.cobertura && (
-                    <span style={styles.bestAttribute}>📦 {mejorProducto.cobertura} m²</span>
-                  )}
-                </div>
-                <div style={styles.bestPrice}>
-                  {mejorProducto.precioOferta ? (
-                    <>
-                      <span style={styles.bestOldPrice}>${mejorProducto.precio}</span>
-                      <span style={styles.bestOfferPrice}>${mejorProducto.precioOferta}</span>
-                    </>
-                  ) : (
-                    <span style={styles.bestPriceValue}>${mejorProducto.precio}</span>
-                  )}
-                </div>
-              </div>
-              <img
-                src={obtenerImagen(mejorProducto)}
-                alt={mejorProducto.nombre}
-                style={styles.bestImage(isMobile)}
-                onError={(e) => e.target.src = "https://via.placeholder.com/150x150?text=Sin+Imagen"}
-              />
+        {/* ESTADO VACÍO */}
+        {comparador.length === 0 && (
+          <div style={styles.emptyState(darkMode)}>
+            <div style={styles.emptyIcon}>⚖️</div>
+            <h2 style={styles.emptyTitle(darkMode)}>Tu comparador está vacío</h2>
+            <p style={styles.emptyText(darkMode)}>
+              Agrega hasta 3 productos de la misma categoría para comparar sus características.
+            </p>
+            <button onClick={() => navigate("/productos")} style={styles.emptyBtn}>
+              🛍️ Explorar productos
+            </button>
+          </div>
+        )}
+
+        {/* 🏆 RANKING DE PUNTUACIONES */}
+        {comparador.length >= 2 && puntuaciones.length > 0 && (
+          <div style={styles.rankingSection(darkMode)}>
+            <h2 style={styles.sectionTitle(darkMode)}>
+              🏆 Ranking general
+            </h2>
+            <div style={styles.rankingGrid(isMobile)}>
+              {puntuaciones.map((pu, i) => {
+                const producto = comparador.find(p => Number(p.id) === Number(pu.id));
+                return (
+                  <div
+                    key={pu.id}
+                    style={styles.rankingCard(darkMode, i)}
+                  >
+                    <div style={styles.rankMedal(i)}>
+                      {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
+                    </div>
+                    <img
+                      src={pu.imagen}
+                      alt={pu.nombre}
+                      style={styles.rankImg}
+                    />
+                    <h4 style={styles.rankName(darkMode)}>{pu.nombre}</h4>
+                    <div style={styles.rankPrice}>${pu.precio.toFixed(2)}</div>
+
+                    <div style={styles.progressBarWrapper}>
+                      <div
+                        style={styles.progressBarFill(i)}
+                      />
+                      <span style={styles.progressBarText}>
+                        {pu.puntuacion} / 100
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => agregarAlPedido(producto)}
+                      style={{
+                        ...styles.rankAddBtn,
+                        background: estaEnPedido(producto.id)
+                          ? "linear-gradient(135deg, #10b981, #059669)"
+                          : "linear-gradient(135deg, #6366f1, #4f46e5)"
+                      }}
+                    >
+                      <FaShoppingCart size={11} />
+                      {estaEnPedido(producto.id) ? "✓ En pedido" : "Agregar"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* 🧠 RECOMENDACIONES INTELIGENTES - REDISEÑADAS */}
-        <div style={styles.smartSection}>
-          <h3 style={styles.smartSectionTitle(darkMode)}>🎯 Recomendaciones Inteligentes</h3>
-          <div style={styles.smartGrid(isMobile)}>
-            {masBarato && (
-              <div style={styles.smartCard(darkMode)}>
-                <div style={styles.smartCardIcon}>💰</div>
-                <h4 style={styles.smartTitle(isMobile)}>Más Económico</h4>
-                <p style={styles.smartText(darkMode, isMobile)}>{masBarato.nombre}</p>
-                {masBarato.precioOferta ? (
-                  <span style={styles.smartPrice}>${masBarato.precioOferta}</span>
-                ) : (
-                  <span style={styles.smartPrice}>${masBarato.precio}</span>
-                )}
+        {/* 💡 INSIGHTS */}
+        {comparador.length >= 2 && insights.length > 0 && (
+          <div style={styles.insightsGrid(isMobile)}>
+            {insights.map((ins, i) => (
+              <div key={i} style={styles.insightCard(darkMode, ins.tipo)}>
+                <span style={styles.insightIcon}>{ins.icono}</span>
+                <span style={styles.insightText(darkMode)}>{ins.texto}</span>
               </div>
-            )}
-
-            {mayorCobertura && (
-              <div style={styles.smartCard(darkMode)}>
-                <div style={styles.smartCardIcon}>📦</div>
-                <h4 style={styles.smartTitle(isMobile)}>Mayor Cobertura</h4>
-                <p style={styles.smartText(darkMode, isMobile)}>{mayorCobertura.nombre}</p>
-                <span style={styles.smartPrice}>{mayorCobertura.cobertura} m²</span>
-              </div>
-            )}
-
-            {mayorGrueso && (
-              <div style={styles.smartCard(darkMode)}>
-                <div style={styles.smartCardIcon}>📏</div>
-                <h4 style={styles.smartTitle(isMobile)}>Mayor Grosor</h4>
-                <p style={styles.smartText(darkMode, isMobile)}>{mayorGrueso.nombre}</p>
-                <span style={styles.smartPrice}>{mayorGrueso.grueso} mm</span>
-              </div>
-            )}
-
-            {mejorMaterial && mejorMaterial.material && (
-              <div style={styles.smartCard(darkMode)}>
-                <div style={styles.smartCardIcon}>🧱</div>
-                <h4 style={styles.smartTitle(isMobile)}>Mejor Material</h4>
-                <p style={styles.smartText(darkMode, isMobile)}>{mejorMaterial.nombre}</p>
-                <span style={styles.smartPrice}>{mejorMaterial.material}</span>
-              </div>
-            )}
+            ))}
           </div>
-        </div>
+        )}
 
-        {comparador.length === 0 ? (
-          <div style={styles.emptyBox}>
-            <div style={styles.emptyIcon}>📭</div>
-            <p style={styles.empty(darkMode, isMobile)}>
-              No hay productos para comparar
-            </p>
-            <p style={styles.emptySub(darkMode)}>
-              Agrega productos desde el catálogo para comenzar a comparar
-            </p>
-            <button
-              style={styles.addBtn}
-              onClick={() => window.location.href = "/productos"}
-            >
-              ➕ Agregar productos
-            </button>
-          </div>
-        ) : (
-          <div style={styles.tableSection(darkMode)}>
-            <div style={styles.tableHeader(darkMode)}>
-              <span style={styles.tableTitle(darkMode)}>📊 Comparación Detallada</span>
-              <span style={styles.tableCount}>{comparador.length} productos</span>
-            </div>
-            <div style={styles.tableWrapper}>
-              <table style={styles.table(darkMode)}>
-                <tbody>
-                  {/* FILA DE CABECERA CON NOMBRES DE PRODUCTOS - REDISEÑADA */}
-                  <tr style={styles.headerRow(darkMode)}>
-                    <td style={styles.headerLabel(darkMode, isMobile)}>Producto</td>
-                    {comparador.map((p, index) => (
-                      <td key={p.id} style={styles.headerCell(darkMode, isMobile, index)}>
+        {/* TABLA COMPARATIVA */}
+        {comparador.length > 0 && (
+          <div style={styles.tableWrapper(darkMode, isMobile)}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.thFeature(darkMode)}>
+                    <div style={styles.thFeatureContent}>
+                      <FaChartBar style={{ color: "#6366f1" }} />
+                      <span>Característica</span>
+                    </div>
+                  </th>
+                  {comparador.map(p => {
+                    const esGanador = puntuaciones[0] && Number(puntuaciones[0].id) === Number(p.id);
+                    return (
+                      <th key={p.id} style={styles.thProduct(darkMode)}>
                         <div style={styles.productHeader}>
-                          <img
-                            src={obtenerImagen(p)}
-                            alt={p.nombre}
-                            style={styles.thumbImage(isMobile)}
-                            onError={(e) => e.target.src = "https://via.placeholder.com/80x80?text=Sin+Imagen"}
-                          />
-                          <span style={styles.productName(isMobile)}>{p.nombre}</span>
-                          <span style={styles.productSku}>SKU: {p.sku || 'N/A'}</span>
+                          {esGanador && (
+                            <div style={styles.winnerBadge}>
+                              <FaTrophy size={10} /> Mejor valorado
+                            </div>
+                          )}
+                          <button
+                            onClick={() => quitarDelComparador(p.id)}
+                            style={styles.removeBtn}
+                            title="Quitar del comparador"
+                          >
+                            <FaTimes />
+                          </button>
+
+                          <div style={styles.imgWrapHeader}>
+                            <img
+                              src={obtenerImagen(p)}
+                              alt={p.nombre}
+                              style={styles.productImg(isMobile)}
+                              onClick={() => navigate(`/producto/${p.id}`)}
+                            />
+                            {(p.oferta === 1 || p.oferta === true) && (
+                              <span style={styles.offerBadgeHeader}>
+                                <FaFire size={9} /> Oferta
+                              </span>
+                            )}
+                          </div>
+
+                          <h3
+                            style={styles.productName(darkMode)}
+                            onClick={() => navigate(`/producto/${p.id}`)}
+                          >
+                            {p.nombre}
+                          </h3>
+
+                          <div style={styles.productPrice}>
+                            {(p.oferta === 1 || p.oferta === true) ? (
+                              <>
+                                <span style={styles.oldPrice}>${p.precio}</span>
+                                <span style={styles.offerPrice}>${p.precioOferta}</span>
+                              </>
+                            ) : (
+                              <span style={styles.price}>${p.precio}</span>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => agregarAlPedido(p)}
+                            style={{
+                              ...styles.addBtn,
+                              background: estaEnPedido(p.id)
+                                ? "linear-gradient(135deg, #10b981, #059669)"
+                                : "linear-gradient(135deg, #f59e0b, #d97706)"
+                            }}
+                          >
+                            <FaShoppingCart size={11} />
+                            {estaEnPedido(p.id) ? "En pedido (+1)" : "Agregar al pedido"}
+                          </button>
                         </div>
-                      </td>
-                    ))}
-                  </tr>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
 
-                  {/* TODOS LOS CAMPOS DEL PRODUCTO */}
-                  {Object.keys(comparador[0] || {})
-                    .filter((key) => !camposExcluidos.includes(key))
-                    .filter((campo) => {
-                      return comparador.some((p) => {
-                        return (
-                          p[campo] !== null &&
-                          p[campo] !== "" &&
-                          p[campo] !== undefined
-                        );
-                      });
-                    })
-                    .map((campo) => (
-                      <tr key={campo} style={styles.dataRow(darkMode)}>
-                        <td style={styles.label(darkMode, isMobile)}>
-                          {formatearCampo(campo)}
+              <tbody>
+                {FILAS_COMPARACION.map((grupo) => {
+                  const filasVisibles = soloDiferencias
+                    ? grupo.filas.filter(f => filaTieneDiferencia(f))
+                    : grupo.filas;
+
+                  if (filasVisibles.length === 0) return null;
+
+                  return (
+                    <>
+                      <tr key={`grupo-${grupo.grupo}`}>
+                        <td colSpan={comparador.length + 1} style={styles.groupRow(darkMode)}>
+                          <span style={styles.groupIcon}>{grupo.icono}</span>
+                          {grupo.grupo}
                         </td>
+                      </tr>
 
-                        {comparador.map((p) => {
-                          // Determinar si este producto tiene el mejor valor en este campo
-                          let esMejor = false;
-                          if (campo === "precio" || campo === "precioOferta") {
-                            const valores = comparador.map(prod => Number(prod[campo] || 0)).filter(v => v > 0);
-                            const minValor = Math.min(...valores);
-                            const currentValor = Number(p[campo] || 0);
-                            esMejor = currentValor > 0 && currentValor === minValor;
-                          } else if (campo === "cobertura" || campo === "grueso" || campo === "stock") {
-                            const valores = comparador.map(prod => Number(prod[campo] || 0));
-                            const maxValor = Math.max(...valores);
-                            const currentValor = Number(p[campo] || 0);
-                            esMejor = currentValor > 0 && currentValor === maxValor;
-                          }
+                      {filasVisibles.map((fila) => {
+                        const hayDiferencia = filaTieneDiferencia(fila);
+                        const mejorId = calcularMejorPorFila(fila);
+                        const rango = fila.barra ? getRangoFila(fila) : null;
 
-                          return (
-                            <td
-                              key={p.id}
-                              style={{
-                                ...styles.cell(darkMode, isMobile),
-                                background: esMejor ? (darkMode ? "#1a3a2a" : "#f0fdf4") : undefined,
-                                borderLeft: esMejor ? "3px solid #22c55e" : undefined
-                              }}
-                            >
-                              {/* 🖼 IMAGENES */}
-                              {campo === "imagenes" ? (
-                                <img
-                                  src={obtenerImagen(p)}
-                                  alt={p.nombre}
-                                  style={styles.image(isMobile)}
-                                  onError={(e) => e.target.src = "https://via.placeholder.com/120x120?text=Sin+Imagen"}
-                                />
-                              )
-                              // 💲 PRECIOS
-                              : campo === "precio" || campo === "precioOferta" ? (
-                                <span style={{
-                                  ...styles.price(isMobile),
-                                  color: esMejor ? "#22c55e" : "#16a34a"
-                                }}>
-                                  ${p[campo]}
-                                  {esMejor && <span style={styles.bestTag}>🏆</span>}
-                                </span>
-                              )
-                              // 📏 MEDIDAS
-                              : campo === "ancho" || campo === "alto" ? (
-                                `${p[campo]} cm`
-                              )
-                              // 📏 GROSOR - AHORA CON mm
-                              : campo === "grueso" ? (
-                                <span style={{
-                                  fontWeight: esMejor ? "bold" : "normal",
-                                  color: esMejor ? "#22c55e" : undefined
-                                }}>
-                                  {p[campo]} mm {esMejor && <span style={styles.bestTag}>🏆</span>}
-                                </span>
-                              )
-                              // 📏 ESPESOR CAPA DESGASTE
-                              : campo === "espesor_capa_desgaste" ? (
-                                `${p[campo]} mm`
-                              )
-                              // 📦 COBERTURA
-                              : campo === "cobertura" ? (
-                                p[campo] ? (
-                                  <span style={{ fontWeight: esMejor ? "bold" : "normal", color: esMejor ? "#22c55e" : undefined }}>
-                                    {p[campo]} m² {esMejor && <span style={styles.bestTag}>🏆</span>}
-                                  </span>
-                                ) : "-"
-                              )
-                              // ✅ BOOLEANOS
-                              : campo === "oferta" || campo === "destacado" ? (
-                                p[campo] === 1 || p[campo] === true ? (
-                                  <span style={styles.badgeYes}>✅ Sí</span>
-                                ) : (
-                                  <span style={styles.badgeNo}>❌ No</span>
-                                )
-                              )
-                              // 📝 TEXTO LARGO
-                              : campo === "descripcion" || campo === "especificaciones" || campo === "informacionAdicional" ? (
-                                <div style={styles.longText(isMobile)}>
-                                  {p[campo]}
-                                </div>
-                              )
-                              // ❌ VACÍO
-                              : !p[campo] ? (
-                                <span style={styles.emptyValue}>-</span>
-                              )
-                              // 🆕 CAMPOS CON FORMATO ESPECIAL
-                              : campo === "uso" ? (
-                                <span style={styles.tagValue}>🏠 {p[campo]}</span>
-                              )
-                              : campo === "aplicacion" ? (
-                                <span style={styles.tagValue}>📋 {p[campo]}</span>
-                              )
-                              : campo === "tipo_diseno" ? (
-                                <span style={styles.tagValue}>🎨 {p[campo]}</span>
-                              )
-                              : campo === "material" ? (
-                                <span style={styles.tagValue}>🧱 {p[campo]}</span>
-                              )
-                              : campo === "acabado" ? (
-                                <span style={styles.tagValue}>✨ {p[campo]}</span>
-                              )
-                              : campo === "tipo_instalacion" ? (
-                                <span style={styles.tagValue}>🔧 {p[campo]}</span>
-                              )
-                              : campo === "tipoVenta" ? (
-                                <span style={styles.tagValue}>🚚 {p[campo]}</span>
-                              )
-                              : campo === "stock" ? (
-                                <span style={{
-                                  color: Number(p[campo]) > 10 ? "#22c55e" : Number(p[campo]) > 0 ? "#f59e0b" : "#ef4444",
-                                  fontWeight: esMejor ? "bold" : "normal"
-                                }}>
-                                  {p[campo]} {esMejor && <span style={styles.bestTag}>🏆</span>}
-                                </span>
-                              )
-                              // ✅ NORMAL
-                              : (
-                                String(p[campo])
+                        return (
+                          <tr
+                            key={fila.key}
+                            className="comp-row-hover"
+                            style={styles.dataRow(darkMode)}
+                          >
+                            <td style={styles.tdFeature(darkMode)}>
+                              <span>{fila.label}</span>
+                              {hayDiferencia && (
+                                <span style={styles.diffBadge} title="Valores diferentes">≠</span>
                               )}
                             </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                            {comparador.map(p => {
+                              const valor = fila.formato ? fila.formato(p) : (p[fila.key] || "—");
+                              const esMejor = mejorId !== null && Number(mejorId) === Number(p.id);
+                              const chipColors = fila.chip ? fila.chip(p) : null;
+                              const valorNum = fila.valorNumerico ? fila.valorNumerico(p) : null;
 
-                  {/* ❌ FILA ELIMINAR */}
-                  <tr style={styles.actionRow(darkMode)}>
-                    <td style={styles.label(darkMode, isMobile)}>Acción</td>
-                    {comparador.map((p) => (
-                      <td key={p.id} style={styles.cell(darkMode, isMobile)}>
-                        <button
-                          style={styles.removeBtn(isMobile)}
-                          onClick={() => eliminarProducto(p.id)}
-                        >
-                          🗑 Eliminar
-                        </button>
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                              let barraPct = null;
+                              if (rango && valorNum !== null && !isNaN(valorNum)) {
+                                barraPct = ((valorNum - rango.min) / (rango.max - rango.min)) * 100;
+                                barraPct = Math.max(8, Math.min(100, barraPct));
+                              }
+
+                              return (
+                                <td
+                                  key={p.id}
+                                  style={{
+                                    ...styles.tdValue(darkMode),
+                                    background: esMejor
+                                      ? (darkMode ? "rgba(16, 185, 129, 0.12)" : "rgba(16, 185, 129, 0.08)")
+                                      : "transparent",
+                                    position: "relative"
+                                  }}
+                                >
+                                  {esMejor && (
+                                    <span style={styles.bestBadge} title="Mejor en esta categoría">
+                                      <FaCheck size={9} />
+                                    </span>
+                                  )}
+
+                                  {chipColors ? (
+                                    <span style={{
+                                      ...styles.chip,
+                                      background: chipColors.bg,
+                                      color: chipColors.color
+                                    }}>
+                                      {valor}
+                                    </span>
+                                  ) : (
+                                    <span style={{
+                                      fontWeight: esMejor ? 700 : 500,
+                                      color: esMejor
+                                        ? (darkMode ? "#34d399" : "#059669")
+                                        : undefined
+                                    }}>
+                                      {valor}
+                                    </span>
+                                  )}
+
+                                  {barraPct !== null && (
+                                    <div style={styles.miniBarWrapper}>
+                                      <div
+                                        style={{
+                                          ...styles.miniBarFill,
+                                          width: `${barraPct}%`,
+                                          background: esMejor
+                                            ? "linear-gradient(90deg, #10b981, #059669)"
+                                            : "linear-gradient(90deg, #6366f1, #818cf8)"
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* AYUDA */}
+        {comparador.length > 0 && comparador.length < 3 && (
+          <div style={styles.hintBox(darkMode)}>
+            💡 Tip: puedes comparar hasta <strong>3 productos</strong>. Te falta{comparador.length === 1 ? "" : "n"} <strong>{3 - comparador.length}</strong> para el máximo.
           </div>
         )}
       </div>
@@ -540,504 +910,432 @@ export default function Comparar() {
   );
 }
 
+// ============================================================
+// 🎨 ESTILOS
+// ============================================================
 const styles = {
-  // PÁGINA
   page: (darkMode) => ({
+    background: darkMode ? "#0a0a0f" : "#f8fafc",
     minHeight: "100vh",
-    background: darkMode ? "#0f172a" : "#f0f4f8",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    overflowX: "hidden"
   }),
 
-  container: {
-    maxWidth: "1400px",
-    width: "100%",
+  container: (isMobile) => ({
+    padding: isMobile ? "80px 10px 20px 10px" : "130px 25px 40px 25px",
+    maxWidth: "1600px",
     margin: "0 auto",
-    padding: "140px 20px 40px 20px", // Aumentado el padding superior
-    boxSizing: "border-box",
-    flexGrow: 1
-  },
+    boxSizing: "border-box"
+  }),
 
-  // HEADER
-  headerSection: {
-    textAlign: "center",
-    marginBottom: "40px"
-  },
-
-  titleWrapper: {
+  header: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
     gap: "16px",
+    marginBottom: "25px",
     flexWrap: "wrap"
   },
 
-  titleIcon: {
-    fontSize: "48px"
-  },
+  backBtn: (darkMode) => ({
+    display: "inline-flex", alignItems: "center", gap: "8px",
+    background: darkMode ? "#1e293b" : "#fff",
+    color: darkMode ? "#e2e8f0" : "#334155",
+    border: darkMode ? "1px solid #2d2d3f" : "1px solid #e2e8f0",
+    padding: "10px 16px", borderRadius: "10px",
+    cursor: "pointer", fontWeight: "600", fontSize: "14px"
+  }),
 
-  title: (darkMode, isMobile) => ({
+  title: (darkMode) => ({
+    fontSize: "32px", fontWeight: "800",
     color: darkMode ? "#fff" : "#0f172a",
-    fontSize: isMobile ? "32px" : "48px",
-    fontWeight: "800",
-    margin: 0,
-    letterSpacing: "-0.5px",
-    background: darkMode ? "linear-gradient(135deg, #818cf8, #6366f1)" : "linear-gradient(135deg, #4f46e5, #7c3aed)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    backgroundClip: "text"
+    margin: "0 0 4px 0", letterSpacing: "-0.5px",
+    display: "flex", alignItems: "center"
   }),
 
   subtitle: (darkMode) => ({
-    color: darkMode ? "#94a3b8" : "#64748b",
-    fontSize: "18px",
-    marginTop: "8px",
-    marginBottom: "16px"
+    fontSize: "15px", color: darkMode ? "#94a3b8" : "#64748b", margin: 0
   }),
 
-  headerStats: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "20px",
-    flexWrap: "wrap"
-  },
-
-  headerStat: (darkMode) => ({
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "8px 20px",
-    borderRadius: "20px",
-    background: darkMode ? "#1e293b" : "#fff",
-    color: darkMode ? "#e2e8f0" : "#334155",
-    fontSize: "14px",
-    fontWeight: "500",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)"
+  toggleDiffBtn: (darkMode, activo) => ({
+    display: "inline-flex", alignItems: "center", gap: "8px",
+    background: activo
+      ? "linear-gradient(135deg, #6366f1, #4f46e5)"
+      : (darkMode ? "#1e293b" : "#fff"),
+    color: activo ? "#fff" : (darkMode ? "#e2e8f0" : "#334155"),
+    border: activo ? "none" : (darkMode ? "1px solid #2d2d3f" : "1px solid #e2e8f0"),
+    padding: "10px 18px", borderRadius: "10px",
+    cursor: "pointer", fontWeight: "700", fontSize: "14px",
+    boxShadow: activo ? "0 4px 15px rgba(99, 102, 241, 0.3)" : "none"
   }),
 
-  headerStatNumber: {
-    fontWeight: "700",
-    color: "#6366f1",
-    fontSize: "18px"
+  clearBtn: {
+    display: "inline-flex", alignItems: "center", gap: "8px",
+    background: "linear-gradient(135deg, #ef4444, #dc2626)",
+    color: "#fff", border: "none", padding: "10px 18px",
+    borderRadius: "10px", cursor: "pointer",
+    fontWeight: "700", fontSize: "14px",
+    boxShadow: "0 4px 15px rgba(239, 68, 68, 0.3)"
   },
 
-  // MEJOR OPCIÓN
-  bestBox: (darkMode, isMobile) => ({
-    background: darkMode ? "#1e293b" : "#fff",
-    borderRadius: "20px",
-    padding: isMobile ? "20px" : "28px",
-    marginBottom: "32px",
-    position: "relative",
-    boxShadow: darkMode ? "0 8px 32px rgba(0,0,0,0.3)" : "0 8px 32px rgba(0,0,0,0.06)",
-    border: darkMode ? "1px solid #334155" : "1px solid #e2e8f0",
-    overflow: "hidden"
+  emptyState: (darkMode) => ({
+    background: darkMode ? "#14141e" : "#fff",
+    borderRadius: "20px", padding: "60px 30px",
+    textAlign: "center",
+    border: darkMode ? "1px solid #2d2d3f" : "1px solid #f1f5f9",
+    boxShadow: darkMode ? "0 8px 30px rgba(0,0,0,0.4)" : "0 8px 30px rgba(0,0,0,0.06)"
   }),
 
-  bestBadge: {
-    position: "absolute",
-    top: "12px",
-    right: "12px",
-    background: "linear-gradient(135deg, #f59e0b, #d97706)",
-    color: "#fff",
-    padding: "4px 16px",
-    borderRadius: "20px",
-    fontSize: "12px",
-    fontWeight: "700",
-    letterSpacing: "0.5px"
-  },
+  emptyIcon: { fontSize: "72px", marginBottom: "16px", opacity: 0.7 },
 
-  bestContent: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "24px",
-    flexWrap: "wrap"
-  },
-
-  bestInfo: {
-    flex: 1,
-    minWidth: "200px"
-  },
-
-  bestTitle: (isMobile) => ({
-    fontSize: isMobile ? "20px" : "28px",
-    margin: "0 0 8px 0",
-    color: "#f59e0b",
-    fontWeight: "700"
+  emptyTitle: (darkMode) => ({
+    fontSize: "24px", fontWeight: "700",
+    color: darkMode ? "#fff" : "#0f172a", margin: "0 0 10px 0"
   }),
 
-  bestText: (darkMode, isMobile) => ({
-    fontSize: isMobile ? "14px" : "16px",
-    lineHeight: 1.6,
-    margin: "0 0 12px 0",
-    color: darkMode ? "#cbd5e1" : "#475569"
+  emptyText: (darkMode) => ({
+    fontSize: "16px", color: darkMode ? "#94a3b8" : "#64748b",
+    margin: "0 auto 24px auto", maxWidth: "500px", lineHeight: 1.6
   }),
 
-  bestAttributes: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "8px",
-    marginBottom: "12px"
+  emptyBtn: {
+    background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+    color: "#fff", border: "none", padding: "14px 28px",
+    borderRadius: "12px", cursor: "pointer",
+    fontWeight: "700", fontSize: "16px",
+    boxShadow: "0 4px 20px rgba(99, 102, 241, 0.4)"
   },
 
-  bestAttribute: {
-    display: "inline-block",
-    padding: "4px 14px",
-    borderRadius: "12px",
-    background: "#eef2ff",
-    color: "#4f46e5",
-    fontSize: "13px",
-    fontWeight: "500"
-  },
-
-  bestPrice: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px"
-  },
-
-  bestOldPrice: {
-    textDecoration: "line-through",
-    color: "#94a3b8",
-    fontSize: "18px"
-  },
-
-  bestOfferPrice: {
-    fontSize: "28px",
-    fontWeight: "800",
-    color: "#ef4444"
-  },
-
-  bestPriceValue: {
-    fontSize: "28px",
-    fontWeight: "800",
-    color: "#22c55e"
-  },
-
-  bestImage: (isMobile) => ({
-    width: isMobile ? "100px" : "150px",
-    height: isMobile ? "100px" : "150px",
-    objectFit: "cover",
-    borderRadius: "16px",
-    border: "2px solid #e2e8f0",
-    background: "#f8fafc"
+  // ============================================================
+  // 🏆 RANKING
+  // ============================================================
+  rankingSection: (darkMode) => ({
+    background: darkMode ? "#14141e" : "#fff",
+    borderRadius: "18px",
+    padding: "24px",
+    marginBottom: "20px",
+    border: darkMode ? "1px solid #2d2d3f" : "1px solid #f1f5f9",
+    boxShadow: darkMode ? "0 8px 30px rgba(0,0,0,0.4)" : "0 8px 30px rgba(0,0,0,0.06)",
+    animation: "fadeInUp 0.5s ease"
   }),
 
-  // RECOMENDACIONES
-  smartSection: {
-    marginBottom: "32px"
-  },
-
-  smartSectionTitle: (darkMode) => ({
-    fontSize: "20px",
-    fontWeight: "700",
+  sectionTitle: (darkMode) => ({
+    fontSize: "20px", fontWeight: "800",
     color: darkMode ? "#fff" : "#0f172a",
-    marginBottom: "16px"
+    margin: "0 0 18px 0"
   }),
 
-  smartGrid: (isMobile) => ({
+  rankingGrid: (isMobile) => ({
     display: "grid",
-    gridTemplateColumns: isMobile ? "1fr" : "repeat(4, 1fr)",
+    gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))",
     gap: "16px"
   }),
 
-  smartCard: (darkMode) => ({
-    background: darkMode ? "#1e293b" : "#fff",
-    borderRadius: "16px",
-    padding: "20px",
+  rankingCard: (darkMode, index) => ({
+    background: index === 0
+      ? (darkMode ? "linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.05))" : "linear-gradient(135deg, rgba(245,158,11,0.08), rgba(217,119,6,0.02))")
+      : (darkMode ? "#1e293b" : "#f8fafc"),
+    borderRadius: "14px",
+    padding: "16px",
+    border: index === 0
+      ? "2px solid #f59e0b"
+      : (darkMode ? "1px solid #2d2d3f" : "1px solid #e2e8f0"),
     textAlign: "center",
-    boxShadow: darkMode ? "0 4px 16px rgba(0,0,0,0.2)" : "0 4px 16px rgba(0,0,0,0.04)",
-    border: darkMode ? "1px solid #334155" : "1px solid #e2e8f0",
-    transition: "transform 0.2s",
-    "&:hover": {
-      transform: "translateY(-4px)"
-    }
+    position: "relative",
+    transition: "transform 0.25s",
+    boxShadow: index === 0
+      ? "0 8px 24px rgba(245, 158, 11, 0.15)"
+      : "none"
   }),
 
-  smartCardIcon: {
-    fontSize: "32px",
-    marginBottom: "8px"
+  rankMedal: (index) => ({
+    position: "absolute", top: "-14px", left: "50%",
+    transform: "translateX(-50%)",
+    fontSize: "28px",
+    filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.2))"
+  }),
+
+  rankImg: {
+    width: "70px", height: "70px",
+    objectFit: "cover", borderRadius: "12px",
+    marginBottom: "10px", marginTop: "6px"
   },
 
-  smartTitle: (isMobile) => ({
-    fontSize: isMobile ? "14px" : "16px",
-    margin: "0 0 4px 0",
-    color: "#f59e0b",
-    fontWeight: "700"
+  rankName: (darkMode) => ({
+    fontSize: "14px", fontWeight: "700",
+    color: darkMode ? "#fff" : "#0f172a",
+    margin: "0 0 6px 0",
+    overflow: "hidden", textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
   }),
 
-  smartText: (darkMode, isMobile) => ({
-    fontSize: isMobile ? "13px" : "14px",
-    margin: "0 0 4px 0",
-    color: darkMode ? "#cbd5e1" : "#334155",
-    fontWeight: "500"
-  }),
-
-  smartPrice: {
-    fontSize: "16px",
-    fontWeight: "700",
-    color: "#22c55e",
-    display: "block",
-    marginTop: "4px"
+  rankPrice: {
+    fontSize: "17px", fontWeight: "800",
+    color: "#6366f1", marginBottom: "10px"
   },
 
-  // TABLA
-  tableSection: (darkMode) => ({
-    background: darkMode ? "#1e293b" : "#fff",
-    borderRadius: "20px",
+  progressBarWrapper: {
+    position: "relative",
+    height: "26px",
+    background: "rgba(99, 102, 241, 0.1)",
+    borderRadius: "13px",
     overflow: "hidden",
-    boxShadow: darkMode ? "0 8px 32px rgba(0,0,0,0.3)" : "0 8px 32px rgba(0,0,0,0.06)",
-    border: darkMode ? "1px solid #334155" : "1px solid #e2e8f0"
-  }),
-
-  tableHeader: (darkMode) => ({
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "16px 24px",
-    borderBottom: darkMode ? "1px solid #334155" : "1px solid #e2e8f0"
-  }),
-
-  tableTitle: (darkMode) => ({
-    fontSize: "18px",
-    fontWeight: "700",
-    color: darkMode ? "#fff" : "#0f172a"
-  }),
-
-  tableCount: {
-    fontSize: "14px",
-    color: "#94a3b8",
-    fontWeight: "500"
+    marginBottom: "10px"
   },
 
-  tableWrapper: {
+  progressBarFill: (index) => ({
+    height: "100%",
+    width: "100%",
+    background: index === 0
+      ? "linear-gradient(90deg, #f59e0b, #d97706)"
+      : index === 1
+      ? "linear-gradient(90deg, #6366f1, #4f46e5)"
+      : "linear-gradient(90deg, #94a3b8, #64748b)",
+    transition: "width 0.8s ease"
+  }),
+
+  progressBarText: {
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: "12px", fontWeight: "800", color: "#fff",
+    textShadow: "0 1px 3px rgba(0,0,0,0.4)"
+  },
+
+  rankAddBtn: {
+    display: "inline-flex", alignItems: "center", gap: "5px",
+    width: "100%", padding: "7px 12px",
+    color: "#fff", border: "none", borderRadius: "8px",
+    fontSize: "11px", fontWeight: "700", cursor: "pointer",
+    justifyContent: "center"
+  },
+
+  // ============================================================
+  // 💡 INSIGHTS
+  // ============================================================
+  insightsGrid: (isMobile) => ({
+    display: "grid",
+    gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: "12px",
+    marginBottom: "20px"
+  }),
+
+  insightCard: (darkMode, tipo) => {
+    const colors = {
+      success: { bg: "rgba(16,185,129,0.1)", border: "#10b981" },
+      warning: { bg: "rgba(245,158,11,0.1)", border: "#f59e0b" },
+      info: { bg: "rgba(99,102,241,0.1)", border: "#6366f1" },
+    };
+    const c = colors[tipo] || colors.info;
+    return {
+      background: darkMode ? c.bg : c.bg,
+      borderLeft: `4px solid ${c.border}`,
+      borderRadius: "12px",
+      padding: "14px 16px",
+      display: "flex", alignItems: "center", gap: "12px",
+      animation: "fadeInUp 0.5s ease"
+    };
+  },
+
+  insightIcon: { fontSize: "22px", flexShrink: 0 },
+
+  insightText: (darkMode) => ({
+    fontSize: "14px", fontWeight: "600",
+    color: darkMode ? "#e2e8f0" : "#334155",
+    lineHeight: 1.4
+  }),
+
+  // ============================================================
+  // 📊 TABLA
+  // ============================================================
+  tableWrapper: (darkMode, isMobile) => ({
+    background: darkMode ? "#14141e" : "#fff",
+    borderRadius: "16px",
+    border: darkMode ? "1px solid #2d2d3f" : "1px solid #f1f5f9",
+    boxShadow: darkMode ? "0 8px 30px rgba(0,0,0,0.4)" : "0 8px 30px rgba(0,0,0,0.06)",
     overflowX: "auto",
-    WebkitOverflowScrolling: "touch"
-  },
+    overflowY: "visible",
+    animation: "fadeInUp 0.5s ease"
+  }),
 
-  table: (darkMode) => ({
+  table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "700px",
-    background: darkMode ? "#1e293b" : "#fff"
+    minWidth: "600px"
+  },
+
+  thFeature: (darkMode) => ({
+    position: "sticky", left: 0, zIndex: 3,
+    background: darkMode ? "#0a0a0f" : "#f8fafc",
+    padding: "16px", textAlign: "left",
+    borderBottom: darkMode ? "2px solid #2d2d3f" : "2px solid #e2e8f0",
+    minWidth: "170px"
   }),
 
-  headerRow: (darkMode) => ({
-    borderBottom: darkMode ? "2px solid #334155" : "2px solid #e2e8f0"
+  thFeatureContent: {
+    display: "flex", alignItems: "center", gap: "8px",
+    fontWeight: "700", fontSize: "13px",
+    color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px"
+  },
+
+  thProduct: (darkMode) => ({
+    padding: "20px 16px 16px", textAlign: "center", verticalAlign: "top",
+    borderBottom: darkMode ? "2px solid #2d2d3f" : "2px solid #e2e8f0",
+    minWidth: "220px", position: "relative"
   }),
 
-  headerLabel: (darkMode, isMobile) => ({
-    padding: isMobile ? "12px 16px" : "16px 24px",
-    fontWeight: "700",
-    color: darkMode ? "#94a3b8" : "#64748b",
-    fontSize: isMobile ? "12px" : "14px",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    background: darkMode ? "#0f172a" : "#f8fafc",
-    position: "sticky",
-    left: 0,
-    zIndex: 5,
-    minWidth: isMobile ? "100px" : "160px"
-  }),
-
-  headerCell: (darkMode, isMobile, index) => ({
-    padding: isMobile ? "12px" : "16px",
-    textAlign: "center",
-    background: darkMode ? "#0f172a" : "#f8fafc",
-    minWidth: isMobile ? "140px" : "200px",
-    borderLeft: index > 0 ? (darkMode ? "1px solid #1e293b" : "1px solid #f1f5f9") : "none"
-  }),
+  winnerBadge: {
+    position: "absolute", top: "8px", left: "50%",
+    transform: "translateX(-50%)",
+    background: "linear-gradient(135deg, #f59e0b, #d97706)",
+    color: "#fff", fontSize: "10px", fontWeight: "800",
+    padding: "3px 10px", borderRadius: "10px",
+    display: "flex", alignItems: "center", gap: "4px",
+    textTransform: "uppercase", letterSpacing: "0.5px",
+    boxShadow: "0 3px 10px rgba(245, 158, 11, 0.4)",
+    whiteSpace: "nowrap", zIndex: 2
+  },
 
   productHeader: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "6px"
+    display: "flex", flexDirection: "column",
+    alignItems: "center", gap: "10px", position: "relative"
   },
 
-  thumbImage: (isMobile) => ({
-    width: isMobile ? "50px" : "70px",
-    height: isMobile ? "50px" : "70px",
-    objectFit: "cover",
-    borderRadius: "10px",
-    border: "2px solid #e2e8f0",
-    background: "#f8fafc"
-  }),
-
-  productName: (isMobile) => ({
-    fontWeight: "700",
-    fontSize: isMobile ? "12px" : "14px",
-    color: "#6366f1",
-    textAlign: "center"
-  }),
-
-  productSku: {
-    fontSize: "11px",
-    color: "#94a3b8",
-    fontWeight: "400"
+  removeBtn: {
+    position: "absolute", top: "-6px", right: "-6px",
+    width: "26px", height: "26px", borderRadius: "50%",
+    background: "linear-gradient(135deg, #ef4444, #dc2626)",
+    color: "#fff", border: "none", cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: "11px", boxShadow: "0 2px 8px rgba(239,68,68,0.4)",
+    zIndex: 3
   },
 
-  dataRow: (darkMode) => ({
-    borderBottom: darkMode ? "1px solid #1e293b" : "1px solid #f1f5f9",
-    "&:hover": {
-      background: darkMode ? "#1e293b" : "#fafbfc"
-    }
-  }),
-
-  label: (darkMode, isMobile) => ({
-    padding: isMobile ? "10px 16px" : "14px 24px",
-    fontWeight: "600",
-    color: darkMode ? "#e2e8f0" : "#334155",
-    fontSize: isMobile ? "12px" : "14px",
-    background: darkMode ? "#0f172a" : "#fafbfc",
-    position: "sticky",
-    left: 0,
-    zIndex: 3,
-    minWidth: isMobile ? "100px" : "160px",
-    borderRight: darkMode ? "1px solid #1e293b" : "1px solid #f1f5f9"
-  }),
-
-  cell: (darkMode, isMobile) => ({
-    padding: isMobile ? "10px 12px" : "14px 20px",
-    textAlign: "center",
-    color: darkMode ? "#f1f5f9" : "#1e293b",
-    fontSize: isMobile ? "12px" : "14px",
-    minWidth: isMobile ? "120px" : "160px",
-    borderLeft: darkMode ? "1px solid #1e293b" : "1px solid #f1f5f9"
-  }),
-
-  actionRow: (darkMode) => ({
-    borderTop: darkMode ? "2px solid #334155" : "2px solid #e2e8f0"
-  }),
-
-  image: (isMobile) => ({
-    width: isMobile ? "80px" : "120px",
-    height: isMobile ? "80px" : "120px",
-    objectFit: "cover",
-    borderRadius: "12px",
-    background: "#f8fafc"
-  }),
-
-  longText: (isMobile) => ({
-    whiteSpace: "pre-wrap",
-    lineHeight: 1.5,
-    fontSize: isMobile ? "11px" : "13px",
-    minWidth: isMobile ? "120px" : "180px",
-    maxWidth: isMobile ? "120px" : "180px",
-    wordBreak: "break-word",
-    textAlign: "left",
-    margin: "0 auto"
-  }),
-
-  price: (isMobile) => ({
-    fontSize: isMobile ? "16px" : "20px",
-    fontWeight: "700",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "6px"
-  }),
-
-  bestTag: {
-    fontSize: "14px"
+  imgWrapHeader: {
+    position: "relative",
+    marginTop: "8px"
   },
 
-  tagValue: {
-    display: "inline-block",
-    padding: "4px 12px",
-    borderRadius: "10px",
-    background: "#eef2ff",
-    color: "#4f46e5",
-    fontSize: "12px",
-    fontWeight: "500"
-  },
-
-  badgeYes: {
-    display: "inline-block",
-    padding: "2px 12px",
-    borderRadius: "10px",
-    background: "#dcfce7",
-    color: "#16a34a",
-    fontSize: "12px",
-    fontWeight: "600"
-  },
-
-  badgeNo: {
-    display: "inline-block",
-    padding: "2px 12px",
-    borderRadius: "10px",
-    background: "#fee2e2",
-    color: "#dc2626",
-    fontSize: "12px",
-    fontWeight: "600"
-  },
-
-  emptyValue: {
-    color: "#94a3b8",
-    fontSize: "13px"
-  },
-
-  removeBtn: (isMobile) => ({
-    background: "linear-gradient(135deg, #dc2626, #ef4444)",
-    color: "#fff",
-    border: "none",
-    padding: isMobile ? "6px 14px" : "8px 18px",
-    borderRadius: "10px",
-    cursor: "pointer",
-    fontWeight: "600",
-    fontSize: isMobile ? "11px" : "13px",
-    transition: "transform 0.2s",
-    "&:hover": {
-      transform: "scale(1.05)"
-    }
+  productImg: (isMobile) => ({
+    width: isMobile ? "90px" : "120px",
+    height: isMobile ? "90px" : "120px",
+    objectFit: "cover", borderRadius: "12px",
+    cursor: "pointer", border: "2px solid #f1f5f9",
+    display: "block"
   }),
 
-  // EMPTY STATE
-  emptyBox: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "12px",
-    padding: "60px 20px",
-    background: "#fff",
-    borderRadius: "20px",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.06)"
+  offerBadgeHeader: {
+    position: "absolute", top: "6px", left: "6px",
+    background: "linear-gradient(135deg, #ef4444, #dc2626)",
+    color: "#fff", fontSize: "9px", fontWeight: "800",
+    padding: "3px 8px", borderRadius: "10px",
+    display: "flex", alignItems: "center", gap: "3px",
+    textTransform: "uppercase", letterSpacing: "0.3px",
+    boxShadow: "0 2px 6px rgba(239, 68, 68, 0.4)"
   },
 
-  emptyIcon: {
-    fontSize: "64px"
+  productName: (darkMode) => ({
+    fontSize: "15px", fontWeight: "700",
+    color: darkMode ? "#fff" : "#0f172a",
+    margin: 0, cursor: "pointer", textAlign: "center",
+    lineHeight: 1.3, maxWidth: "200px"
+  }),
+
+  productPrice: {
+    display: "flex", flexDirection: "column",
+    alignItems: "center", gap: "2px"
   },
 
-  empty: (darkMode, isMobile) => ({
-    color: darkMode ? "#e2e8f0" : "#334155",
-    textAlign: "center",
-    fontSize: isMobile ? "18px" : "24px",
-    fontWeight: "600",
-    margin: 0
-  }),
-
-  emptySub: (darkMode) => ({
-    color: darkMode ? "#94a3b8" : "#64748b",
-    textAlign: "center",
-    fontSize: "14px",
-    margin: 0
-  }),
+  price: { fontSize: "20px", fontWeight: "800", color: "#6366f1" },
+  oldPrice: { textDecoration: "line-through", color: "#94a3b8", fontSize: "13px" },
+  offerPrice: { fontSize: "20px", fontWeight: "800", color: "#ef4444" },
 
   addBtn: {
-    background: "linear-gradient(135deg, #22c55e, #16a34a)",
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    gap: "6px", width: "100%", maxWidth: "200px",
+    marginTop: "6px", padding: "9px 14px",
+    color: "#fff", border: "none", borderRadius: "10px",
+    fontSize: "12px", fontWeight: "700", cursor: "pointer",
+    transition: "all 0.2s ease"
+  },
+
+  groupRow: (darkMode) => ({
+    background: darkMode ? "#1e293b" : "#f1f5f9",
+    padding: "12px 16px",
+    fontSize: "14px", fontWeight: "800",
+    color: darkMode ? "#a5b4fc" : "#4f46e5",
+    textTransform: "uppercase", letterSpacing: "0.5px",
+    position: "sticky", left: 0
+  }),
+
+  groupIcon: { marginRight: "8px", fontSize: "16px" },
+
+  dataRow: (darkMode) => ({
+    borderBottom: darkMode ? "1px solid #2d2d3f" : "1px solid #f1f5f9",
+    transition: "background 0.15s"
+  }),
+
+  tdFeature: (darkMode) => ({
+    position: "sticky", left: 0, zIndex: 2,
+    background: darkMode ? "#0a0a0f" : "#f8fafc",
+    padding: "14px 16px",
+    fontSize: "14px", fontWeight: "600",
+    color: darkMode ? "#cbd5e1" : "#334155",
+    borderRight: darkMode ? "1px solid #2d2d3f" : "1px solid #e2e8f0",
+    display: "flex", alignItems: "center", gap: "8px"
+  }),
+
+  diffBadge: {
+    background: "#f59e0b", color: "#fff",
+    fontSize: "10px", fontWeight: "800",
+    padding: "2px 6px", borderRadius: "8px",
+    lineHeight: 1, marginLeft: "auto"
+  },
+
+  tdValue: (darkMode) => ({
+    padding: "14px 16px",
+    fontSize: "14px", textAlign: "center",
+    color: darkMode ? "#e2e8f0" : "#0f172a",
+    fontWeight: "500",
+    transition: "background 0.2s"
+  }),
+
+  bestBadge: {
+    position: "absolute", top: "6px", right: "6px",
+    width: "18px", height: "18px", borderRadius: "50%",
+    background: "linear-gradient(135deg, #10b981, #059669)",
     color: "#fff",
-    border: "none",
-    padding: "14px 32px",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: "9px",
+    boxShadow: "0 2px 6px rgba(16, 185, 129, 0.4)"
+  },
+
+  chip: {
+    display: "inline-block",
+    padding: "4px 12px", borderRadius: "12px",
+    fontSize: "12px", fontWeight: "700"
+  },
+
+  miniBarWrapper: {
+    marginTop: "6px",
+    height: "4px",
+    background: "rgba(99, 102, 241, 0.12)",
+    borderRadius: "2px",
+    overflow: "hidden"
+  },
+
+  miniBarFill: {
+    height: "100%",
+    borderRadius: "2px",
+    transition: "width 0.6s ease"
+  },
+
+  hintBox: (darkMode) => ({
+    marginTop: "16px",
+    padding: "14px 20px",
+    background: darkMode ? "rgba(99, 102, 241, 0.08)" : "rgba(99, 102, 241, 0.05)",
+    border: darkMode ? "1px solid rgba(99, 102, 241, 0.2)" : "1px solid rgba(99, 102, 241, 0.15)",
     borderRadius: "12px",
-    fontWeight: "700",
-    fontSize: "16px",
-    cursor: "pointer",
-    transition: "transform 0.2s",
-    marginTop: "8px",
-    "&:hover": {
-      transform: "scale(1.03)"
-    }
-  }
+    fontSize: "14px",
+    color: darkMode ? "#a5b4fc" : "#4f46e5",
+    textAlign: "center"
+  })
 };
