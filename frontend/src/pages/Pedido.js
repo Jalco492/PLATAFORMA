@@ -265,19 +265,7 @@ export default function Pedido() {
   // 🔥 REF PARA SCROLL AL MENSAJE DE ÉXITO
   const mensajeExitoRef = useRef(null);
   
-  const [mostrarMensaje, setMostrarMensaje] = useState(() => {
-    const carritoGuardado = sessionStorage.getItem("carritoPedido");
-    let tieneProductos = false;
-    if (carritoGuardado) {
-      try {
-        const parsed = JSON.parse(carritoGuardado);
-        tieneProductos = Array.isArray(parsed) && parsed.length > 0;
-      } catch (e) {
-        console.error("Error al cargar carrito:", e);
-      }
-    }
-    return !tieneProductos;
-  });
+  const [mostrarMensaje, setMostrarMensaje] = useState(false);
   
   const [productosDisponibles, setProductosDisponibles] = useState([]);
   const [carrito, setCarrito] = useState([]);
@@ -388,37 +376,69 @@ export default function Pedido() {
     };
   }, [mensajeExito]);
 
+  // 🔥 CARGA INICIAL: PRODUCTOS + CARRITO SINCRONIZADO CON STOCK REAL
   useEffect(() => {
-    const cargarProductos = async () => {
+    const inicializar = async () => {
       try {
+        // 1. Cargar productos frescos del backend
         const res = await api.get("/productos");
-        setProductosDisponibles(res.data || []);
+        const productosFrescos = res.data || [];
+        setProductosDisponibles(productosFrescos);
+
+        // 2. Cargar carrito guardado y sincronizar stock con datos frescos
+        const carritoGuardado = sessionStorage.getItem("carritoPedido");
+        if (carritoGuardado) {
+          try {
+            const parsed = JSON.parse(carritoGuardado);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              let huboAjustes = false;
+
+              const carritoLimpio = parsed.map(item => {
+                // 🔥 Buscar el stock REAL en productos frescos
+                const productoFresco = productosFrescos.find(p => p.id === item.id);
+                const stockReal = productoFresco ? Number(productoFresco.stock) || 0 : 0;
+                
+                // 🔥 Ajustar cantidad si excede el stock
+                let cantidadAjustada = Number(item.cantidad) || 1;
+                if (cantidadAjustada > stockReal) {
+                  cantidadAjustada = stockReal > 0 ? stockReal : 0;
+                  huboAjustes = true;
+                }
+
+                return {
+                  ...item,
+                  precio: Number(item.precio) || 0,
+                  cantidad: cantidadAjustada,
+                  stock: stockReal,
+                  subtotal: (Number(item.precio) || 0) * cantidadAjustada
+                };
+              }).filter(item => item.cantidad > 0); // 🔥 Quitar productos sin stock
+
+              if (huboAjustes) {
+                setMensajeError("⚠️ Algunos productos fueron ajustados porque su stock cambió.");
+              }
+
+              setCarrito(carritoLimpio);
+              sessionStorage.setItem("carritoPedido", JSON.stringify(carritoLimpio));
+              setMostrarMensaje(false);
+            } else {
+              setMostrarMensaje(true);
+            }
+          } catch (e) {
+            console.error("Error al cargar carrito:", e);
+            setMostrarMensaje(true);
+          }
+        } else {
+          setMostrarMensaje(true);
+        }
       } catch (error) {
         console.error("Error cargando productos:", error);
         setProductosDisponibles([]);
+        setMostrarMensaje(true);
       }
     };
-    cargarProductos();
 
-    const carritoGuardado = sessionStorage.getItem("carritoPedido");
-    if (carritoGuardado) {
-      try {
-        const parsed = JSON.parse(carritoGuardado);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const carritoLimpio = parsed.map(item => ({
-            ...item,
-            precio: Number(item.precio) || 0,
-            cantidad: Number(item.cantidad) || 1,
-            stock: Number(item.stock) || 0, // 🔥 PRESERVAR STOCK
-            subtotal: Number(item.subtotal) || (Number(item.precio) || 0) * (Number(item.cantidad) || 1)
-          }));
-          setCarrito(carritoLimpio);
-          setMostrarMensaje(false);
-        }
-      } catch (e) {
-        console.error("Error al cargar carrito:", e);
-      }
-    }
+    inicializar();
   }, []);
 
   useEffect(() => {
@@ -474,6 +494,12 @@ export default function Pedido() {
     productoAgregadoRef.current = true;
     ultimoProductoAgregadoRef.current = identificador;
     
+    // 🔥 Buscar stock real en productosDisponibles
+    const productoFresco = productosDisponibles.find(p => p.id === producto.id);
+    const stockReal = productoFresco 
+      ? Number(productoFresco.stock) || 0 
+      : Number(producto.stock) || 0;
+
     const productoCompleto = {
       id: producto.id,
       nombre: producto.nombre,
@@ -495,7 +521,7 @@ export default function Pedido() {
       unidadAncho: producto.unidadAncho || 'cm',
       unidadAlto: producto.unidadAlto || 'cm',
       metrosCuadrados: producto.metrosCuadrados || 0,
-      stock: Number(producto.stock) || 0, // 🔥 INCLUIR STOCK
+      stock: stockReal,
       unidadMedida: obtenerUnidadMedida(producto.tipoVenta)
     };
     
@@ -508,7 +534,7 @@ export default function Pedido() {
       productoAgregadoRef.current = false;
     }, 200);
     
-  }, [location.state]);
+  }, [location.state, productosDisponibles]);
 
   const toggleFavorito = (producto) => {
     const existe = favoritos.find((fav) => fav.id === producto.id);
@@ -523,18 +549,23 @@ export default function Pedido() {
 
   // 🔥 AGREGAR PRODUCTO AL CARRITO CON VALIDACIÓN DE STOCK
   const agregarProductoAlCarrito = (producto, cantidad = 1) => {
-    setMensajeError(""); // Limpiar errores previos
+    setMensajeError("");
     
     setCarrito(prevCarrito => {
       const existe = prevCarrito.find(item => item.id === producto.id);
-      const stockDisponible = Number(producto.stock) || 0;
+      
+      // 🔥 Buscar stock real en productosDisponibles
+      const productoFresco = productosDisponibles.find(p => p.id === producto.id);
+      const stockDisponible = productoFresco 
+        ? Number(productoFresco.stock) || 0 
+        : Number(producto.stock) || 0;
+      
       const unidad = obtenerUnidadMostrar(producto.tipoVenta);
       
       let nuevoCarrito;
       if (existe) {
         const nuevaCantidad = Number(existe.cantidad) + Number(cantidad);
         
-        // 🔥 VALIDAR STOCK
         if (nuevaCantidad > stockDisponible) {
           setMensajeError(`⚠️ Solo hay ${stockDisponible} ${unidad} disponibles de "${producto.nombre}". Ya tienes ${existe.cantidad} en el carrito.`);
           return prevCarrito;
@@ -545,13 +576,12 @@ export default function Pedido() {
             ? { 
                 ...item, 
                 cantidad: nuevaCantidad, 
-                stock: stockDisponible, // 🔥 ACTUALIZAR STOCK
+                stock: stockDisponible,
                 subtotal: Number(item.precio) * nuevaCantidad 
               }
             : item
         );
       } else {
-        // 🔥 VALIDAR STOCK AL AGREGAR
         if (Number(cantidad) > stockDisponible) {
           setMensajeError(`⚠️ Solo hay ${stockDisponible} ${unidad} disponibles de "${producto.nombre}"`);
           return prevCarrito;
@@ -578,7 +608,7 @@ export default function Pedido() {
           unidadAncho: producto.unidadAncho || 'cm',
           unidadAlto: producto.unidadAlto || 'cm',
           metrosCuadrados: producto.metrosCuadrados || 0,
-          stock: stockDisponible, // 🔥 GUARDAR STOCK
+          stock: stockDisponible,
           cantidad: Number(cantidad),
           subtotal: Number(producto.precio) * Number(cantidad)
         };
@@ -605,16 +635,20 @@ export default function Pedido() {
     const item = carrito.find(i => i.id === id);
     if (!item) return;
     
-    const stockDisponible = Number(item.stock) || 0;
+    // 🔥 Buscar stock real en productosDisponibles (por si cambió)
+    const productoFresco = productosDisponibles.find(p => p.id === id);
+    const stockDisponible = productoFresco 
+      ? Number(productoFresco.stock) || 0 
+      : Number(item.stock) || 0;
+    
     const unidad = obtenerUnidadMostrar(item.tipoVenta);
     
-    // 🔥 VALIDAR STOCK
     if (nuevaCantidad > stockDisponible) {
       setMensajeError(`⚠️ Solo hay ${stockDisponible} ${unidad} disponibles de "${item.nombre}"`);
       return;
     }
     
-    setMensajeError(""); // Limpiar error si la cantidad es válida
+    setMensajeError("");
     
     setCarrito(prevCarrito => {
       const nuevoCarrito = prevCarrito.map(item => 
@@ -622,6 +656,7 @@ export default function Pedido() {
           ? { 
               ...item, 
               cantidad: nuevaCantidad, 
+              stock: stockDisponible,
               subtotal: (Number(item.precio) || 0) * nuevaCantidad 
             }
           : item
@@ -647,7 +682,11 @@ export default function Pedido() {
     const item = carrito.find(i => i.id === id);
     if (!item) return;
     
-    const stockDisponible = Number(item.stock) || 0;
+    const productoFresco = productosDisponibles.find(p => p.id === id);
+    const stockDisponible = productoFresco 
+      ? Number(productoFresco.stock) || 0 
+      : Number(item.stock) || 0;
+    
     const unidad = obtenerUnidadMostrar(item.tipoVenta);
     
     if (valor > stockDisponible) {
@@ -671,10 +710,14 @@ export default function Pedido() {
     const item = carrito.find(i => i.id === id);
     if (!item) return;
     const nuevaCantidad = Number(item.cantidad) + paso;
-    const stockDisponible = Number(item.stock) || 0;
+    
+    const productoFresco = productosDisponibles.find(p => p.id === id);
+    const stockDisponible = productoFresco 
+      ? Number(productoFresco.stock) || 0 
+      : Number(item.stock) || 0;
+    
     const unidad = obtenerUnidadMostrar(item.tipoVenta);
     
-    // 🔥 VALIDAR STOCK
     if (nuevaCantidad > stockDisponible) {
       setMensajeError(`⚠️ Solo hay ${stockDisponible} ${unidad} disponibles de "${item.nombre}"`);
       return;
@@ -702,8 +745,50 @@ export default function Pedido() {
     return sum + subtotal;
   }, 0);
 
+  // 🔥 REFRESCAR STOCK ANTES DE ENVIAR EL PEDIDO
+  const refrescarStockCarrito = async () => {
+    try {
+      const res = await api.get("/productos");
+      const productosFrescos = res.data || [];
+      setProductosDisponibles(productosFrescos);
+
+      let huboCambios = false;
+
+      const carritoActualizado = carrito.map(item => {
+        const fresco = productosFrescos.find(p => p.id === item.id);
+        if (!fresco) {
+          huboCambios = true;
+          return { ...item, stock: 0, cantidad: 0 };
+        }
+        const stockReal = Number(fresco.stock) || 0;
+        const cantidadReal = Math.min(Number(item.cantidad) || 0, stockReal);
+        
+        if (cantidadReal !== Number(item.cantidad) || stockReal !== Number(item.stock)) {
+          huboCambios = true;
+        }
+        
+        return {
+          ...item,
+          stock: stockReal,
+          cantidad: cantidadReal,
+          subtotal: (Number(item.precio) || 0) * cantidadReal
+        };
+      }).filter(item => item.cantidad > 0);
+
+      if (huboCambios) {
+        setCarrito(carritoActualizado);
+        sessionStorage.setItem("carritoPedido", JSON.stringify(carritoActualizado));
+      }
+
+      return carritoActualizado;
+    } catch (e) {
+      console.error("Error refrescando stock:", e);
+      return carrito;
+    }
+  };
+
   // 🔥 VALIDAR FORMULARIO CON VALIDACIÓN DE STOCK
-  const validarFormulario = () => {
+  const validarFormulario = (carritoAValidar = carrito) => {
     if (!cliente.nombre.trim()) {
       setMensajeError("Por favor ingresa tu nombre");
       return false;
@@ -724,13 +809,12 @@ export default function Pedido() {
       setMensajeError("Por favor selecciona la hora de entrega");
       return false;
     }
-    if (carrito.length === 0) {
+    if (carritoAValidar.length === 0) {
       setMensajeError("Agrega al menos un producto al pedido");
       return false;
     }
     
-    // 🔥 VALIDAR STOCK DE TODOS LOS PRODUCTOS
-    for (const item of carrito) {
+    for (const item of carritoAValidar) {
       const stockDisponible = Number(item.stock) || 0;
       const unidad = obtenerUnidadMostrar(item.tipoVenta);
       if (Number(item.cantidad) > stockDisponible) {
@@ -771,16 +855,31 @@ export default function Pedido() {
 
   // 🔥 ENVIAR PEDIDO
   const enviarPedido = async () => {
-    if (!validarFormulario()) return;
-    
     setCargando(true);
     setMensajeError("");
     setMensajeExito("");
     setNumeroPedido("");
 
+    // 🔥 REFRESCAR STOCK ANTES DE VALIDAR
+    const carritoFresco = await refrescarStockCarrito();
+
+    if (carritoFresco.length === 0) {
+      setMensajeError("❌ Los productos de tu carrito ya no tienen stock disponible.");
+      setCargando(false);
+      return;
+    }
+
+    // 🔥 Validar con el carrito actualizado
+    if (!validarFormulario(carritoFresco)) {
+      setCargando(false);
+      return;
+    }
+
     const diaInfo = diasDisponibles.find(d => d.valor === cliente.diaEntrega);
     const fechaEntregaFormateada = diaInfo ? diaInfo.etiqueta : formatearFechaEntrega(cliente.diaEntrega);
     const horaEntregaFormateada = formatearHoraEntrega(cliente.horaEntrega);
+
+    const totalFresco = carritoFresco.reduce((sum, item) => sum + calcularSubtotal(item), 0);
 
     const pedidoData = {
       cliente: {
@@ -793,7 +892,7 @@ export default function Pedido() {
         fechaEntregaFormateada: fechaEntregaFormateada,
         horaEntregaFormateada: horaEntregaFormateada
       },
-      productos: carrito.map(item => ({
+      productos: carritoFresco.map(item => ({
         id: item.id,
         nombre: item.nombre || 'Producto',
         sku: item.sku || 'N/A',
@@ -814,9 +913,9 @@ export default function Pedido() {
         metrosPorRollo: item.metrosPorRollo || 0,
         piezasCaja: item.piezasCaja || 0,
         metrosCuadrados: item.metrosCuadrados || 0,
-        stock: item.stock || 0 // 🔥 INCLUIR STOCK
+        stock: item.stock || 0
       })),
-      total: Number(totalCarrito.toFixed(2))
+      total: Number(totalFresco.toFixed(2))
     };
 
     try {
@@ -845,28 +944,30 @@ export default function Pedido() {
     } catch (error) {
       console.error("Error al guardar pedido:", error);
       
-      // 🔥 MOSTRAR ERROR DE STOCK SI VIENE DEL BACKEND
       if (error.response?.data?.error === "Stock insuficiente" && error.response?.data?.detalles) {
         const detalles = error.response.data.detalles;
         setMensajeError(`❌ ${detalles.join(" | ")}`);
         
-        // 🔥 RECARGAR PRODUCTOS PARA ACTUALIZAR STOCK
         try {
           const res = await api.get("/productos");
-          setProductosDisponibles(res.data || []);
+          const productosFrescos = res.data || [];
+          setProductosDisponibles(productosFrescos);
           
-          // 🔥 ACTUALIZAR STOCK EN EL CARRITO
           setCarrito(prevCarrito => 
             prevCarrito.map(item => {
-              const productoActualizado = res.data.find(p => p.id === item.id);
+              const productoActualizado = productosFrescos.find(p => p.id === item.id);
               if (productoActualizado) {
+                const stockReal = Number(productoActualizado.stock) || 0;
+                const cantidadAjustada = Math.min(Number(item.cantidad) || 0, stockReal);
                 return {
                   ...item,
-                  stock: Number(productoActualizado.stock) || 0
+                  stock: stockReal,
+                  cantidad: cantidadAjustada,
+                  subtotal: (Number(item.precio) || 0) * cantidadAjustada
                 };
               }
               return item;
-            })
+            }).filter(item => item.cantidad > 0)
           );
         } catch (e) {
           console.error("Error recargando productos:", e);
@@ -2087,7 +2188,13 @@ export default function Pedido() {
                     const esDecimal = paso < 1;
                     const subtotal = calcularSubtotal(item);
                     const infoExtra = obtenerInfoExtra(item);
-                    const stockDisponible = Number(item.stock) || 0;
+                    
+                    // 🔥 Stock real desde productosDisponibles si existe
+                    const productoFresco = productosDisponibles.find(p => p.id === item.id);
+                    const stockDisponible = productoFresco 
+                      ? Number(productoFresco.stock) || 0 
+                      : Number(item.stock) || 0;
+                    
                     const cantidadActual = Number(item.cantidad) || 0;
                     const stockBajo = cantidadActual >= stockDisponible;
                     
@@ -2186,7 +2293,12 @@ export default function Pedido() {
                             <input
                               type="number"
                               value={cantidadInput}
-                              onChange={(e) => setCantidadInput(e.target.value)}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                  setCantidadInput(val);
+                                }
+                              }}
                               step={esDecimal ? "0.5" : "1"}
                               min="0"
                               max={stockDisponible}
