@@ -262,6 +262,7 @@ export default function Pedido() {
   const navigate = useNavigate();
   const location = useLocation();
   
+  // 🔥 REF PARA SCROLL AL MENSAJE DE ÉXITO
   const mensajeExitoRef = useRef(null);
   
   const [mostrarMensaje, setMostrarMensaje] = useState(() => {
@@ -305,9 +306,6 @@ export default function Pedido() {
   const [mensajeError, setMensajeError] = useState("");
   const [numeroPedido, setNumeroPedido] = useState("");
   const [folioCopiado, setFolioCopiado] = useState(false);
-  
-  // 🔥 ESTADO PARA LA ALERTA DE STOCK
-  const [alertaStock, setAlertaStock] = useState(null);
 
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem("darkMode") === "true";
@@ -390,28 +388,13 @@ export default function Pedido() {
     };
   }, [mensajeExito]);
 
-  // 🔥 CARGAR PRODUCTOS CON DIAGNÓSTICO DE STOCK
   useEffect(() => {
     const cargarProductos = async () => {
       try {
         const res = await api.get("/productos");
-        
-        // 🔍 DIAGNÓSTICO: Ver qué campos devuelve el backend
-        console.log("🔍 ===== DIAGNÓSTICO DE PRODUCTOS =====");
-        console.log("🔍 Total productos:", res.data?.length || 0);
-        if (res.data && res.data.length > 0) {
-          console.log("🔍 Primer producto COMPLETO:", res.data[0]);
-          console.log("🔍 Campos disponibles:", Object.keys(res.data[0]));
-          console.log("🔍 ¿Tiene 'stock'?:", res.data[0].stock);
-          console.log("🔍 ¿Tiene 'Stock'?:", res.data[0].Stock);
-          console.log("🔍 ¿Tiene 'cantidad'?:", res.data[0].cantidad);
-          console.log("🔍 ¿Tiene 'inventario'?:", res.data[0].inventario);
-        }
-        console.log("🔍 =====================================");
-        
         setProductosDisponibles(res.data || []);
       } catch (error) {
-        console.error("❌ Error cargando productos:", error);
+        console.error("Error cargando productos:", error);
         setProductosDisponibles([]);
       }
     };
@@ -426,7 +409,7 @@ export default function Pedido() {
             ...item,
             precio: Number(item.precio) || 0,
             cantidad: Number(item.cantidad) || 1,
-            stock: Number(item.stock) || 0,
+            stock: Number(item.stock) || 0, // 🔥 PRESERVAR STOCK
             subtotal: Number(item.subtotal) || (Number(item.precio) || 0) * (Number(item.cantidad) || 1)
           }));
           setCarrito(carritoLimpio);
@@ -491,10 +474,6 @@ export default function Pedido() {
     productoAgregadoRef.current = true;
     ultimoProductoAgregadoRef.current = identificador;
     
-    // 🔍 DIAGNÓSTICO: ver si el producto viene con stock
-    console.log("🔍 Producto agregado desde navegación:", producto);
-    console.log("🔍 Stock recibido:", producto.stock);
-    
     const productoCompleto = {
       id: producto.id,
       nombre: producto.nombre,
@@ -516,7 +495,7 @@ export default function Pedido() {
       unidadAncho: producto.unidadAncho || 'cm',
       unidadAlto: producto.unidadAlto || 'cm',
       metrosCuadrados: producto.metrosCuadrados || 0,
-      stock: Number(producto.stock) || 0,
+      stock: Number(producto.stock) || 0, // 🔥 INCLUIR STOCK
       unidadMedida: obtenerUnidadMedida(producto.tipoVenta)
     };
     
@@ -542,35 +521,22 @@ export default function Pedido() {
 
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
-  const mostrarErrorTemporal = (mensaje) => {
-    setMensajeError(mensaje);
-    setTimeout(() => setMensajeError(""), 3500);
-  };
-
-  const mostrarAlertaStock = (producto, stockDisponible, cantidadSolicitada) => {
-    setAlertaStock({
-      nombre: producto.nombre,
-      stockDisponible: Number(stockDisponible) || 0,
-      cantidadSolicitada: Number(cantidadSolicitada) || 0,
-      unidad: obtenerUnidadMostrar(producto.tipoVenta),
-      imagen: producto.imagen || obtenerImagenProducto(producto)
-    });
-    
-    setTimeout(() => setAlertaStock(null), 4000);
-  };
-
+  // 🔥 AGREGAR PRODUCTO AL CARRITO CON VALIDACIÓN DE STOCK
   const agregarProductoAlCarrito = (producto, cantidad = 1) => {
+    setMensajeError(""); // Limpiar errores previos
+    
     setCarrito(prevCarrito => {
       const existe = prevCarrito.find(item => item.id === producto.id);
-      
       const stockDisponible = Number(producto.stock) || 0;
+      const unidad = obtenerUnidadMostrar(producto.tipoVenta);
       
       let nuevoCarrito;
       if (existe) {
         const nuevaCantidad = Number(existe.cantidad) + Number(cantidad);
         
+        // 🔥 VALIDAR STOCK
         if (nuevaCantidad > stockDisponible) {
-          mostrarAlertaStock(producto, stockDisponible, nuevaCantidad);
+          setMensajeError(`⚠️ Solo hay ${stockDisponible} ${unidad} disponibles de "${producto.nombre}". Ya tienes ${existe.cantidad} en el carrito.`);
           return prevCarrito;
         }
         
@@ -579,13 +545,15 @@ export default function Pedido() {
             ? { 
                 ...item, 
                 cantidad: nuevaCantidad, 
+                stock: stockDisponible, // 🔥 ACTUALIZAR STOCK
                 subtotal: Number(item.precio) * nuevaCantidad 
               }
             : item
         );
       } else {
+        // 🔥 VALIDAR STOCK AL AGREGAR
         if (Number(cantidad) > stockDisponible) {
-          mostrarAlertaStock(producto, stockDisponible, cantidad);
+          setMensajeError(`⚠️ Solo hay ${stockDisponible} ${unidad} disponibles de "${producto.nombre}"`);
           return prevCarrito;
         }
         
@@ -610,7 +578,7 @@ export default function Pedido() {
           unidadAncho: producto.unidadAncho || 'cm',
           unidadAlto: producto.unidadAlto || 'cm',
           metrosCuadrados: producto.metrosCuadrados || 0,
-          stock: stockDisponible,
+          stock: stockDisponible, // 🔥 GUARDAR STOCK
           cantidad: Number(cantidad),
           subtotal: Number(producto.precio) * Number(cantidad)
         };
@@ -630,19 +598,25 @@ export default function Pedido() {
     });
   };
 
+  // 🔥 ACTUALIZAR CANTIDAD CON VALIDACIÓN DE STOCK
   const actualizarCantidad = (id, nuevaCantidad) => {
     if (nuevaCantidad < 0.1) return;
     
+    const item = carrito.find(i => i.id === id);
+    if (!item) return;
+    
+    const stockDisponible = Number(item.stock) || 0;
+    const unidad = obtenerUnidadMostrar(item.tipoVenta);
+    
+    // 🔥 VALIDAR STOCK
+    if (nuevaCantidad > stockDisponible) {
+      setMensajeError(`⚠️ Solo hay ${stockDisponible} ${unidad} disponibles de "${item.nombre}"`);
+      return;
+    }
+    
+    setMensajeError(""); // Limpiar error si la cantidad es válida
+    
     setCarrito(prevCarrito => {
-      const item = prevCarrito.find(i => i.id === id);
-      if (!item) return prevCarrito;
-      
-      const stockDisponible = Number(item.stock) || 0;
-      if (nuevaCantidad > stockDisponible) {
-        mostrarAlertaStock(item, stockDisponible, nuevaCantidad);
-        return prevCarrito;
-      }
-      
       const nuevoCarrito = prevCarrito.map(item => 
         item.id === id 
           ? { 
@@ -662,10 +636,11 @@ export default function Pedido() {
     setCantidadInput(String(item.cantidad));
   };
 
+  // 🔥 GUARDAR EDICIÓN CON VALIDACIÓN DE STOCK
   const guardarEdicionCantidad = (id) => {
     const valor = parseFloat(cantidadInput);
     if (isNaN(valor) || valor <= 0) {
-      mostrarErrorTemporal("Por favor ingresa una cantidad válida");
+      setMensajeError("Por favor ingresa una cantidad válida");
       return;
     }
     
@@ -673,14 +648,17 @@ export default function Pedido() {
     if (!item) return;
     
     const stockDisponible = Number(item.stock) || 0;
+    const unidad = obtenerUnidadMostrar(item.tipoVenta);
+    
     if (valor > stockDisponible) {
-      mostrarAlertaStock(item, stockDisponible, valor);
+      setMensajeError(`⚠️ Solo hay ${stockDisponible} ${unidad} disponibles de "${item.nombre}"`);
       return;
     }
     
     actualizarCantidad(id, valor);
     setEditandoCantidad(null);
     setCantidadInput("");
+    setMensajeError("");
   };
 
   const cancelarEdicionCantidad = () => {
@@ -688,18 +666,21 @@ export default function Pedido() {
     setCantidadInput("");
   };
 
+  // 🔥 INCREMENTAR CON VALIDACIÓN DE STOCK
   const incrementarCantidad = (id, paso = 1) => {
     const item = carrito.find(i => i.id === id);
     if (!item) return;
-    
-    const stockDisponible = Number(item.stock) || 0;
     const nuevaCantidad = Number(item.cantidad) + paso;
+    const stockDisponible = Number(item.stock) || 0;
+    const unidad = obtenerUnidadMostrar(item.tipoVenta);
     
+    // 🔥 VALIDAR STOCK
     if (nuevaCantidad > stockDisponible) {
-      mostrarAlertaStock(item, stockDisponible, nuevaCantidad);
+      setMensajeError(`⚠️ Solo hay ${stockDisponible} ${unidad} disponibles de "${item.nombre}"`);
       return;
     }
     
+    setMensajeError("");
     actualizarCantidad(id, nuevaCantidad);
   };
 
@@ -721,6 +702,7 @@ export default function Pedido() {
     return sum + subtotal;
   }, 0);
 
+  // 🔥 VALIDAR FORMULARIO CON VALIDACIÓN DE STOCK
   const validarFormulario = () => {
     if (!cliente.nombre.trim()) {
       setMensajeError("Por favor ingresa tu nombre");
@@ -747,12 +729,12 @@ export default function Pedido() {
       return false;
     }
     
+    // 🔥 VALIDAR STOCK DE TODOS LOS PRODUCTOS
     for (const item of carrito) {
       const stockDisponible = Number(item.stock) || 0;
+      const unidad = obtenerUnidadMostrar(item.tipoVenta);
       if (Number(item.cantidad) > stockDisponible) {
-        setMensajeError(
-          `⚠️ El producto "${item.nombre}" excede el stock disponible (${stockDisponible} ${obtenerUnidadMostrar(item.tipoVenta)})`
-        );
+        setMensajeError(`⚠️ "${item.nombre}" solo tiene ${stockDisponible} ${unidad} disponibles. Ajusta la cantidad.`);
         return false;
       }
     }
@@ -787,6 +769,7 @@ export default function Pedido() {
     }
   };
 
+  // 🔥 ENVIAR PEDIDO
   const enviarPedido = async () => {
     if (!validarFormulario()) return;
     
@@ -830,7 +813,8 @@ export default function Pedido() {
         anchoProducto: item.anchoProducto || 0,
         metrosPorRollo: item.metrosPorRollo || 0,
         piezasCaja: item.piezasCaja || 0,
-        metrosCuadrados: item.metrosCuadrados || 0
+        metrosCuadrados: item.metrosCuadrados || 0,
+        stock: item.stock || 0 // 🔥 INCLUIR STOCK
       })),
       total: Number(totalCarrito.toFixed(2))
     };
@@ -860,7 +844,36 @@ export default function Pedido() {
       }
     } catch (error) {
       console.error("Error al guardar pedido:", error);
-      setMensajeError("❌ Error al crear el pedido. Por favor intenta de nuevo.");
+      
+      // 🔥 MOSTRAR ERROR DE STOCK SI VIENE DEL BACKEND
+      if (error.response?.data?.error === "Stock insuficiente" && error.response?.data?.detalles) {
+        const detalles = error.response.data.detalles;
+        setMensajeError(`❌ ${detalles.join(" | ")}`);
+        
+        // 🔥 RECARGAR PRODUCTOS PARA ACTUALIZAR STOCK
+        try {
+          const res = await api.get("/productos");
+          setProductosDisponibles(res.data || []);
+          
+          // 🔥 ACTUALIZAR STOCK EN EL CARRITO
+          setCarrito(prevCarrito => 
+            prevCarrito.map(item => {
+              const productoActualizado = res.data.find(p => p.id === item.id);
+              if (productoActualizado) {
+                return {
+                  ...item,
+                  stock: Number(productoActualizado.stock) || 0
+                };
+              }
+              return item;
+            })
+          );
+        } catch (e) {
+          console.error("Error recargando productos:", e);
+        }
+      } else {
+        setMensajeError("❌ Error al crear el pedido. Por favor intenta de nuevo.");
+      }
     } finally {
       setCargando(false);
     }
@@ -882,221 +895,7 @@ export default function Pedido() {
   };
 
   // =====================================================
-  // 🔥 COMPONENTE DE ALERTA DE STOCK
-  // =====================================================
-  const AlertaStockModal = () => {
-    if (!alertaStock) return null;
-
-    return (
-      <div
-        onClick={() => setAlertaStock(null)}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.65)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 99999,
-          padding: '20px',
-          animation: 'fadeInAlert 0.25s ease'
-        }}
-      >
-        <style>{`
-          @keyframes fadeInAlert {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-          @keyframes shakeAlert {
-            0%, 100% { transform: translateX(0); }
-            20% { transform: translateX(-10px); }
-            40% { transform: translateX(10px); }
-            60% { transform: translateX(-6px); }
-            80% { transform: translateX(6px); }
-          }
-          @keyframes popInAlert {
-            0% { transform: scale(0.85); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-          }
-        `}</style>
-
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            background: darkMode 
-              ? 'linear-gradient(135deg, #1e1b4b, #312e81)' 
-              : 'linear-gradient(135deg, #ffffff, #fef2f2)',
-            borderRadius: '24px',
-            padding: '32px 28px',
-            maxWidth: '440px',
-            width: '100%',
-            border: darkMode 
-              ? '3px solid rgba(239, 68, 68, 0.5)' 
-              : '3px solid #fca5a5',
-            boxShadow: darkMode
-              ? '0 25px 80px rgba(0,0,0,0.9), 0 0 60px rgba(239,68,68,0.3)'
-              : '0 25px 80px rgba(0,0,0,0.2), 0 0 60px rgba(239,68,68,0.2)',
-            textAlign: 'center',
-            animation: 'popInAlert 0.3s ease, shakeAlert 0.5s ease',
-            position: 'relative',
-            overflow: 'hidden'
-          }}
-        >
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '5px',
-            background: 'linear-gradient(90deg, #ef4444, #f59e0b, #ef4444)'
-          }} />
-
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '80px',
-            height: '80px',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-            marginBottom: '20px',
-            boxShadow: '0 8px 30px rgba(239, 68, 68, 0.5)',
-            fontSize: '40px'
-          }}>
-            ⚠️
-          </div>
-
-          <h3 style={{
-            color: darkMode ? '#fca5a5' : '#991b1b',
-            fontSize: '22px',
-            fontWeight: '900',
-            margin: '0 0 10px 0',
-            letterSpacing: '-0.3px'
-          }}>
-            Stock Insuficiente
-          </h3>
-
-          <p style={{
-            color: darkMode ? '#e0e7ff' : '#374151',
-            fontSize: '14px',
-            margin: '0 0 20px 0',
-            fontWeight: '600',
-            lineHeight: '1.5'
-          }}>
-            No puedes agregar más de lo disponible
-          </p>
-
-          <div style={{
-            background: darkMode 
-              ? 'rgba(255,255,255,0.05)' 
-              : 'linear-gradient(135deg, #fef2f2, #fee2e2)',
-            border: darkMode 
-              ? '1.5px solid rgba(239,68,68,0.3)' 
-              : '1.5px solid #fecaca',
-            borderRadius: '16px',
-            padding: '16px',
-            marginBottom: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '14px',
-            textAlign: 'left'
-          }}>
-            <img
-              src={alertaStock.imagen}
-              alt={alertaStock.nombre}
-              style={{
-                width: '56px',
-                height: '56px',
-                objectFit: 'cover',
-                borderRadius: '10px',
-                border: '2px solid #fca5a5',
-                flexShrink: 0
-              }}
-              onError={(e) => {
-                e.target.src = 'https://via.placeholder.com/56?text=?';
-              }}
-            />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                color: darkMode ? '#fff' : '#111827',
-                fontSize: '14px',
-                fontWeight: '700',
-                marginBottom: '4px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}>
-                {alertaStock.nombre}
-              </div>
-              <div style={{
-                color: darkMode ? '#fca5a5' : '#dc2626',
-                fontSize: '12px',
-                fontWeight: '700'
-              }}>
-                📦 Disponible: {alertaStock.stockDisponible} {alertaStock.unidad}
-              </div>
-              <div style={{
-                color: darkMode ? '#94a3b8' : '#6b7280',
-                fontSize: '11px',
-                fontWeight: '600',
-                marginTop: '2px'
-              }}>
-                Solicitaste: {alertaStock.cantidadSolicitada} {alertaStock.unidad}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
-            <button
-              onClick={() => setAlertaStock(null)}
-              style={{
-                padding: '14px',
-                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '12px',
-                fontSize: '15px',
-                fontWeight: '800',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                boxShadow: '0 4px 20px rgba(59, 130, 246, 0.4)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 8px 30px rgba(59, 130, 246, 0.6)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(59, 130, 246, 0.4)';
-              }}
-            >
-              <FaCheck size={14} /> Entendido
-            </button>
-          </div>
-
-          <p style={{
-            color: darkMode ? '#64748b' : '#9ca3af',
-            fontSize: '11px',
-            margin: '14px 0 0 0',
-            fontStyle: 'italic'
-          }}>
-            Esta alerta se cerrará automáticamente
-          </p>
-        </div>
-      </div>
-    );
-  };
-
-  // =====================================================
-  // 🔥 VISTA 2: MENSAJE DE ÉXITO CON FOLIO
+  // 🔥 VISTA 2: MENSAJE DE ÉXITO CON FOLIO (PRIORIDAD MÁXIMA)
   // =====================================================
   if (mensajeExito) {
     return (
@@ -1368,7 +1167,7 @@ export default function Pedido() {
   }
 
   // =====================================================
-  // 🔥 VISTA 1: MENSAJE INFORMATIVO INICIAL
+  // 🔥 VISTA 1: MENSAJE INFORMATIVO INICIAL (SOLO SI NO HAY ÉXITO)
   // =====================================================
   if (mostrarMensaje && carrito.length === 0) {
     return (
@@ -1738,9 +1537,25 @@ export default function Pedido() {
               padding: '14px 18px',
               marginBottom: '16px',
               color: darkMode ? '#fca5a5' : '#991b1b',
-              fontWeight: '600'
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px'
             }}>
-              {mensajeError}
+              <span>{mensajeError}</span>
+              <button
+                onClick={() => setMensajeError("")}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  padding: '0 4px'
+                }}
+              >
+                ✕
+              </button>
             </div>
           )}
 
@@ -1880,6 +1695,7 @@ export default function Pedido() {
             </div>
           </div>
 
+          {/* 🔥 SECCIÓN DE FECHA Y HORA DE ENTREGA */}
           <div style={{
             background: darkMode ? 'rgba(59, 130, 246, 0.05)' : '#f8fafc',
             borderRadius: '16px',
@@ -2272,8 +2088,8 @@ export default function Pedido() {
                     const subtotal = calcularSubtotal(item);
                     const infoExtra = obtenerInfoExtra(item);
                     const stockDisponible = Number(item.stock) || 0;
-                    const alcanzoStock = Number(item.cantidad) >= stockDisponible;
-                    const stockBajo = stockDisponible > 0 && Number(item.cantidad) >= stockDisponible * 0.8;
+                    const cantidadActual = Number(item.cantidad) || 0;
+                    const stockBajo = cantidadActual >= stockDisponible;
                     
                     return (
                       <div key={item.id} style={{
@@ -2318,20 +2134,18 @@ export default function Pedido() {
                             SKU: {item.sku || 'N/A'}
                           </div>
                           
+                          {/* 🔥 MOSTRAR STOCK DISPONIBLE */}
                           <div style={{ 
-                            color: alcanzoStock 
-                              ? (darkMode ? '#fca5a5' : '#dc2626')
-                              : stockBajo
-                                ? (darkMode ? '#fcd34d' : '#d97706')
-                                : (darkMode ? '#86efac' : '#16a34a'), 
-                            fontSize: '10px',
-                            fontWeight: '700',
-                            marginTop: '2px'
+                            color: stockBajo ? '#ef4444' : '#22c55e', 
+                            fontSize: '11px', 
+                            fontWeight: '600',
+                            marginTop: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
                           }}>
-                            {alcanzoStock 
-                              ? `⚠️ Stock máximo: ${stockDisponible} ${unidad}`
-                              : `📦 Stock: ${stockDisponible} ${unidad}`
-                            }
+                            📦 Stock: {stockDisponible} {unidad}
+                            {stockBajo && <span style={{ color: '#ef4444' }}>(máximo alcanzado)</span>}
                           </div>
                           
                           <div style={{ 
@@ -2470,26 +2284,26 @@ export default function Pedido() {
                             
                             <button
                               onClick={() => incrementarCantidad(item.id, paso)}
-                              disabled={alcanzoStock}
+                              disabled={stockBajo}
                               style={{
                                 width: '28px',
                                 height: '28px',
                                 borderRadius: '7px',
                                 border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
-                                background: alcanzoStock
-                                  ? (darkMode ? 'rgba(100,100,100,0.1)' : '#f1f5f9')
+                                background: stockBajo 
+                                  ? (darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2') 
                                   : (darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc'),
-                                color: alcanzoStock
-                                  ? (darkMode ? '#475569' : '#cbd5e1')
+                                color: stockBajo 
+                                  ? (darkMode ? '#fca5a5' : '#991b1b') 
                                   : (darkMode ? '#fff' : '#111827'),
-                                cursor: alcanzoStock ? 'not-allowed' : 'pointer',
+                                cursor: stockBajo ? 'not-allowed' : 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 fontSize: '10px',
-                                opacity: alcanzoStock ? 0.5 : 1
+                                opacity: stockBajo ? 0.6 : 1
                               }}
-                              title={alcanzoStock ? 'Stock máximo alcanzado' : 'Incrementar'}
+                              title={stockBajo ? `Máximo alcanzado (${stockDisponible} ${unidad})` : ''}
                             >
                               <FaPlus size={8} />
                             </button>
@@ -2583,9 +2397,6 @@ export default function Pedido() {
           </button>
         </div>
       </div>
-
-      {/* 🔥 ALERTA DE STOCK EXCEDIDO */}
-      <AlertaStockModal />
 
       <Footer darkMode={darkMode} />
     </div>

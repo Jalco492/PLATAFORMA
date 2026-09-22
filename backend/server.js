@@ -66,7 +66,6 @@ const obtenerUnidadLegible = (tipoVenta) => {
 
 // =================================================
 // 🔥 FUNCIÓN AUXILIAR: FORMATEAR FECHA Y HORA
-// ✅ CORREGIDA para aceptar Date, string ISO y string formateado
 // =================================================
 const formatearFecha = (fechaISO) => {
   if (!fechaISO) return '';
@@ -143,7 +142,6 @@ app.post("/upload-banner", upload.single("imagen"), (req, res) => {
 
 // =================================================
 // ⚙️ CONFIGURACIÓN GLOBAL (fecha de ofertas, etc.)
-// 🔥 NUEVO: sincroniza la fecha de oferta entre dispositivos
 // =================================================
 app.get("/configuracion/:clave", async (req, res) => {
   try {
@@ -227,17 +225,19 @@ app.post("/enviar-cotizacion", async (req, res) => {
 // =================================================
 // 📋 PEDIDOS - GENERAR NÚMERO DE PEDIDO ÚNICO
 // =================================================
-const generarNumeroPedido = async () => {
+const generarNumeroPedido = async (connection = null) => {
   const fecha = new Date();
   const año = fecha.getFullYear();
   const mes = String(fecha.getMonth() + 1).padStart(2, '0');
   const dia = String(fecha.getDate()).padStart(2, '0');
   const fechaStr = `${año}${mes}${dia}`;
   
-  const [rows] = await db.query(
-    "SELECT numero_pedido FROM pedidos WHERE numero_pedido LIKE ? ORDER BY id DESC LIMIT 1",
-    [`PED-${fechaStr}-%`]
-  );
+  const query = "SELECT numero_pedido FROM pedidos WHERE numero_pedido LIKE ? ORDER BY id DESC LIMIT 1";
+  const params = [`PED-${fechaStr}-%`];
+  
+  const [rows] = connection 
+    ? await connection.query(query, params)
+    : await db.query(query, params);
   
   let consecutivo = 1;
   if (rows.length > 0) {
@@ -252,21 +252,63 @@ const generarNumeroPedido = async () => {
 };
 
 // =================================================
-// 📋 CREAR PEDIDO
+// 📋 CREAR PEDIDO (CON VALIDACIÓN Y DESCUENTO DE STOCK)
 // =================================================
 app.post("/pedidos", async (req, res) => {
+  let connection;
   try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    
     const { cliente, productos, total } = req.body;
     
     if (!cliente || !cliente.nombre || !cliente.email || !cliente.celular) {
+      await connection.rollback();
       return res.status(400).json({ error: "Datos del cliente incompletos" });
     }
     
     if (!productos || productos.length === 0) {
+      await connection.rollback();
       return res.status(400).json({ error: "No hay productos en el pedido" });
     }
     
-    const numeroPedido = await generarNumeroPedido();
+    // 🔥 VALIDAR STOCK DE TODOS LOS PRODUCTOS ANTES DE CREAR EL PEDIDO
+    const erroresStock = [];
+    for (const item of productos) {
+      if (!item.id) continue;
+      
+      const [rows] = await connection.query(
+        "SELECT id, nombre, stock, tipoVenta FROM productos WHERE id = ?",
+        [item.id]
+      );
+      
+      if (rows.length === 0) {
+        erroresStock.push(`El producto "${item.nombre}" ya no existe.`);
+        continue;
+      }
+      
+      const productoDB = rows[0];
+      const stockDisponible = Number(productoDB.stock) || 0;
+      const cantidadSolicitada = Number(item.cantidad) || 0;
+      
+      if (cantidadSolicitada > stockDisponible) {
+        const unidad = obtenerUnidadLegible(productoDB.tipoVenta);
+        erroresStock.push(
+          `"${productoDB.nombre}" solo tiene ${stockDisponible} ${unidad} disponibles (solicitaste ${cantidadSolicitada}).`
+        );
+      }
+    }
+    
+    if (erroresStock.length > 0) {
+      await connection.rollback();
+      console.log("❌ Stock insuficiente:", erroresStock);
+      return res.status(400).json({ 
+        error: "Stock insuficiente", 
+        detalles: erroresStock 
+      });
+    }
+    
+    const numeroPedido = await generarNumeroPedido(connection);
     
     const sqlPedido = `
       INSERT INTO pedidos (
@@ -283,7 +325,7 @@ app.post("/pedidos", async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `;
     
-    const [resultPedido] = await db.query(sqlPedido, [
+    const [resultPedido] = await connection.query(sqlPedido, [
       numeroPedido,
       cliente.nombre,
       cliente.email,
@@ -313,7 +355,7 @@ app.post("/pedidos", async (req, res) => {
     `;
     
     for (const item of productos) {
-      await db.query(sqlProducto, [
+      await connection.query(sqlProducto, [
         pedidoId,
         item.id || null,
         item.nombre,
@@ -325,7 +367,18 @@ app.post("/pedidos", async (req, res) => {
         item.subtotal,
         item.imagen || null
       ]);
+      
+      // 🔥 DESCONTAR STOCK
+      if (item.id) {
+        await connection.query(
+          "UPDATE productos SET stock = stock - ? WHERE id = ?",
+          [item.cantidad, item.id]
+        );
+        console.log(`📦 Stock descontado: producto ${item.id} "${item.nombre}" → -${item.cantidad}`);
+      }
     }
+    
+    await connection.commit();
     
     try {
       await enviarCorreoPedido(cliente, numeroPedido, productos, total);
@@ -341,11 +394,94 @@ app.post("/pedidos", async (req, res) => {
     });
     
   } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (e) {}
+    }
     console.error("Error al crear pedido:", error);
     res.status(500).json({ 
       error: "Error al crear el pedido",
       details: error.message 
     });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// =================================================
+// 📦 VERIFICAR STOCK DE UN PRODUCTO
+// =================================================
+app.get("/productos/:id/stock", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await db.query(
+      "SELECT id, nombre, stock, tipoVenta FROM productos WHERE id = ?",
+      [id]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Producto no encontrado" });
+    }
+    
+    res.json({
+      id: rows[0].id,
+      nombre: rows[0].nombre,
+      stock: Number(rows[0].stock) || 0,
+      tipoVenta: rows[0].tipoVenta
+    });
+  } catch (error) {
+    console.error("Error al verificar stock:", error);
+    res.status(500).json({ error: "Error al verificar stock" });
+  }
+});
+
+// =================================================
+// 📦 VERIFICAR STOCK DE VARIOS PRODUCTOS
+// =================================================
+app.post("/productos/verificar-stock", async (req, res) => {
+  try {
+    const { productos } = req.body;
+    
+    if (!productos || !Array.isArray(productos)) {
+      return res.status(400).json({ error: "Formato inválido" });
+    }
+    
+    const resultados = [];
+    
+    for (const item of productos) {
+      const [rows] = await db.query(
+        "SELECT id, nombre, stock, tipoVenta FROM productos WHERE id = ?",
+        [item.id]
+      );
+      
+      if (rows.length === 0) {
+        resultados.push({
+          id: item.id,
+          disponible: false,
+          mensaje: "Producto no encontrado"
+        });
+        continue;
+      }
+      
+      const productoDB = rows[0];
+      const stockDisponible = Number(productoDB.stock) || 0;
+      const cantidadSolicitada = Number(item.cantidad) || 0;
+      
+      resultados.push({
+        id: item.id,
+        nombre: productoDB.nombre,
+        stock: stockDisponible,
+        cantidadSolicitada,
+        disponible: cantidadSolicitada <= stockDisponible,
+        mensaje: cantidadSolicitada > stockDisponible 
+          ? `Solo hay ${stockDisponible} disponibles` 
+          : "Stock suficiente"
+      });
+    }
+    
+    res.json({ resultados });
+  } catch (error) {
+    console.error("Error al verificar stock:", error);
+    res.status(500).json({ error: "Error al verificar stock" });
   }
 });
 
@@ -430,7 +566,7 @@ app.get("/pedidos/numero/:numero", async (req, res) => {
 });
 
 // =================================================
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO (con Resend)
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO
 // =================================================
 const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => {
   console.log("=================================================");
@@ -439,8 +575,6 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
   console.log("   Email:", pedido.cliente_email);
   console.log("   Estado anterior:", estadoAnterior);
   console.log("   Estado nuevo:", estadoNuevo);
-  console.log("   Día entrega:", pedido.dia_entrega);
-  console.log("   Hora entrega:", pedido.hora_entrega);
   console.log("=================================================");
 
   const estadoLabels = {
@@ -499,9 +633,6 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
 
   const fechaEntrega = pedido.dia_entrega ? formatearFecha(pedido.dia_entrega) : null;
   const horaEntrega = pedido.hora_entrega ? formatearHora(pedido.hora_entrega) : null;
-
-  console.log(`   Fecha formateada: ${fechaEntrega || 'N/A'}`);
-  console.log(`   Hora formateada: ${horaEntrega || 'N/A'}`);
 
   const html = `
     <!DOCTYPE html>
@@ -645,12 +776,9 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
       html: html
     });
     console.log("✅ RESULTADO RESEND:", JSON.stringify(resultado, null, 2));
-    console.log(`✅ Correo de actualización enviado a ${pedido.cliente_email}`);
     return resultado;
   } catch (error) {
-    console.error("❌ ERROR AL ENVIAR CORREO:");
-    console.error("   Mensaje:", error.message);
-    console.error("   Stack:", error.stack);
+    console.error("❌ ERROR AL ENVIAR CORREO:", error.message);
     throw error;
   }
 };
@@ -663,29 +791,23 @@ app.put("/pedidos/:id/estado", async (req, res) => {
     const { id } = req.params;
     const { estado } = req.body;
     
-    console.log("=================================================");
     console.log("🔄 ACTUALIZANDO ESTADO DE PEDIDO");
     console.log("   ID pedido:", id);
     console.log("   Nuevo estado:", estado);
-    console.log("=================================================");
     
     const estadosValidos = ['pendiente', 'confirmado', 'en_preparacion', 'listo', 'entregado', 'cancelado'];
     if (!estadosValidos.includes(estado)) {
-      console.log("❌ Estado no válido:", estado);
       return res.status(400).json({ error: "Estado no válido" });
     }
     
     const [pedidoActual] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedidoActual.length === 0) {
-      console.log("❌ Pedido no encontrado:", id);
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
     
     const estadoAnterior = pedidoActual[0].estado;
-    console.log("   Estado anterior:", estadoAnterior);
     
     if (estadoAnterior === estado) {
-      console.log("⚠️ El estado es el mismo, no se envía correo");
       return res.json({ 
         success: true, 
         mensaje: "El estado ya era el mismo",
@@ -699,7 +821,6 @@ app.put("/pedidos/:id/estado", async (req, res) => {
       "UPDATE pedidos SET estado = ? WHERE id = ?",
       [estado, id]
     );
-    console.log("✅ Estado actualizado en BD");
     
     const [pedidoActualizado] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     
@@ -709,10 +830,8 @@ app.put("/pedidos/:id/estado", async (req, res) => {
     try {
       await enviarCorreoEstadoPedido(pedidoActualizado[0], estadoAnterior, estado);
       correoEnviado = true;
-      console.log("✅ CORREO ENVIADO CORRECTAMENTE");
     } catch (emailError) {
       errorCorreo = emailError.message;
-      console.error("❌ ERROR AL ENVIAR CORREO:", emailError.message);
     }
     
     res.json({ 
@@ -730,7 +849,7 @@ app.put("/pedidos/:id/estado", async (req, res) => {
 });
 
 // =================================================
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO) con Resend
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO)
 // =================================================
 const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
   const productosHtml = productos.map(p => {
@@ -982,7 +1101,6 @@ app.get("/productos/destacados", async (req, res) => {
 app.get("/productos/categoria-id/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`🔍 Buscando productos para categoría ID: ${id}`);
     
     const [catCheck] = await db.query("SELECT id FROM categorias WHERE id = ?", [id]);
     if (catCheck.length === 0) {
@@ -1003,7 +1121,6 @@ app.get("/productos/categoria-id/:id", async (req, res) => {
       ORDER BY productos.nombre ASC
     `;
     const [result] = await db.query(sql, [id]);
-    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
   } catch (err) {
     console.error('❌ Error en /productos/categoria-id/:id:', err);
@@ -1071,7 +1188,6 @@ app.get("/productos/subcategoria/:nombre", async (req, res) => {
 app.get("/productos/subcategoria-id/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`🔍 Buscando productos para subcategoría ID: ${id}`);
     
     const [subCheck] = await db.query("SELECT id FROM subcategorias WHERE id = ?", [id]);
     if (subCheck.length === 0) {
@@ -1092,7 +1208,6 @@ app.get("/productos/subcategoria-id/:id", async (req, res) => {
       ORDER BY productos.nombre ASC
     `;
     const [rows] = await db.query(sql, [id]);
-    console.log(`✅ Encontrados ${rows.length} productos`);
     res.json(rows);
   } catch (error) {
     console.error('❌ Error en /productos/subcategoria-id/:id:', error);
@@ -1106,7 +1221,6 @@ app.get("/productos/subcategoria-id/:id", async (req, res) => {
 app.get("/productos/tipo/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`🔍 Buscando productos con tipo_id = ${id}`);
     
     const [tipoCheck] = await db.query("SELECT id FROM tipos WHERE id = ?", [id]);
     if (tipoCheck.length === 0) {
@@ -1128,7 +1242,6 @@ app.get("/productos/tipo/:id", async (req, res) => {
     `;
 
     const [result] = await db.query(sql, [id]);
-    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
   } catch (err) {
     console.error("❌ Error en /productos/tipo/:id", err);
@@ -1142,7 +1255,6 @@ app.get("/productos/tipo/:id", async (req, res) => {
 app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
   try {
     const { nombre } = req.params;
-    console.log(`🔍 Buscando productos con tipo: ${nombre}`);
     
     const sql = `
       SELECT 
@@ -1159,7 +1271,6 @@ app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
     `;
 
     const [result] = await db.query(sql, [nombre]);
-    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
   } catch (err) {
     console.error("❌ Error en /productos/tipo-nombre/:nombre", err);
@@ -1173,8 +1284,6 @@ app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
 app.get("/productos/filtro", async (req, res) => {
   try {
     const { categoria_id, subcategoria_id, tipo_id } = req.query;
-    
-    console.log(`🔍 Filtrando productos: categoria=${categoria_id}, subcategoria=${subcategoria_id}, tipo=${tipo_id}`);
     
     let sql = `
       SELECT 
@@ -1213,12 +1322,7 @@ app.get("/productos/filtro", async (req, res) => {
     
     sql += ' ORDER BY productos.nombre ASC';
     
-    console.log(`📝 SQL: ${sql}`);
-    console.log(`📊 Valores: ${valores}`);
-    
     const [result] = await db.query(sql, valores);
-    
-    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
     
   } catch (err) {
@@ -1263,7 +1367,6 @@ app.get("/tipos/:id", async (req, res) => {
 app.get("/subcategorias/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`🔍 Buscando subcategoría ID: ${id}`);
     
     const sql = `
       SELECT 
@@ -1276,11 +1379,9 @@ app.get("/subcategorias/:id", async (req, res) => {
     const [rows] = await db.query(sql, [id]);
     
     if (rows.length === 0) {
-      console.log(`❌ Subcategoría ID ${id} no encontrada`);
       return res.status(404).json({ error: "Subcategoría no encontrada" });
     }
     
-    console.log(`✅ Subcategoría encontrada: ${rows[0].nombre}`);
     res.json(rows[0]);
   } catch (error) {
     console.error('Error en /subcategorias/:id:', error);
@@ -1466,19 +1567,15 @@ app.post("/productos", async (req, res) => {
       unidadMetroLineal || 'm'
     ];
 
-    console.log(`📝 Valores a insertar: ${values.length}`);
-    
     const [result] = await db.query(sql, values);
     console.log("✅ Producto creado con ID:", result.insertId);
     
     res.json({ mensaje: "Producto creado", id: result.insertId });
   } catch (err) {
     console.error("❌ Error al crear producto:", err.message);
-    console.error("❌ SQL:", err.sql);
     res.status(500).json({ 
       error: "Error al crear producto", 
-      message: err.message,
-      sql: err.sql || null
+      message: err.message
     });
   }
 });
@@ -1489,7 +1586,6 @@ app.post("/productos", async (req, res) => {
 app.put("/productos/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`📦 Actualizando producto ID: ${id}`);
     
     const {
       nombre,
@@ -1545,16 +1641,6 @@ app.put("/productos/:id", async (req, res) => {
       imagenesFinal = rows[0]?.imagenes || null;
     } else if (Array.isArray(imagenesFinal)) {
       imagenesFinal = imagenesFinal.join(",");
-    } else if (typeof imagenesFinal === 'string') {
-      const trimmed = imagenesFinal.trim();
-      if (trimmed.startsWith('[')) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          if (Array.isArray(parsed)) {
-            imagenesFinal = parsed.join(",");
-          }
-        } catch (e) {}
-      }
     }
 
     const sql = `
@@ -1656,19 +1742,13 @@ app.put("/productos/:id", async (req, res) => {
       id
     ];
 
-    console.log(`📝 Valores a actualizar: ${values.length}`);
-    
     const [result] = await db.query(sql, values);
-    console.log("✅ Producto actualizado, filas afectadas:", result.affectedRows);
-    
     res.json({ mensaje: "Producto actualizado", affectedRows: result.affectedRows });
   } catch (err) {
     console.error("❌ Error al actualizar:", err.message);
-    console.error("❌ SQL:", err.sql);
     res.status(500).json({ 
       error: "Error al actualizar", 
-      message: err.message,
-      sql: err.sql || null
+      message: err.message
     });
   }
 });
@@ -2375,19 +2455,8 @@ app.get("/", (req, res) => {
 app.listen(5000, () => {
   console.log("✅ Servidor corriendo en puerto 5000");
   console.log("📋 Endpoints disponibles:");
-  console.log("  - GET  /productos");
-  console.log("  - GET  /productos/filtro?categoria_id=&subcategoria_id=&tipo_id=");
-  console.log("  - GET  /productos/categoria-id/:id");
-  console.log("  - GET  /productos/subcategoria-id/:id");
-  console.log("  - GET  /productos/tipo/:id");
-  console.log("  - GET  /productos/tipo-nombre/:nombre");
-  console.log("  - GET  /categorias");
-  console.log("  - GET  /subcategorias");
-  console.log("  - GET  /tipos");
-  console.log("  - GET  /banners-ofertas");
-  console.log("  - GET  /configuracion/:clave ⚙️ NUEVO");
-  console.log("  - PUT  /configuracion/:clave ⚙️ NUEVO");
-  console.log("  - POST /pedidos");
-  console.log("  - GET  /pedidos");
-  console.log("  - PUT  /pedidos/:id/estado (con envío de correo)");
+  console.log("  - POST /pedidos (con validación y descuento de stock)");
+  console.log("  - GET  /productos/:id/stock");
+  console.log("  - POST /productos/verificar-stock");
+  console.log("  - PUT  /pedidos/:id/estado");
 });
