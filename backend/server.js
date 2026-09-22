@@ -225,19 +225,17 @@ app.post("/enviar-cotizacion", async (req, res) => {
 // =================================================
 // 📋 PEDIDOS - GENERAR NÚMERO DE PEDIDO ÚNICO
 // =================================================
-const generarNumeroPedido = async (connection = null) => {
+const generarNumeroPedido = async () => {
   const fecha = new Date();
   const año = fecha.getFullYear();
   const mes = String(fecha.getMonth() + 1).padStart(2, '0');
   const dia = String(fecha.getDate()).padStart(2, '0');
   const fechaStr = `${año}${mes}${dia}`;
   
-  const query = "SELECT numero_pedido FROM pedidos WHERE numero_pedido LIKE ? ORDER BY id DESC LIMIT 1";
-  const params = [`PED-${fechaStr}-%`];
-  
-  const [rows] = connection 
-    ? await connection.query(query, params)
-    : await db.query(query, params);
+  const [rows] = await db.query(
+    "SELECT numero_pedido FROM pedidos WHERE numero_pedido LIKE ? ORDER BY id DESC LIMIT 1",
+    [`PED-${fechaStr}-%`]
+  );
   
   let consecutivo = 1;
   if (rows.length > 0) {
@@ -253,62 +251,84 @@ const generarNumeroPedido = async (connection = null) => {
 
 // =================================================
 // 📋 CREAR PEDIDO (CON VALIDACIÓN Y DESCUENTO DE STOCK)
+// 🔥 ACTUALIZADO: Valida stock antes de crear y lo descuenta
 // =================================================
 app.post("/pedidos", async (req, res) => {
-  let connection;
+  const connection = await db.getConnection();
+  
   try {
-    connection = await db.getConnection();
-    await connection.beginTransaction();
-    
     const { cliente, productos, total } = req.body;
     
     if (!cliente || !cliente.nombre || !cliente.email || !cliente.celular) {
-      await connection.rollback();
+      connection.release();
       return res.status(400).json({ error: "Datos del cliente incompletos" });
     }
     
     if (!productos || productos.length === 0) {
-      await connection.rollback();
+      connection.release();
       return res.status(400).json({ error: "No hay productos en el pedido" });
     }
     
-    // 🔥 VALIDAR STOCK DE TODOS LOS PRODUCTOS ANTES DE CREAR EL PEDIDO
+    // 🔥 INICIAR TRANSACCIÓN PARA EVITAR CONDICIONES DE CARRERA
+    await connection.beginTransaction();
+    
+    // 🔥 VALIDAR STOCK DE TODOS LOS PRODUCTOS
     const erroresStock = [];
+    const productosValidados = [];
+    
     for (const item of productos) {
-      if (!item.id) continue;
-      
       const [rows] = await connection.query(
-        "SELECT id, nombre, stock, tipoVenta FROM productos WHERE id = ?",
+        "SELECT id, nombre, stock, visible FROM productos WHERE id = ?",
         [item.id]
       );
       
       if (rows.length === 0) {
-        erroresStock.push(`El producto "${item.nombre}" ya no existe.`);
+        erroresStock.push(`Producto "${item.nombre}" no encontrado`);
         continue;
       }
       
-      const productoDB = rows[0];
-      const stockDisponible = Number(productoDB.stock) || 0;
+      const productoBD = rows[0];
+      const stockDisponible = Number(productoBD.stock) || 0;
       const cantidadSolicitada = Number(item.cantidad) || 0;
       
-      if (cantidadSolicitada > stockDisponible) {
-        const unidad = obtenerUnidadLegible(productoDB.tipoVenta);
-        erroresStock.push(
-          `"${productoDB.nombre}" solo tiene ${stockDisponible} ${unidad} disponibles (solicitaste ${cantidadSolicitada}).`
-        );
+      if (productoBD.visible === 0) {
+        erroresStock.push(`"${productoBD.nombre}" ya no está disponible`);
+        continue;
       }
-    }
-    
-    if (erroresStock.length > 0) {
-      await connection.rollback();
-      console.log("❌ Stock insuficiente:", erroresStock);
-      return res.status(400).json({ 
-        error: "Stock insuficiente", 
-        detalles: erroresStock 
+      
+      if (cantidadSolicitada > stockDisponible) {
+        erroresStock.push(
+          `"${productoBD.nombre}": solo hay ${stockDisponible} disponibles (solicitaste ${cantidadSolicitada})`
+        );
+        continue;
+      }
+      
+      if (stockDisponible <= 0) {
+        erroresStock.push(`"${productoBD.nombre}" está agotado`);
+        continue;
+      }
+      
+      productosValidados.push({
+        ...item,
+        stockActual: stockDisponible,
+        nuevoStock: stockDisponible - cantidadSolicitada
       });
     }
     
-    const numeroPedido = await generarNumeroPedido(connection);
+    // 🔥 SI HAY ERRORES, CANCELAR TRANSACCIÓN
+    if (erroresStock.length > 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(400).json({
+        success: false,
+        error: "Stock insuficiente",
+        message: "No se pudo crear el pedido por falta de stock",
+        errores: erroresStock
+      });
+    }
+    
+    // 🔥 CREAR EL PEDIDO
+    const numeroPedido = await generarNumeroPedido();
     
     const sqlPedido = `
       INSERT INTO pedidos (
@@ -339,6 +359,7 @@ app.post("/pedidos", async (req, res) => {
     
     const pedidoId = resultPedido.insertId;
     
+    // 🔥 INSERTAR PRODUCTOS Y DESCONTAR STOCK
     const sqlProducto = `
       INSERT INTO pedido_productos (
         pedido_id,
@@ -354,7 +375,7 @@ app.post("/pedidos", async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
-    for (const item of productos) {
+    for (const item of productosValidados) {
       await connection.query(sqlProducto, [
         pedidoId,
         item.id || null,
@@ -369,21 +390,26 @@ app.post("/pedidos", async (req, res) => {
       ]);
       
       // 🔥 DESCONTAR STOCK
-      if (item.id) {
-        await connection.query(
-          "UPDATE productos SET stock = stock - ? WHERE id = ?",
-          [item.cantidad, item.id]
-        );
-        console.log(`📦 Stock descontado: producto ${item.id} "${item.nombre}" → -${item.cantidad}`);
-      }
+      await connection.query(
+        "UPDATE productos SET stock = ? WHERE id = ?",
+        [item.nuevoStock, item.id]
+      );
+      
+      console.log(`📦 Stock actualizado: Producto #${item.id} → ${item.stockActual} a ${item.nuevoStock}`);
     }
     
+    // 🔥 CONFIRMAR TRANSACCIÓN
     await connection.commit();
+    connection.release();
     
+    console.log(`✅ Pedido ${numeroPedido} creado correctamente`);
+    
+    // 📧 ENVIAR CORREO DE CONFIRMACIÓN
     try {
       await enviarCorreoPedido(cliente, numeroPedido, productos, total);
     } catch (emailError) {
       console.error("Error al enviar correo:", emailError);
+      // No falla el pedido si el correo falla
     }
     
     res.status(201).json({
@@ -394,94 +420,19 @@ app.post("/pedidos", async (req, res) => {
     });
     
   } catch (error) {
-    if (connection) {
-      try { await connection.rollback(); } catch (e) {}
+    // 🔥 REVERTIR TRANSACCIÓN EN CASO DE ERROR
+    try {
+      await connection.rollback();
+    } catch (rollbackError) {
+      console.error("Error en rollback:", rollbackError);
     }
+    connection.release();
+    
     console.error("Error al crear pedido:", error);
     res.status(500).json({ 
       error: "Error al crear el pedido",
       details: error.message 
     });
-  } finally {
-    if (connection) connection.release();
-  }
-});
-
-// =================================================
-// 📦 VERIFICAR STOCK DE UN PRODUCTO
-// =================================================
-app.get("/productos/:id/stock", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [rows] = await db.query(
-      "SELECT id, nombre, stock, tipoVenta FROM productos WHERE id = ?",
-      [id]
-    );
-    
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Producto no encontrado" });
-    }
-    
-    res.json({
-      id: rows[0].id,
-      nombre: rows[0].nombre,
-      stock: Number(rows[0].stock) || 0,
-      tipoVenta: rows[0].tipoVenta
-    });
-  } catch (error) {
-    console.error("Error al verificar stock:", error);
-    res.status(500).json({ error: "Error al verificar stock" });
-  }
-});
-
-// =================================================
-// 📦 VERIFICAR STOCK DE VARIOS PRODUCTOS
-// =================================================
-app.post("/productos/verificar-stock", async (req, res) => {
-  try {
-    const { productos } = req.body;
-    
-    if (!productos || !Array.isArray(productos)) {
-      return res.status(400).json({ error: "Formato inválido" });
-    }
-    
-    const resultados = [];
-    
-    for (const item of productos) {
-      const [rows] = await db.query(
-        "SELECT id, nombre, stock, tipoVenta FROM productos WHERE id = ?",
-        [item.id]
-      );
-      
-      if (rows.length === 0) {
-        resultados.push({
-          id: item.id,
-          disponible: false,
-          mensaje: "Producto no encontrado"
-        });
-        continue;
-      }
-      
-      const productoDB = rows[0];
-      const stockDisponible = Number(productoDB.stock) || 0;
-      const cantidadSolicitada = Number(item.cantidad) || 0;
-      
-      resultados.push({
-        id: item.id,
-        nombre: productoDB.nombre,
-        stock: stockDisponible,
-        cantidadSolicitada,
-        disponible: cantidadSolicitada <= stockDisponible,
-        mensaje: cantidadSolicitada > stockDisponible 
-          ? `Solo hay ${stockDisponible} disponibles` 
-          : "Stock suficiente"
-      });
-    }
-    
-    res.json({ resultados });
-  } catch (error) {
-    console.error("Error al verificar stock:", error);
-    res.status(500).json({ error: "Error al verificar stock" });
   }
 });
 
@@ -600,8 +551,6 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
     [pedido.id]
   );
 
-  console.log(`   Productos encontrados: ${productos.length}`);
-
   const productosHtml = productos.map(p => {
     const unidad = p.unidad_medida || obtenerUnidadLegible(p.tipo_venta);
     const skuCorto = (p.sku || 'N/A').substring(0, 18);
@@ -654,38 +603,14 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
         .pedido-info p { margin: 5px 0; }
         .entrega-info { background: #fffbeb; padding: 15px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b; }
         .entrega-info p { margin: 5px 0; color: #92400e; }
-        
-        .tabla-productos {
-          width: 100%;
-          border-collapse: collapse;
-          table-layout: fixed;
-          margin: 16px 0;
-          font-size: 12px;
-        }
-        .tabla-productos thead th {
-          background: #3b82f6;
-          color: #fff;
-          padding: 12px 6px;
-          text-align: left;
-          font-size: 11px;
-          font-weight: 700;
-          white-space: nowrap;
-          letter-spacing: 0.3px;
-        }
-        .tabla-productos thead th.th-unidad,
-        .tabla-productos thead th.th-cantidad {
-          text-align: center;
-        }
-        .tabla-productos thead th.th-precio,
-        .tabla-productos thead th.th-subtotal {
-          text-align: right;
-        }
-        
+        .tabla-productos { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 16px 0; font-size: 12px; }
+        .tabla-productos thead th { background: #3b82f6; color: #fff; padding: 12px 6px; text-align: left; font-size: 11px; font-weight: 700; white-space: nowrap; }
+        .tabla-productos thead th.th-unidad, .tabla-productos thead th.th-cantidad { text-align: center; }
+        .tabla-productos thead th.th-precio, .tabla-productos thead th.th-subtotal { text-align: right; }
         .total { text-align: right; font-size: 18px; font-weight: bold; color: #3b82f6; padding-top: 15px; border-top: 2px solid #e2e8f0; }
         .footer { text-align: center; margin-top: 30px; color: #94a3b8; font-size: 14px; }
         .importante { margin-top: 16px; padding: 15px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b; }
         .importante p { margin: 0; color: #92400e; }
-        
         @media only screen and (max-width: 600px) {
           .container { padding: 15px !important; }
           .tabla-productos { font-size: 11px !important; }
@@ -699,64 +624,43 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
           <h1>📦 Actualización de tu Pedido</h1>
           <p style="color: #3b82f6; font-size: 18px; font-weight: bold;">${pedido.numero_pedido}</p>
         </div>
-        
         <div class="status-box">
           <span class="old">${estadoLabels[estadoAnterior] || estadoAnterior}</span>
           <span class="arrow">➜</span>
           <span class="new">${estadoLabels[estadoNuevo] || estadoNuevo}</span>
         </div>
-        
         <div class="message">
           <p style="margin: 0; font-size: 16px; color: #1e293b;">
             ${mensajes[estadoNuevo] || 'El estado de tu pedido ha sido actualizado.'}
           </p>
         </div>
-        
         <div class="pedido-info">
           <p><strong>👤 Cliente:</strong> ${pedido.cliente_nombre}</p>
           <p><strong>📧 Email:</strong> ${pedido.cliente_email}</p>
           <p><strong>📱 Celular:</strong> ${pedido.cliente_celular}</p>
         </div>
-
         ${fechaEntrega || horaEntrega ? `
           <div class="entrega-info">
             <p><strong>📅 Día de entrega:</strong> ${fechaEntrega || 'No especificado'}</p>
             <p><strong>🕒 Hora de entrega:</strong> ${horaEntrega || 'No especificado'}</p>
           </div>
         ` : ''}
-        
         <h3 style="color: #1e40af;">🛒 Productos</h3>
-        
         <table class="tabla-productos" width="100%" cellpadding="0" cellspacing="0">
           <colgroup>
-            <col style="width: 36%;">
-            <col style="width: 16%;">
-            <col style="width: 14%;">
-            <col style="width: 16%;">
-            <col style="width: 18%;">
+            <col style="width: 36%;"><col style="width: 16%;"><col style="width: 14%;"><col style="width: 16%;"><col style="width: 18%;">
           </colgroup>
           <thead>
             <tr>
-              <th>Producto</th>
-              <th class="th-unidad">Unidad</th>
-              <th class="th-cantidad">Cant.</th>
-              <th class="th-precio">Precio</th>
-              <th class="th-subtotal">Subtotal</th>
+              <th>Producto</th><th class="th-unidad">Unidad</th><th class="th-cantidad">Cant.</th><th class="th-precio">Precio</th><th class="th-subtotal">Subtotal</th>
             </tr>
           </thead>
-          <tbody>
-            ${productosHtml}
-          </tbody>
+          <tbody>${productosHtml}</tbody>
         </table>
-        
-        <div class="total">
-          Total: $${pedido.total}
-        </div>
-        
+        <div class="total">Total: $${pedido.total}</div>
         <div class="importante">
           <p>⚠️ <strong>Recuerda:</strong> Este pedido será entregado en tienda física. No realizamos envíos a domicilio.</p>
         </div>
-        
         <div class="footer">
           <p>📞 <a href="tel:+525511164545" style="color: #3b82f6; text-decoration: none;">55 1116 4545</a></p>
           <p>📧 <a href="mailto:frayflooring@gmail.com" style="color: #3b82f6; text-decoration: none;">frayflooring@gmail.com</a></p>
@@ -775,7 +679,7 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
       subject: `📦 Actualización de tu pedido #${pedido.numero_pedido}`,
       html: html
     });
-    console.log("✅ RESULTADO RESEND:", JSON.stringify(resultado, null, 2));
+    console.log("✅ Correo de actualización enviado a", pedido.cliente_email);
     return resultado;
   } catch (error) {
     console.error("❌ ERROR AL ENVIAR CORREO:", error.message);
@@ -784,30 +688,34 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
 };
 
 // =================================================
-// 📋 ACTUALIZAR ESTADO DE PEDIDO (con envío de correo)
+// 📋 ACTUALIZAR ESTADO DE PEDIDO
+// 🔥 ACTUALIZADO: Si se cancela, restaurar stock
 // =================================================
 app.put("/pedidos/:id/estado", async (req, res) => {
+  const connection = await db.getConnection();
+  
   try {
     const { id } = req.params;
     const { estado } = req.body;
     
-    console.log("🔄 ACTUALIZANDO ESTADO DE PEDIDO");
-    console.log("   ID pedido:", id);
-    console.log("   Nuevo estado:", estado);
+    console.log("🔄 ACTUALIZANDO ESTADO DE PEDIDO - ID:", id, "Nuevo estado:", estado);
     
     const estadosValidos = ['pendiente', 'confirmado', 'en_preparacion', 'listo', 'entregado', 'cancelado'];
     if (!estadosValidos.includes(estado)) {
+      connection.release();
       return res.status(400).json({ error: "Estado no válido" });
     }
     
-    const [pedidoActual] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
+    const [pedidoActual] = await connection.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedidoActual.length === 0) {
+      connection.release();
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
     
     const estadoAnterior = pedidoActual[0].estado;
     
     if (estadoAnterior === estado) {
+      connection.release();
       return res.json({ 
         success: true, 
         mensaje: "El estado ya era el mismo",
@@ -817,12 +725,50 @@ app.put("/pedidos/:id/estado", async (req, res) => {
       });
     }
     
-    await db.query(
+    await connection.beginTransaction();
+    
+    // 🔥 SI SE CANCELA EL PEDIDO, RESTAURAR STOCK
+    // (Solo si el pedido estaba en un estado "activo" y no fue cancelado antes)
+    if (estado === 'cancelado' && estadoAnterior !== 'cancelado') {
+      const [productosPedido] = await connection.query(
+        "SELECT producto_id, cantidad FROM pedido_productos WHERE pedido_id = ? AND producto_id IS NOT NULL",
+        [id]
+      );
+      
+      for (const prod of productosPedido) {
+        await connection.query(
+          "UPDATE productos SET stock = stock + ? WHERE id = ?",
+          [prod.cantidad, prod.producto_id]
+        );
+        console.log(`♻️ Stock restaurado: Producto #${prod.producto_id} +${prod.cantidad}`);
+      }
+    }
+    
+    // Si se "descancela" un pedido (de cancelado a otro estado), volver a descontar
+    if (estadoAnterior === 'cancelado' && estado !== 'cancelado') {
+      const [productosPedido] = await connection.query(
+        "SELECT producto_id, cantidad FROM pedido_productos WHERE pedido_id = ? AND producto_id IS NOT NULL",
+        [id]
+      );
+      
+      for (const prod of productosPedido) {
+        await connection.query(
+          "UPDATE productos SET stock = GREATEST(stock - ?, 0) WHERE id = ?",
+          [prod.cantidad, prod.producto_id]
+        );
+        console.log(`📦 Stock descontado nuevamente: Producto #${prod.producto_id} -${prod.cantidad}`);
+      }
+    }
+    
+    await connection.query(
       "UPDATE pedidos SET estado = ? WHERE id = ?",
       [estado, id]
     );
     
-    const [pedidoActualizado] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
+    await connection.commit();
+    
+    const [pedidoActualizado] = await connection.query("SELECT * FROM pedidos WHERE id = ?", [id]);
+    connection.release();
     
     let correoEnviado = false;
     let errorCorreo = null;
@@ -832,6 +778,7 @@ app.put("/pedidos/:id/estado", async (req, res) => {
       correoEnviado = true;
     } catch (emailError) {
       errorCorreo = emailError.message;
+      console.error("❌ ERROR AL ENVIAR CORREO:", emailError.message);
     }
     
     res.json({ 
@@ -843,6 +790,10 @@ app.put("/pedidos/:id/estado", async (req, res) => {
       error_correo: errorCorreo
     });
   } catch (error) {
+    try {
+      await connection.rollback();
+    } catch (e) {}
+    connection.release();
     console.error("Error al actualizar estado:", error);
     res.status(500).json({ error: "Error al actualizar estado" });
   }
@@ -858,25 +809,13 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
     return `
       <tr>
         <td style="padding: 14px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; word-break: break-word; overflow-wrap: break-word;">
-          <div style="font-weight: 600; color: #1e293b; font-size: 13px; line-height: 1.4;">
-            ${p.nombre}
-          </div>
-          <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
-            SKU: ${skuCorto}
-          </div>
+          <div style="font-weight: 600; color: #1e293b; font-size: 13px; line-height: 1.4;">${p.nombre}</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">SKU: ${skuCorto}</div>
         </td>
-        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-weight: 700; color: #1d4ed8; font-size: 11px; white-space: nowrap;">
-          ${unidad}
-        </td>
-        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-size: 13px; white-space: nowrap; font-weight: 600; color: #334155;">
-          ${p.cantidad}
-        </td>
-        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; vertical-align: middle; font-size: 12px; white-space: nowrap; color: #475569;">
-          $${p.precio}
-        </td>
-        <td style="padding: 14px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; vertical-align: middle; font-weight: 700; font-size: 12px; white-space: nowrap; color: #1d4ed8;">
-          $${p.subtotal}
-        </td>
+        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-weight: 700; color: #1d4ed8; font-size: 11px; white-space: nowrap;">${unidad}</td>
+        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-size: 13px; white-space: nowrap; font-weight: 600; color: #334155;">${p.cantidad}</td>
+        <td style="padding: 14px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; vertical-align: middle; font-size: 12px; white-space: nowrap; color: #475569;">$${p.precio}</td>
+        <td style="padding: 14px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; vertical-align: middle; font-weight: 700; font-size: 12px; white-space: nowrap; color: #1d4ed8;">$${p.subtotal}</td>
       </tr>
     `;
   }).join('');
@@ -900,39 +839,15 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
         .cliente-info p { margin: 5px 0; }
         .entrega-info { background: #fffbeb; padding: 15px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b; }
         .entrega-info p { margin: 5px 0; color: #92400e; }
-        
-        .tabla-productos {
-          width: 100%;
-          border-collapse: collapse;
-          table-layout: fixed;
-          margin: 20px 0;
-          font-size: 12px;
-        }
-        .tabla-productos thead th {
-          background: #3b82f6;
-          color: #fff;
-          padding: 12px 6px;
-          text-align: left;
-          font-size: 11px;
-          font-weight: 700;
-          white-space: nowrap;
-          letter-spacing: 0.3px;
-        }
-        .tabla-productos thead th.th-unidad,
-        .tabla-productos thead th.th-cantidad {
-          text-align: center;
-        }
-        .tabla-productos thead th.th-precio,
-        .tabla-productos thead th.th-subtotal {
-          text-align: right;
-        }
-        
+        .tabla-productos { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 20px 0; font-size: 12px; }
+        .tabla-productos thead th { background: #3b82f6; color: #fff; padding: 12px 6px; text-align: left; font-size: 11px; font-weight: 700; white-space: nowrap; }
+        .tabla-productos thead th.th-unidad, .tabla-productos thead th.th-cantidad { text-align: center; }
+        .tabla-productos thead th.th-precio, .tabla-productos thead th.th-subtotal { text-align: right; }
         .total { text-align: right; font-size: 20px; font-weight: bold; color: #3b82f6; padding-top: 15px; border-top: 2px solid #e2e8f0; }
         .footer { text-align: center; margin-top: 30px; color: #94a3b8; font-size: 14px; }
         .estado { display: inline-block; background: #f59e0b; color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 14px; }
         .importante { margin-top: 20px; padding: 15px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b; }
         .importante p { margin: 0; color: #92400e; }
-        
         @media only screen and (max-width: 600px) {
           .container { padding: 15px !important; }
           .tabla-productos { font-size: 11px !important; }
@@ -947,53 +862,34 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
           <p class="numero">Número de Pedido: <strong>${numeroPedido}</strong></p>
           <span class="estado">📌 Pendiente</span>
         </div>
-        
         <div class="cliente-info">
           <p><strong>👤 Cliente:</strong> ${cliente.nombre}</p>
           <p><strong>📧 Email:</strong> ${cliente.email}</p>
           <p><strong>📱 Celular:</strong> ${cliente.celular}</p>
           ${cliente.comentarios ? `<p><strong>💬 Comentarios:</strong> ${cliente.comentarios}</p>` : ''}
         </div>
-
         ${fechaEntrega || horaEntrega ? `
           <div class="entrega-info">
             <p><strong>📅 Día de entrega:</strong> ${fechaEntrega || 'No especificado'}</p>
             <p><strong>🕒 Hora de entrega:</strong> ${horaEntrega || 'No especificado'}</p>
           </div>
         ` : ''}
-        
         <h3 style="color: #1e40af;">🛒 Productos</h3>
-        
         <table class="tabla-productos" width="100%" cellpadding="0" cellspacing="0">
           <colgroup>
-            <col style="width: 36%;">
-            <col style="width: 16%;">
-            <col style="width: 14%;">
-            <col style="width: 16%;">
-            <col style="width: 18%;">
+            <col style="width: 36%;"><col style="width: 16%;"><col style="width: 14%;"><col style="width: 16%;"><col style="width: 18%;">
           </colgroup>
           <thead>
             <tr>
-              <th>Producto</th>
-              <th class="th-unidad">Unidad</th>
-              <th class="th-cantidad">Cant.</th>
-              <th class="th-precio">Precio</th>
-              <th class="th-subtotal">Subtotal</th>
+              <th>Producto</th><th class="th-unidad">Unidad</th><th class="th-cantidad">Cant.</th><th class="th-precio">Precio</th><th class="th-subtotal">Subtotal</th>
             </tr>
           </thead>
-          <tbody>
-            ${productosHtml}
-          </tbody>
+          <tbody>${productosHtml}</tbody>
         </table>
-        
-        <div class="total">
-          Total: $${total}
-        </div>
-        
+        <div class="total">Total: $${total}</div>
         <div class="importante">
           <p>⚠️ <strong>Importante:</strong> Este pedido será entregado directamente en tienda física. No se realizan envíos a domicilio.</p>
         </div>
-        
         <div class="footer">
           <p>📞 <a href="tel:+525511164545" style="color: #3b82f6; text-decoration: none;">55 1116 4545</a></p>
           <p>📧 <a href="mailto:frayflooring@gmail.com" style="color: #3b82f6; text-decoration: none;">frayflooring@gmail.com</a></p>
@@ -1101,6 +997,7 @@ app.get("/productos/destacados", async (req, res) => {
 app.get("/productos/categoria-id/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`🔍 Buscando productos para categoría ID: ${id}`);
     
     const [catCheck] = await db.query("SELECT id FROM categorias WHERE id = ?", [id]);
     if (catCheck.length === 0) {
@@ -1121,6 +1018,7 @@ app.get("/productos/categoria-id/:id", async (req, res) => {
       ORDER BY productos.nombre ASC
     `;
     const [result] = await db.query(sql, [id]);
+    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
   } catch (err) {
     console.error('❌ Error en /productos/categoria-id/:id:', err);
@@ -1188,6 +1086,7 @@ app.get("/productos/subcategoria/:nombre", async (req, res) => {
 app.get("/productos/subcategoria-id/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`🔍 Buscando productos para subcategoría ID: ${id}`);
     
     const [subCheck] = await db.query("SELECT id FROM subcategorias WHERE id = ?", [id]);
     if (subCheck.length === 0) {
@@ -1208,6 +1107,7 @@ app.get("/productos/subcategoria-id/:id", async (req, res) => {
       ORDER BY productos.nombre ASC
     `;
     const [rows] = await db.query(sql, [id]);
+    console.log(`✅ Encontrados ${rows.length} productos`);
     res.json(rows);
   } catch (error) {
     console.error('❌ Error en /productos/subcategoria-id/:id:', error);
@@ -1221,6 +1121,7 @@ app.get("/productos/subcategoria-id/:id", async (req, res) => {
 app.get("/productos/tipo/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`🔍 Buscando productos con tipo_id = ${id}`);
     
     const [tipoCheck] = await db.query("SELECT id FROM tipos WHERE id = ?", [id]);
     if (tipoCheck.length === 0) {
@@ -1242,6 +1143,7 @@ app.get("/productos/tipo/:id", async (req, res) => {
     `;
 
     const [result] = await db.query(sql, [id]);
+    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
   } catch (err) {
     console.error("❌ Error en /productos/tipo/:id", err);
@@ -1255,6 +1157,7 @@ app.get("/productos/tipo/:id", async (req, res) => {
 app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
   try {
     const { nombre } = req.params;
+    console.log(`🔍 Buscando productos con tipo: ${nombre}`);
     
     const sql = `
       SELECT 
@@ -1271,6 +1174,7 @@ app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
     `;
 
     const [result] = await db.query(sql, [nombre]);
+    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
   } catch (err) {
     console.error("❌ Error en /productos/tipo-nombre/:nombre", err);
@@ -1284,6 +1188,8 @@ app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
 app.get("/productos/filtro", async (req, res) => {
   try {
     const { categoria_id, subcategoria_id, tipo_id } = req.query;
+    
+    console.log(`🔍 Filtrando productos: categoria=${categoria_id}, subcategoria=${subcategoria_id}, tipo=${tipo_id}`);
     
     let sql = `
       SELECT 
@@ -1323,6 +1229,8 @@ app.get("/productos/filtro", async (req, res) => {
     sql += ' ORDER BY productos.nombre ASC';
     
     const [result] = await db.query(sql, valores);
+    
+    console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
     
   } catch (err) {
@@ -1367,6 +1275,7 @@ app.get("/tipos/:id", async (req, res) => {
 app.get("/subcategorias/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`🔍 Buscando subcategoría ID: ${id}`);
     
     const sql = `
       SELECT 
@@ -1423,147 +1332,47 @@ app.post("/productos", async (req, res) => {
     console.log("📦 Recibiendo producto:", req.body.nombre);
     
     const {
-      nombre,
-      descripcion,
-      precio,
-      precioOferta,
-      oferta,
-      rebaja,
-      stock,
-      imagenes,
-      categoria_id,
-      subcategoria_id,
-      tipo_id,
-      destacado,
-      nuevo,
-      sugerencias,
-      fichaTecnica,
-      sku,
-      tipoProducto,
-      presentacion,
-      ancho,
-      alto,
-      grueso,
-      cobertura,
-      tipoVenta,
-      piezasCaja,
-      tipoCobertura,
-      especificaciones,
-      informacionAdicional,
-      colores_ids,
-      variante,
-      uso,
-      aplicacion,
-      tipo_diseno,
-      material,
-      acabado,
-      tipo_instalacion,
-      espesor_capa_desgaste,
-      unidadGrueso,
-      mostrarCobertura,
-      anchoProducto,
-      metrosPorRollo,
-      precioPorMetroCuadrado,
-      metrosCuadrados,
-      unidadAncho,
-      unidadAlto,
+      nombre, descripcion, precio, precioOferta, oferta, rebaja, stock, imagenes,
+      categoria_id, subcategoria_id, tipo_id, destacado, nuevo, sugerencias,
+      fichaTecnica, sku, tipoProducto, presentacion, ancho, alto, grueso,
+      cobertura, tipoVenta, piezasCaja, tipoCobertura, especificaciones,
+      informacionAdicional, colores_ids, variante, uso, aplicacion,
+      tipo_diseno, material, acabado, tipo_instalacion, espesor_capa_desgaste,
+      unidadGrueso, mostrarCobertura, anchoProducto, metrosPorRollo,
+      precioPorMetroCuadrado, metrosCuadrados, unidadAncho, unidadAlto,
       unidadMetroLineal
     } = req.body;
 
     const sql = `
       INSERT INTO productos SET
-        nombre = ?,
-        descripcion = ?,
-        precio = ?,
-        precioOferta = ?,
-        oferta = ?,
-        rebaja = ?,
-        stock = ?,
-        imagenes = ?,
-        categoria_id = ?,
-        subcategoria_id = ?,
-        tipo_id = ?,
-        destacado = ?,
-        nuevo = ?,
-        sugerencias = ?,
-        fichaTecnica = ?,
-        sku = ?,
-        tipoProducto = ?,
-        presentacion = ?,
-        ancho = ?,
-        alto = ?,
-        grueso = ?,
-        cobertura = ?,
-        tipoVenta = ?,
-        piezasCaja = ?,
-        tipoCobertura = ?,
-        especificaciones = ?,
-        informacionAdicional = ?,
-        colores_ids = ?,
-        variante = ?,
-        uso = ?,
-        aplicacion = ?,
-        tipo_diseno = ?,
-        material = ?,
-        acabado = ?,
-        tipo_instalacion = ?,
-        espesor_capa_desgaste = ?,
-        unidadGrueso = ?,
-        mostrarCobertura = ?,
-        anchoProducto = ?,
-        metrosPorRollo = ?,
-        precioPorMetroCuadrado = ?,
-        metrosCuadrados = ?,
-        unidadAncho = ?,
-        unidadAlto = ?,
-        unidadMetroLineal = ?
+        nombre = ?, descripcion = ?, precio = ?, precioOferta = ?, oferta = ?,
+        rebaja = ?, stock = ?, imagenes = ?, categoria_id = ?, subcategoria_id = ?,
+        tipo_id = ?, destacado = ?, nuevo = ?, sugerencias = ?, fichaTecnica = ?,
+        sku = ?, tipoProducto = ?, presentacion = ?, ancho = ?, alto = ?, grueso = ?,
+        cobertura = ?, tipoVenta = ?, piezasCaja = ?, tipoCobertura = ?,
+        especificaciones = ?, informacionAdicional = ?, colores_ids = ?, variante = ?,
+        uso = ?, aplicacion = ?, tipo_diseno = ?, material = ?, acabado = ?,
+        tipo_instalacion = ?, espesor_capa_desgaste = ?, unidadGrueso = ?,
+        mostrarCobertura = ?, anchoProducto = ?, metrosPorRollo = ?,
+        precioPorMetroCuadrado = ?, metrosCuadrados = ?, unidadAncho = ?,
+        unidadAlto = ?, unidadMetroLineal = ?
     `;
 
     const values = [
-      nombre || null,
-      descripcion || null,
-      precio || null,
-      precioOferta || null,
-      oferta ? 1 : 0,
-      rebaja || 0,
-      stock || 0,
-      imagenes || null,
-      categoria_id || null,
-      subcategoria_id || null,
-      tipo_id || null,
-      destacado ? 1 : 0,
-      nuevo ? 1 : 0,
-      sugerencias ? JSON.stringify(sugerencias) : '[]',
-      fichaTecnica || null,
-      sku || null,
-      tipoProducto || null,
-      presentacion || null,
-      ancho || null,
-      alto || null,
-      grueso || null,
-      cobertura || null,
-      tipoVenta || 'pieza',
-      piezasCaja || null,
-      tipoCobertura || 'm2',
-      especificaciones || null,
-      informacionAdicional || null,
-      colores_ids || null,
-      variante || null,
-      uso || null,
-      aplicacion || null,
-      tipo_diseno || null,
-      material || null,
-      acabado || null,
-      tipo_instalacion || null,
-      espesor_capa_desgaste || null,
+      nombre || null, descripcion || null, precio || null, precioOferta || null,
+      oferta ? 1 : 0, rebaja || 0, stock || 0, imagenes || null, categoria_id || null,
+      subcategoria_id || null, tipo_id || null, destacado ? 1 : 0, nuevo ? 1 : 0,
+      sugerencias ? JSON.stringify(sugerencias) : '[]', fichaTecnica || null,
+      sku || null, tipoProducto || null, presentacion || null, ancho || null,
+      alto || null, grueso || null, cobertura || null, tipoVenta || 'pieza',
+      piezasCaja || null, tipoCobertura || 'm2', especificaciones || null,
+      informacionAdicional || null, colores_ids || null, variante || null,
+      uso || null, aplicacion || null, tipo_diseno || null, material || null,
+      acabado || null, tipo_instalacion || null, espesor_capa_desgaste || null,
       unidadGrueso || 'mm',
       mostrarCobertura !== undefined ? (mostrarCobertura ? 1 : 0) : 1,
-      anchoProducto || null,
-      metrosPorRollo || null,
-      precioPorMetroCuadrado || null,
-      metrosCuadrados || null,
-      unidadAncho || 'cm',
-      unidadAlto || 'cm',
+      anchoProducto || null, metrosPorRollo || null, precioPorMetroCuadrado || null,
+      metrosCuadrados || null, unidadAncho || 'cm', unidadAlto || 'cm',
       unidadMetroLineal || 'm'
     ];
 
@@ -1586,52 +1395,17 @@ app.post("/productos", async (req, res) => {
 app.put("/productos/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`📦 Actualizando producto ID: ${id}`);
     
     const {
-      nombre,
-      descripcion,
-      precio,
-      precioOferta,
-      oferta,
-      rebaja,
-      stock,
-      imagenes,
-      categoria_id,
-      subcategoria_id,
-      tipo_id,
-      destacado,
-      nuevo,
-      sugerencias,
-      fichaTecnica,
-      sku,
-      tipoProducto,
-      presentacion,
-      ancho,
-      alto,
-      grueso,
-      cobertura,
-      tipoVenta,
-      piezasCaja,
-      tipoCobertura,
-      especificaciones,
-      informacionAdicional,
-      colores_ids,
-      variante,
-      uso,
-      aplicacion,
-      tipo_diseno,
-      material,
-      acabado,
-      tipo_instalacion,
-      espesor_capa_desgaste,
-      unidadGrueso,
-      mostrarCobertura,
-      anchoProducto,
-      metrosPorRollo,
-      precioPorMetroCuadrado,
-      metrosCuadrados,
-      unidadAncho,
-      unidadAlto,
+      nombre, descripcion, precio, precioOferta, oferta, rebaja, stock, imagenes,
+      categoria_id, subcategoria_id, tipo_id, destacado, nuevo, sugerencias,
+      fichaTecnica, sku, tipoProducto, presentacion, ancho, alto, grueso,
+      cobertura, tipoVenta, piezasCaja, tipoCobertura, especificaciones,
+      informacionAdicional, colores_ids, variante, uso, aplicacion,
+      tipo_diseno, material, acabado, tipo_instalacion, espesor_capa_desgaste,
+      unidadGrueso, mostrarCobertura, anchoProducto, metrosPorRollo,
+      precioPorMetroCuadrado, metrosCuadrados, unidadAncho, unidadAlto,
       unidadMetroLineal
     } = req.body;
 
@@ -1641,108 +1415,55 @@ app.put("/productos/:id", async (req, res) => {
       imagenesFinal = rows[0]?.imagenes || null;
     } else if (Array.isArray(imagenesFinal)) {
       imagenesFinal = imagenesFinal.join(",");
+    } else if (typeof imagenesFinal === 'string') {
+      const trimmed = imagenesFinal.trim();
+      if (trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            imagenesFinal = parsed.join(",");
+          }
+        } catch (e) {}
+      }
     }
 
     const sql = `
       UPDATE productos SET
-        nombre = ?,
-        descripcion = ?,
-        precio = ?,
-        precioOferta = ?,
-        oferta = ?,
-        rebaja = ?,
-        stock = ?,
-        imagenes = ?,
-        categoria_id = ?,
-        subcategoria_id = ?,
-        tipo_id = ?,
-        destacado = ?,
-        nuevo = ?,
-        sugerencias = ?,
-        fichaTecnica = ?,
-        sku = ?,
-        tipoProducto = ?,
-        presentacion = ?,
-        ancho = ?,
-        alto = ?,
-        grueso = ?,
-        cobertura = ?,
-        tipoVenta = ?,
-        piezasCaja = ?,
-        tipoCobertura = ?,
-        especificaciones = ?,
-        informacionAdicional = ?,
-        colores_ids = ?,
-        variante = ?,
-        uso = ?,
-        aplicacion = ?,
-        tipo_diseno = ?,
-        material = ?,
-        acabado = ?,
-        tipo_instalacion = ?,
-        espesor_capa_desgaste = ?,
-        unidadGrueso = ?,
-        mostrarCobertura = ?,
-        anchoProducto = ?,
-        metrosPorRollo = ?,
-        precioPorMetroCuadrado = ?,
-        metrosCuadrados = ?,
-        unidadAncho = ?,
-        unidadAlto = ?,
-        unidadMetroLineal = ?
+        nombre = ?, descripcion = ?, precio = ?, precioOferta = ?, oferta = ?,
+        rebaja = ?, stock = ?, imagenes = ?, categoria_id = ?, subcategoria_id = ?,
+        tipo_id = ?, destacado = ?, nuevo = ?, sugerencias = ?, fichaTecnica = ?,
+        sku = ?, tipoProducto = ?, presentacion = ?, ancho = ?, alto = ?, grueso = ?,
+        cobertura = ?, tipoVenta = ?, piezasCaja = ?, tipoCobertura = ?,
+        especificaciones = ?, informacionAdicional = ?, colores_ids = ?, variante = ?,
+        uso = ?, aplicacion = ?, tipo_diseno = ?, material = ?, acabado = ?,
+        tipo_instalacion = ?, espesor_capa_desgaste = ?, unidadGrueso = ?,
+        mostrarCobertura = ?, anchoProducto = ?, metrosPorRollo = ?,
+        precioPorMetroCuadrado = ?, metrosCuadrados = ?, unidadAncho = ?,
+        unidadAlto = ?, unidadMetroLineal = ?
       WHERE id = ?
     `;
 
     const values = [
-      nombre || null,
-      descripcion || null,
-      precio || null,
-      precioOferta || null,
-      oferta ? 1 : 0,
-      rebaja || 0,
-      stock || 0,
-      imagenesFinal,
-      categoria_id || null,
-      subcategoria_id || null,
-      tipo_id || null,
-      destacado ? 1 : 0,
-      nuevo ? 1 : 0,
-      sugerencias ? JSON.stringify(sugerencias) : '[]',
-      fichaTecnica || null,
-      sku || null,
-      tipoProducto || null,
-      presentacion || null,
-      ancho || null,
-      alto || null,
-      grueso || null,
-      cobertura || null,
-      tipoVenta || 'pieza',
-      piezasCaja || null,
-      tipoCobertura || 'm2',
-      especificaciones || null,
-      informacionAdicional || null,
-      colores_ids || null,
-      variante || null,
-      uso || null,
-      aplicacion || null,
-      tipo_diseno || null,
-      material || null,
-      acabado || null,
-      tipo_instalacion || null,
-      espesor_capa_desgaste || null,
+      nombre || null, descripcion || null, precio || null, precioOferta || null,
+      oferta ? 1 : 0, rebaja || 0, stock || 0, imagenesFinal, categoria_id || null,
+      subcategoria_id || null, tipo_id || null, destacado ? 1 : 0, nuevo ? 1 : 0,
+      sugerencias ? JSON.stringify(sugerencias) : '[]', fichaTecnica || null,
+      sku || null, tipoProducto || null, presentacion || null, ancho || null,
+      alto || null, grueso || null, cobertura || null, tipoVenta || 'pieza',
+      piezasCaja || null, tipoCobertura || 'm2', especificaciones || null,
+      informacionAdicional || null, colores_ids || null, variante || null,
+      uso || null, aplicacion || null, tipo_diseno || null, material || null,
+      acabado || null, tipo_instalacion || null, espesor_capa_desgaste || null,
       unidadGrueso || 'mm',
       mostrarCobertura !== undefined ? (mostrarCobertura ? 1 : 0) : 1,
-      anchoProducto || null,
-      metrosPorRollo || null,
-      precioPorMetroCuadrado || null,
-      metrosCuadrados || null,
-      unidadAncho || 'cm',
-      unidadAlto || 'cm',
-      unidadMetroLineal || 'm',
-      id
+      anchoProducto || null, metrosPorRollo || null, precioPorMetroCuadrado || null,
+      metrosCuadrados || null, unidadAncho || 'cm', unidadAlto || 'cm',
+      unidadMetroLineal || 'm', id
     ];
 
     const [result] = await db.query(sql, values);
+    console.log("✅ Producto actualizado, filas afectadas:", result.affectedRows);
+    
     res.json({ mensaje: "Producto actualizado", affectedRows: result.affectedRows });
   } catch (err) {
     console.error("❌ Error al actualizar:", err.message);
@@ -2071,7 +1792,6 @@ app.post("/productos/:id/duplicar", async (req, res) => {
         try {
           await fs.promises.access(srcPath);
         } catch {
-          console.warn(`Archivo no encontrado: ${srcPath}`);
           continue;
         }
         const ext = path.extname(filename);
@@ -2139,7 +1859,7 @@ const uploadBannerOferta = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Solo se permiten imágenes (jpeg, png, webp, jpg, gif)'), false);
+      cb(new Error('Solo se permiten imágenes'), false);
     }
   }
 });
@@ -2193,17 +1913,9 @@ app.get("/banners-ofertas/:id", async (req, res) => {
 app.post("/banners-ofertas", async (req, res) => {
   try {
     const {
-      titulo,
-      descripcion,
-      imagen,
-      porcentaje,
-      enlace_tipo,
-      categoria_id,
-      subcategoria_id,
-      tipo_id,
-      producto_id,
-      url_externa,
-      orden
+      titulo, descripcion, imagen, porcentaje, enlace_tipo,
+      categoria_id, subcategoria_id, tipo_id, producto_id,
+      url_externa, orden
     } = req.body;
 
     if (!titulo || !imagen) {
@@ -2219,17 +1931,10 @@ app.post("/banners-ofertas", async (req, res) => {
     `;
 
     const [result] = await db.query(sql, [
-      titulo,
-      descripcion || null,
-      imagen,
-      porcentaje || null,
-      enlace_tipo || 'categoria',
-      categoria_id || null,
-      subcategoria_id || null,
-      tipo_id || null,
-      producto_id || null,
-      url_externa || null,
-      orden || 1
+      titulo, descripcion || null, imagen, porcentaje || null,
+      enlace_tipo || 'categoria', categoria_id || null,
+      subcategoria_id || null, tipo_id || null, producto_id || null,
+      url_externa || null, orden || 1
     ]);
 
     const [newBanner] = await db.query('SELECT * FROM banners_ofertas WHERE id = ?', [result.insertId]);
@@ -2243,18 +1948,9 @@ app.post("/banners-ofertas", async (req, res) => {
 app.put("/banners-ofertas/:id", async (req, res) => {
   try {
     const {
-      titulo,
-      descripcion,
-      imagen,
-      porcentaje,
-      enlace_tipo,
-      categoria_id,
-      subcategoria_id,
-      tipo_id,
-      producto_id,
-      url_externa,
-      orden,
-      activo
+      titulo, descripcion, imagen, porcentaje, enlace_tipo,
+      categoria_id, subcategoria_id, tipo_id, producto_id,
+      url_externa, orden, activo
     } = req.body;
 
     const [existing] = await db.query('SELECT * FROM banners_ofertas WHERE id = ?', [req.params.id]);
@@ -2264,18 +1960,10 @@ app.put("/banners-ofertas/:id", async (req, res) => {
 
     const sql = `
       UPDATE banners_ofertas SET
-        titulo = ?,
-        descripcion = ?,
-        imagen = ?,
-        porcentaje = ?,
-        enlace_tipo = ?,
-        categoria_id = ?,
-        subcategoria_id = ?,
-        tipo_id = ?,
-        producto_id = ?,
-        url_externa = ?,
-        orden = ?,
-        activo = ?
+        titulo = ?, descripcion = ?, imagen = ?, porcentaje = ?,
+        enlace_tipo = ?, categoria_id = ?, subcategoria_id = ?,
+        tipo_id = ?, producto_id = ?, url_externa = ?,
+        orden = ?, activo = ?
       WHERE id = ?
     `;
 
@@ -2417,23 +2105,52 @@ app.get("/proxy-image", async (req, res) => {
 
 // =================================================
 // 🗑️ ELIMINAR PEDIDO
+// 🔥 ACTUALIZADO: Restaura stock si el pedido no estaba cancelado
 // =================================================
 app.delete("/pedidos/:id", async (req, res) => {
+  const connection = await db.getConnection();
+  
   try {
     const { id } = req.params;
     
-    const [pedido] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
+    const [pedido] = await connection.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedido.length === 0) {
+      connection.release();
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
     
-    await db.query("DELETE FROM pedidos WHERE id = ?", [id]);
+    await connection.beginTransaction();
+    
+    // 🔥 SI EL PEDIDO NO ESTABA CANCELADO, RESTAURAR STOCK
+    if (pedido[0].estado !== 'cancelado') {
+      const [productosPedido] = await connection.query(
+        "SELECT producto_id, cantidad FROM pedido_productos WHERE pedido_id = ? AND producto_id IS NOT NULL",
+        [id]
+      );
+      
+      for (const prod of productosPedido) {
+        await connection.query(
+          "UPDATE productos SET stock = stock + ? WHERE id = ?",
+          [prod.cantidad, prod.producto_id]
+        );
+        console.log(`♻️ Stock restaurado al eliminar pedido: Producto #${prod.producto_id} +${prod.cantidad}`);
+      }
+    }
+    
+    await connection.query("DELETE FROM pedidos WHERE id = ?", [id]);
+    
+    await connection.commit();
+    connection.release();
     
     res.json({ 
       success: true, 
       mensaje: "Pedido eliminado correctamente" 
     });
   } catch (error) {
+    try {
+      await connection.rollback();
+    } catch (e) {}
+    connection.release();
     console.error("Error al eliminar pedido:", error);
     res.status(500).json({ 
       error: "Error al eliminar el pedido",
@@ -2455,8 +2172,9 @@ app.get("/", (req, res) => {
 app.listen(5000, () => {
   console.log("✅ Servidor corriendo en puerto 5000");
   console.log("📋 Endpoints disponibles:");
+  console.log("  - GET  /productos");
+  console.log("  - GET  /productos/filtro");
   console.log("  - POST /pedidos (con validación y descuento de stock)");
-  console.log("  - GET  /productos/:id/stock");
-  console.log("  - POST /productos/verificar-stock");
-  console.log("  - PUT  /pedidos/:id/estado");
+  console.log("  - PUT  /pedidos/:id/estado (restaura stock si cancela)");
+  console.log("  - DELETE /pedidos/:id (restaura stock)");
 });
