@@ -262,7 +262,6 @@ export default function Pedido() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // 🔥 REF PARA SCROLL AL MENSAJE DE ÉXITO
   const mensajeExitoRef = useRef(null);
   
   const [mostrarMensaje, setMostrarMensaje] = useState(() => {
@@ -356,7 +355,7 @@ export default function Pedido() {
     }
   }, [cliente.diaEntrega, diasDisponibles]);
 
-  // 🔥 SCROLL AUTOMÁTICO AL MENSAJE DE ÉXITO (CON REINTENTOS SEGUROS)
+  // 🔥 SCROLL AUTOMÁTICO AL MENSAJE DE ÉXITO
   useEffect(() => {
     if (!mensajeExito) return;
 
@@ -391,13 +390,28 @@ export default function Pedido() {
     };
   }, [mensajeExito]);
 
+  // 🔥 CARGAR PRODUCTOS CON DIAGNÓSTICO DE STOCK
   useEffect(() => {
     const cargarProductos = async () => {
       try {
         const res = await api.get("/productos");
+        
+        // 🔍 DIAGNÓSTICO: Ver qué campos devuelve el backend
+        console.log("🔍 ===== DIAGNÓSTICO DE PRODUCTOS =====");
+        console.log("🔍 Total productos:", res.data?.length || 0);
+        if (res.data && res.data.length > 0) {
+          console.log("🔍 Primer producto COMPLETO:", res.data[0]);
+          console.log("🔍 Campos disponibles:", Object.keys(res.data[0]));
+          console.log("🔍 ¿Tiene 'stock'?:", res.data[0].stock);
+          console.log("🔍 ¿Tiene 'Stock'?:", res.data[0].Stock);
+          console.log("🔍 ¿Tiene 'cantidad'?:", res.data[0].cantidad);
+          console.log("🔍 ¿Tiene 'inventario'?:", res.data[0].inventario);
+        }
+        console.log("🔍 =====================================");
+        
         setProductosDisponibles(res.data || []);
       } catch (error) {
-        console.error("Error cargando productos:", error);
+        console.error("❌ Error cargando productos:", error);
         setProductosDisponibles([]);
       }
     };
@@ -477,6 +491,10 @@ export default function Pedido() {
     productoAgregadoRef.current = true;
     ultimoProductoAgregadoRef.current = identificador;
     
+    // 🔍 DIAGNÓSTICO: ver si el producto viene con stock
+    console.log("🔍 Producto agregado desde navegación:", producto);
+    console.log("🔍 Stock recibido:", producto.stock);
+    
     const productoCompleto = {
       id: producto.id,
       nombre: producto.nombre,
@@ -524,13 +542,11 @@ export default function Pedido() {
 
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
-  // 🔥 MOSTRAR MENSAJE DE ERROR TEMPORAL
   const mostrarErrorTemporal = (mensaje) => {
     setMensajeError(mensaje);
     setTimeout(() => setMensajeError(""), 3500);
   };
 
-  // 🔥 MOSTRAR ALERTA VISUAL DE STOCK EXCEDIDO
   const mostrarAlertaStock = (producto, stockDisponible, cantidadSolicitada) => {
     setAlertaStock({
       nombre: producto.nombre,
@@ -540,7 +556,6 @@ export default function Pedido() {
       imagen: producto.imagen || obtenerImagenProducto(producto)
     });
     
-    // Auto-cerrar en 4 segundos
     setTimeout(() => setAlertaStock(null), 4000);
   };
 
@@ -867,7 +882,7 @@ export default function Pedido() {
   };
 
   // =====================================================
-  // 🔥 COMPONENTE DE ALERTA DE STOCK (reutilizable)
+  // 🔥 COMPONENTE DE ALERTA DE STOCK
   // =====================================================
   const AlertaStockModal = () => {
     if (!alertaStock) return null;
@@ -1081,7 +1096,7 @@ export default function Pedido() {
   };
 
   // =====================================================
-  // 🔥 VISTA 2: MENSAJE DE ÉXITO CON FOLIO (PRIORIDAD MÁXIMA)
+  // 🔥 VISTA 2: MENSAJE DE ÉXITO CON FOLIO
   // =====================================================
   if (mensajeExito) {
     return (
@@ -1353,7 +1368,7 @@ export default function Pedido() {
   }
 
   // =====================================================
-  // 🔥 VISTA 1: MENSAJE INFORMATIVO INICIAL (SOLO SI NO HAY ÉXITO)
+  // 🔥 VISTA 1: MENSAJE INFORMATIVO INICIAL
   // =====================================================
   if (mostrarMensaje && carrito.length === 0) {
     return (
@@ -1865,7 +1880,6 @@ export default function Pedido() {
             </div>
           </div>
 
-          {/* 🔥 SECCIÓN DE FECHA Y HORA DE ENTREGA */}
           <div style={{
             background: darkMode ? 'rgba(59, 130, 246, 0.05)' : '#f8fafc',
             borderRadius: '16px',
