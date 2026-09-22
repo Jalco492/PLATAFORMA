@@ -409,6 +409,7 @@ export default function Pedido() {
             ...item,
             precio: Number(item.precio) || 0,
             cantidad: Number(item.cantidad) || 1,
+            stock: Number(item.stock) || 0, // 🔥 ASEGURAR STOCK
             subtotal: Number(item.subtotal) || (Number(item.precio) || 0) * (Number(item.cantidad) || 1)
           }));
           setCarrito(carritoLimpio);
@@ -495,6 +496,7 @@ export default function Pedido() {
       unidadAncho: producto.unidadAncho || 'cm',
       unidadAlto: producto.unidadAlto || 'cm',
       metrosCuadrados: producto.metrosCuadrados || 0,
+      stock: Number(producto.stock) || 0, // 🔥 GUARDAR STOCK
       unidadMedida: obtenerUnidadMedida(producto.tipoVenta)
     };
     
@@ -520,13 +522,31 @@ export default function Pedido() {
 
   const esFavorito = (id) => favoritos.some((f) => f.id === id);
 
+  // 🔥 MOSTRAR MENSAJE DE ERROR TEMPORAL
+  const mostrarErrorTemporal = (mensaje) => {
+    setMensajeError(mensaje);
+    setTimeout(() => setMensajeError(""), 3500);
+  };
+
   const agregarProductoAlCarrito = (producto, cantidad = 1) => {
     setCarrito(prevCarrito => {
       const existe = prevCarrito.find(item => item.id === producto.id);
       
+      // 🔥 OBTENER STOCK DISPONIBLE
+      const stockDisponible = Number(producto.stock) || 0;
+      
       let nuevoCarrito;
       if (existe) {
         const nuevaCantidad = Number(existe.cantidad) + Number(cantidad);
+        
+        // 🔥 VALIDAR STOCK
+        if (nuevaCantidad > stockDisponible) {
+          mostrarErrorTemporal(
+            `⚠️ Solo hay ${stockDisponible} ${obtenerUnidadMostrar(producto.tipoVenta)} disponibles de "${producto.nombre}"`
+          );
+          return prevCarrito;
+        }
+        
         nuevoCarrito = prevCarrito.map(item => 
           item.id === producto.id 
             ? { 
@@ -537,6 +557,14 @@ export default function Pedido() {
             : item
         );
       } else {
+        // 🔥 VALIDAR STOCK AL AGREGAR NUEVO
+        if (Number(cantidad) > stockDisponible) {
+          mostrarErrorTemporal(
+            `⚠️ Solo hay ${stockDisponible} ${obtenerUnidadMostrar(producto.tipoVenta)} disponibles de "${producto.nombre}"`
+          );
+          return prevCarrito;
+        }
+        
         const nuevoProducto = {
           id: producto.id,
           nombre: producto.nombre || 'Producto',
@@ -558,6 +586,7 @@ export default function Pedido() {
           unidadAncho: producto.unidadAncho || 'cm',
           unidadAlto: producto.unidadAlto || 'cm',
           metrosCuadrados: producto.metrosCuadrados || 0,
+          stock: stockDisponible, // 🔥 GUARDAR STOCK
           cantidad: Number(cantidad),
           subtotal: Number(producto.precio) * Number(cantidad)
         };
@@ -579,7 +608,20 @@ export default function Pedido() {
 
   const actualizarCantidad = (id, nuevaCantidad) => {
     if (nuevaCantidad < 0.1) return;
+    
     setCarrito(prevCarrito => {
+      const item = prevCarrito.find(i => i.id === id);
+      if (!item) return prevCarrito;
+      
+      // 🔥 VALIDAR STOCK
+      const stockDisponible = Number(item.stock) || 0;
+      if (nuevaCantidad > stockDisponible) {
+        mostrarErrorTemporal(
+          `⚠️ Solo hay ${stockDisponible} ${obtenerUnidadMostrar(item.tipoVenta)} disponibles de "${item.nombre}"`
+        );
+        return prevCarrito;
+      }
+      
       const nuevoCarrito = prevCarrito.map(item => 
         item.id === id 
           ? { 
@@ -602,9 +644,22 @@ export default function Pedido() {
   const guardarEdicionCantidad = (id) => {
     const valor = parseFloat(cantidadInput);
     if (isNaN(valor) || valor <= 0) {
-      setMensajeError("Por favor ingresa una cantidad válida");
+      mostrarErrorTemporal("Por favor ingresa una cantidad válida");
       return;
     }
+    
+    const item = carrito.find(i => i.id === id);
+    if (!item) return;
+    
+    // 🔥 VALIDAR STOCK
+    const stockDisponible = Number(item.stock) || 0;
+    if (valor > stockDisponible) {
+      mostrarErrorTemporal(
+        `⚠️ Solo hay ${stockDisponible} ${obtenerUnidadMostrar(item.tipoVenta)} disponibles de "${item.nombre}"`
+      );
+      return;
+    }
+    
     actualizarCantidad(id, valor);
     setEditandoCantidad(null);
     setCantidadInput("");
@@ -618,7 +673,18 @@ export default function Pedido() {
   const incrementarCantidad = (id, paso = 1) => {
     const item = carrito.find(i => i.id === id);
     if (!item) return;
+    
+    const stockDisponible = Number(item.stock) || 0;
     const nuevaCantidad = Number(item.cantidad) + paso;
+    
+    // 🔥 VALIDAR STOCK
+    if (nuevaCantidad > stockDisponible) {
+      mostrarErrorTemporal(
+        `⚠️ Solo hay ${stockDisponible} ${obtenerUnidadMostrar(item.tipoVenta)} disponibles`
+      );
+      return;
+    }
+    
     actualizarCantidad(id, nuevaCantidad);
   };
 
@@ -665,6 +731,18 @@ export default function Pedido() {
       setMensajeError("Agrega al menos un producto al pedido");
       return false;
     }
+    
+    // 🔥 VALIDAR STOCK DE TODOS LOS PRODUCTOS ANTES DE ENVIAR
+    for (const item of carrito) {
+      const stockDisponible = Number(item.stock) || 0;
+      if (Number(item.cantidad) > stockDisponible) {
+        setMensajeError(
+          `⚠️ El producto "${item.nombre}" excede el stock disponible (${stockDisponible} ${obtenerUnidadMostrar(item.tipoVenta)})`
+        );
+        return false;
+      }
+    }
+    
     return true;
   };
 
@@ -794,7 +872,6 @@ export default function Pedido() {
 
   // =====================================================
   // 🔥 VISTA 2: MENSAJE DE ÉXITO CON FOLIO (PRIORIDAD MÁXIMA)
-  // ⚠️ ESTA VISTA VA PRIMERO PARA QUE GANE SOBRE "mostrarMensaje"
   // =====================================================
   if (mensajeExito) {
     return (
@@ -1435,7 +1512,9 @@ export default function Pedido() {
               borderRadius: '12px',
               padding: '14px 18px',
               marginBottom: '16px',
-              color: darkMode ? '#fca5a5' : '#991b1b'
+              color: darkMode ? '#fca5a5' : '#991b1b',
+              fontWeight: '600',
+              animation: 'slideDown 0.3s ease'
             }}>
               {mensajeError}
             </div>
@@ -1969,6 +2048,9 @@ export default function Pedido() {
                     const esDecimal = paso < 1;
                     const subtotal = calcularSubtotal(item);
                     const infoExtra = obtenerInfoExtra(item);
+                    const stockDisponible = Number(item.stock) || 0;
+                    const alcanzoStock = Number(item.cantidad) >= stockDisponible;
+                    const stockBajo = stockDisponible > 0 && Number(item.cantidad) >= stockDisponible * 0.8;
                     
                     return (
                       <div key={item.id} style={{
@@ -2013,6 +2095,23 @@ export default function Pedido() {
                             SKU: {item.sku || 'N/A'}
                           </div>
                           
+                          {/* 🔥 INDICADOR DE STOCK */}
+                          <div style={{ 
+                            color: alcanzoStock 
+                              ? (darkMode ? '#fca5a5' : '#dc2626')
+                              : stockBajo
+                                ? (darkMode ? '#fcd34d' : '#d97706')
+                                : (darkMode ? '#86efac' : '#16a34a'), 
+                            fontSize: '10px',
+                            fontWeight: '700',
+                            marginTop: '2px'
+                          }}>
+                            {alcanzoStock 
+                              ? `⚠️ Stock máximo: ${stockDisponible} ${unidad}`
+                              : `📦 Stock: ${stockDisponible} ${unidad}`
+                            }
+                          </div>
+                          
                           <div style={{ 
                             color: '#60a5fa', 
                             fontSize: '11px', 
@@ -2054,6 +2153,7 @@ export default function Pedido() {
                               onChange={(e) => setCantidadInput(e.target.value)}
                               step={esDecimal ? "0.5" : "1"}
                               min="0"
+                              max={stockDisponible}
                               style={{
                                 width: '90px',
                                 padding: '6px 8px',
@@ -2148,19 +2248,26 @@ export default function Pedido() {
                             
                             <button
                               onClick={() => incrementarCantidad(item.id, paso)}
+                              disabled={alcanzoStock}
                               style={{
                                 width: '28px',
                                 height: '28px',
                                 borderRadius: '7px',
                                 border: darkMode ? '1px solid rgba(59,130,246,0.15)' : '1px solid #e5e7eb',
-                                background: darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc',
-                                color: darkMode ? '#fff' : '#111827',
-                                cursor: 'pointer',
+                                background: alcanzoStock
+                                  ? (darkMode ? 'rgba(100,100,100,0.1)' : '#f1f5f9')
+                                  : (darkMode ? 'rgba(59,130,246,0.05)' : '#f8fafc'),
+                                color: alcanzoStock
+                                  ? (darkMode ? '#475569' : '#cbd5e1')
+                                  : (darkMode ? '#fff' : '#111827'),
+                                cursor: alcanzoStock ? 'not-allowed' : 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '10px'
+                                fontSize: '10px',
+                                opacity: alcanzoStock ? 0.5 : 1
                               }}
+                              title={alcanzoStock ? 'Stock máximo alcanzado' : 'Incrementar'}
                             >
                               <FaPlus size={8} />
                             </button>
