@@ -396,37 +396,64 @@ export default function Pedido() {
     };
   }, [mensajeExito]);
 
+  // =====================================================
+  // 🔥 CARGA INICIAL: Productos + Sincronización de carrito con stock del API
+  // =====================================================
   useEffect(() => {
     const cargarProductos = async () => {
       try {
         const res = await api.get("/productos");
-        setProductosDisponibles(res.data || []);
+        const productosAPI = res.data || [];
+        setProductosDisponibles(productosAPI);
+
+        console.log("📦 Productos cargados:", productosAPI.length);
+        if (productosAPI[0]) {
+          console.log("🔍 Ejemplo stock:", productosAPI[0].nombre, "→", productosAPI[0].stock);
+        }
+
+        // 🔥 SINCRONIZAR CARRITO GUARDADO CON STOCK DEL API
+        const carritoGuardado = sessionStorage.getItem("carritoPedido");
+        if (carritoGuardado) {
+          try {
+            const parsed = JSON.parse(carritoGuardado);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              
+              const carritoLimpio = parsed.map(item => {
+                // 🔥 SIEMPRE tomar stock del API
+                const prodAPI = productosAPI.find(p => p.id === item.id);
+                const stockReal = prodAPI ? (Number(prodAPI.stock) || 0) : 0;
+                
+                console.log(`🔧 "${item.nombre}": stock carrito=${item.stock} → stock API=${stockReal}`);
+                
+                // Ajustar cantidad si excede stock
+                let cantidadFinal = Number(item.cantidad) || 1;
+                if (stockReal > 0 && cantidadFinal > stockReal) {
+                  cantidadFinal = stockReal;
+                }
+                
+                return {
+                  ...item,
+                  precio: Number(item.precio) || 0,
+                  cantidad: cantidadFinal,
+                  stock: stockReal, // 🔥 SIEMPRE del API
+                  subtotal: (Number(item.precio) || 0) * cantidadFinal
+                };
+              });
+              
+              setCarrito(carritoLimpio);
+              setMostrarMensaje(carritoLimpio.length === 0);
+              sessionStorage.setItem("carritoPedido", JSON.stringify(carritoLimpio));
+            }
+          } catch (e) {
+            console.error("Error al cargar carrito:", e);
+          }
+        }
       } catch (error) {
         console.error("Error cargando productos:", error);
         setProductosDisponibles([]);
       }
     };
     cargarProductos();
-
-    const carritoGuardado = sessionStorage.getItem("carritoPedido");
-    if (carritoGuardado) {
-      try {
-        const parsed = JSON.parse(carritoGuardado);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const carritoLimpio = parsed.map(item => ({
-            ...item,
-            precio: Number(item.precio) || 0,
-            cantidad: Number(item.cantidad) || 1,
-            stock: Number(item.stock) || 0,
-            subtotal: Number(item.subtotal) || (Number(item.precio) || 0) * (Number(item.cantidad) || 1)
-          }));
-          setCarrito(carritoLimpio);
-          setMostrarMensaje(false);
-        }
-      } catch (e) {
-        console.error("Error al cargar carrito:", e);
-      }
-    }
   }, []);
 
   useEffect(() => {
@@ -468,6 +495,10 @@ export default function Pedido() {
     sessionStorage.setItem("clientePedido", JSON.stringify(cliente));
   }, [cliente]);
 
+  // =====================================================
+  // 🔥 AGREGAR PRODUCTO DESDE location.state
+  // Busca el stock REAL en el API antes de agregar
+  // =====================================================
   useEffect(() => {
     if (!location.state?.productoAgregado) return;
     
@@ -481,42 +512,77 @@ export default function Pedido() {
     
     productoAgregadoRef.current = true;
     ultimoProductoAgregadoRef.current = identificador;
-    
-    const productoCompleto = {
-      id: producto.id,
-      nombre: producto.nombre,
-      sku: producto.sku || 'N/A',
-      precio: Number(producto.precio) || 0,
-      stock: Number(producto.stock) || 0, // 🔥 IMPORTANTE
-      imagen: obtenerImagenProducto(producto),
-      tipoVenta: producto.tipoVenta || 'unidad',
-      presentacion: producto.presentacion || 'Unidad',
-      cobertura: producto.cobertura || 0,
-      categoria: producto.categoria || '',
-      subcategoria: producto.subcategoria || '',
-      ancho: producto.ancho || 0,
-      alto: producto.alto || 0,
-      anchoProducto: producto.anchoProducto || 0,
-      metrosPorRollo: producto.metrosPorRollo || 0,
-      piezasCaja: producto.piezasCaja || 0,
-      grueso: producto.grueso || 0,
-      unidadGrueso: producto.unidadGrueso || 'mm',
-      unidadAncho: producto.unidadAncho || 'cm',
-      unidadAlto: producto.unidadAlto || 'cm',
-      metrosCuadrados: producto.metrosCuadrados || 0,
-      unidadMedida: obtenerUnidadMedida(producto.tipoVenta)
+
+    // 🔥 BUSCAR EL PRODUCTO FRESCO EN EL API PARA OBTENER EL STOCK REAL
+    const buscarProductoFresco = async () => {
+      let stockReal = 0;
+      let productoFresco = producto;
+      
+      try {
+        // Primero intentar con productosDisponibles (ya cargados)
+        let prodEncontrado = productosDisponibles.find(p => p.id === productoId);
+        
+        // Si no está, consultar el API
+        if (!prodEncontrado) {
+          const res = await api.get(`/productos/${productoId}`);
+          prodEncontrado = res.data;
+        }
+        
+        if (prodEncontrado) {
+          productoFresco = prodEncontrado;
+          stockReal = Number(prodEncontrado.stock) || 0;
+        }
+        
+        console.log("🔍 Producto fresco:", {
+          id: productoFresco.id,
+          nombre: productoFresco.nombre,
+          stock: stockReal
+        });
+        
+      } catch (err) {
+        console.error("❌ Error obteniendo producto fresco:", err);
+        // Fallback: usar el stock que venga del state
+        stockReal = Number(producto.stock) || 0;
+      }
+      
+      const productoCompleto = {
+        id: productoFresco.id,
+        nombre: productoFresco.nombre,
+        sku: productoFresco.sku || 'N/A',
+        precio: Number(productoFresco.precio) || 0,
+        stock: stockReal, // 🔥 STOCK REAL DEL API
+        imagen: obtenerImagenProducto(productoFresco),
+        tipoVenta: productoFresco.tipoVenta || 'unidad',
+        presentacion: productoFresco.presentacion || 'Unidad',
+        cobertura: productoFresco.cobertura || 0,
+        categoria: productoFresco.categoria || '',
+        subcategoria: productoFresco.subcategoria || '',
+        ancho: productoFresco.ancho || 0,
+        alto: productoFresco.alto || 0,
+        anchoProducto: productoFresco.anchoProducto || 0,
+        metrosPorRollo: productoFresco.metrosPorRollo || 0,
+        piezasCaja: productoFresco.piezasCaja || 0,
+        grueso: productoFresco.grueso || 0,
+        unidadGrueso: productoFresco.unidadGrueso || 'mm',
+        unidadAncho: productoFresco.unidadAncho || 'cm',
+        unidadAlto: productoFresco.unidadAlto || 'cm',
+        metrosCuadrados: productoFresco.metrosCuadrados || 0,
+        unidadMedida: obtenerUnidadMedida(productoFresco.tipoVenta)
+      };
+      
+      agregarProductoAlCarrito(productoCompleto, cantidad || 1);
+      
+      setTimeout(() => {
+        const cleanState = { ...location.state };
+        delete cleanState.productoAgregado;
+        window.history.replaceState(cleanState, document.title);
+        productoAgregadoRef.current = false;
+      }, 200);
     };
     
-    agregarProductoAlCarrito(productoCompleto, cantidad || 1);
+    buscarProductoFresco();
     
-    setTimeout(() => {
-      const cleanState = { ...location.state };
-      delete cleanState.productoAgregado;
-      window.history.replaceState(cleanState, document.title);
-      productoAgregadoRef.current = false;
-    }, 200);
-    
-  }, [location.state]);
+  }, [location.state, productosDisponibles]);
 
   const toggleFavorito = (producto) => {
     const existe = favoritos.find((fav) => fav.id === producto.id);
@@ -536,6 +602,8 @@ export default function Pedido() {
     setCarrito(prevCarrito => {
       const existe = prevCarrito.find(item => item.id === producto.id);
       const stockDisponible = Number(producto.stock) || 0;
+      
+      console.log(`🛒 Agregando "${producto.nombre}" - stock: ${stockDisponible}`);
       
       // 🔥 VALIDAR STOCK
       if (stockDisponible <= 0) {
@@ -834,11 +902,12 @@ export default function Pedido() {
         // 🔥 RECARGAR PRODUCTOS PARA ACTUALIZAR STOCK
         try {
           const res = await api.get("/productos");
-          setProductosDisponibles(res.data || []);
+          const productosAPI = res.data || [];
+          setProductosDisponibles(productosAPI);
           
           // Actualizar stock en el carrito
           setCarrito(prev => prev.map(item => {
-            const prodActualizado = res.data.find(p => p.id === item.id);
+            const prodActualizado = productosAPI.find(p => p.id === item.id);
             if (prodActualizado) {
               return { ...item, stock: Number(prodActualizado.stock) || 0 };
             }
