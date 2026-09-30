@@ -983,6 +983,293 @@ export default function ProductoDetalle() {
     return <>Producto con especificaciones variables. Consulta la ficha técnica para más detalles.</>;
   };
 
+  // 🆕 RENDER VISUAL DE FICHA SEGÚN TIPO DE VENTA
+  const renderFichaVisual = () => {
+    const t = (producto?.tipoVenta || '').toLowerCase();
+
+    // ============ PERÍMETRO ============
+    if (t === 'metro_perimetro') {
+      return (
+        <div className="ficha-tecnica-visual">
+          <div className="rollo-visual">
+            <div className="rollo-dimension rollo-alto">
+              <span className="rollo-dimension-label">Ancho del rollo</span>
+              <span className="rollo-dimension-valor">{formatearAnchoPerimetro()}</span>
+            </div>
+            <div className="rollo-rect">
+              <div className="rollo-rect-inner">
+                <span className="rollo-rect-text">ROLLO</span>
+              </div>
+            </div>
+            <div className="rollo-dimension rollo-largo">
+              <span className="rollo-dimension-label">Largo</span>
+              <span className="rollo-dimension-valor">{metrosPorRollo} ml</span>
+            </div>
+          </div>
+          <div className="ficha-formula">
+            <span className="formula-item">{perimetroUsuario || "?"} ml</span>
+            <span className="formula-signo">÷</span>
+            <span className="formula-item">{metrosPorRollo} ml</span>
+            <span className="formula-signo">=</span>
+            <span className="formula-item formula-resultado">
+              {rollosNecesarios || "?"} rollo(s)
+            </span>
+          </div>
+          <p className="ficha-formula-desc">Perímetro a cubrir ÷ largo del rollo = rollos necesarios</p>
+        </div>
+      );
+    }
+
+    // ============ ROLLO (m² o ml) ============
+    if (t === 'metro_cuadrado' || t === 'metro_lineal') {
+      return (
+        <div className="ficha-tecnica-visual">
+          <div className="rollo-visual">
+            <div className="rollo-dimension rollo-alto">
+              <span className="rollo-dimension-label">Ancho del rollo</span>
+              <span className="rollo-dimension-valor">{obtenerAnchoRollo().toFixed(2)} m</span>
+            </div>
+            <div className="rollo-rect">
+              <div className="rollo-rect-inner">
+                <span className="rollo-rect-text">ROLLO</span>
+              </div>
+            </div>
+            <div className="rollo-dimension rollo-largo">
+              <span className="rollo-dimension-label">Largo</span>
+              <span className="rollo-dimension-valor">{obtenerLargoRollo().toFixed(2)} m</span>
+            </div>
+          </div>
+          <div className="ficha-formula">
+            <span className="formula-item">{obtenerAnchoRollo().toFixed(2)} m</span>
+            <span className="formula-signo">×</span>
+            <span className="formula-item">{obtenerLargoRollo().toFixed(2)} m</span>
+            <span className="formula-signo">=</span>
+            <span className="formula-item formula-resultado">
+              {obtenerCoberturaRollo().toFixed(2)} m²
+            </span>
+          </div>
+          <p className="ficha-formula-desc">Cobertura total del rollo completo</p>
+        </div>
+      );
+    }
+
+    // ============ CAJA / PAQUETE ============
+    if (t === 'caja' || t === 'paquete') {
+      const piezas = Number(producto.piezasCaja) || 1;
+      const ancho = Number(producto.ancho) || 0;
+      const alto = Number(producto.alto) || 0;
+      const unidadA = producto.unidadAncho || 'cm';
+      const unidadAl = producto.unidadAlto || 'cm';
+      const anchoM = convertirAMetrosConUnidad(ancho, unidadA);
+      const altoM = convertirAMetrosConUnidad(alto, unidadAl);
+      const labelRect = t === 'caja' ? 'CAJA' : 'PAQUETE';
+
+      return (
+        <div className="ficha-tecnica-visual">
+          <div className="rollo-visual">
+            {ancho > 0 && (
+              <div className="rollo-dimension rollo-alto">
+                <span className="rollo-dimension-label">Ancho por pieza</span>
+                <span className="rollo-dimension-valor">{ancho} {unidadA}</span>
+              </div>
+            )}
+            <div className="rollo-rect">
+              <div className="rollo-rect-inner">
+                <span className="rollo-rect-text">{labelRect}</span>
+                <span className="rollo-rect-sub">{piezas} {piezas === 1 ? 'pieza' : 'piezas'}</span>
+              </div>
+            </div>
+            {alto > 0 && (
+              <div className="rollo-dimension rollo-largo">
+                <span className="rollo-dimension-label">Alto por pieza</span>
+                <span className="rollo-dimension-valor">{alto} {unidadAl}</span>
+              </div>
+            )}
+          </div>
+          {coberturaPorUnidad > 0 && ancho > 0 && alto > 0 && (
+            <div className="ficha-formula">
+              <span className="formula-item">{anchoM.toFixed(2)} m</span>
+              <span className="formula-signo">×</span>
+              <span className="formula-item">{altoM.toFixed(2)} m</span>
+              <span className="formula-signo">×</span>
+              <span className="formula-item">{piezas}</span>
+              <span className="formula-signo">=</span>
+              <span className="formula-item formula-resultado">
+                {coberturaPorUnidad.toFixed(2)} m²
+              </span>
+            </div>
+          )}
+          <p className="ficha-formula-desc">
+            Ancho × Alto × piezas = cobertura total por {t}
+          </p>
+        </div>
+      );
+    }
+
+    // ============ PIEZA ============
+    if (t === 'pieza') {
+      const ancho = Number(producto.ancho) || 0;
+      const alto = Number(producto.alto) || 0;
+      const unidadA = producto.unidadAncho || 'cm';
+      const unidadAl = producto.unidadAlto || 'cm';
+      const anchoM = convertirAMetrosConUnidad(ancho, unidadA);
+      const altoM = convertirAMetrosConUnidad(alto, unidadAl);
+
+      return (
+        <div className="ficha-tecnica-visual">
+          <div className="rollo-visual">
+            {ancho > 0 && (
+              <div className="rollo-dimension rollo-alto">
+                <span className="rollo-dimension-label">Ancho</span>
+                <span className="rollo-dimension-valor">{ancho} {unidadA}</span>
+              </div>
+            )}
+            <div className="rollo-rect">
+              <div className="rollo-rect-inner">
+                <span className="rollo-rect-text">PIEZA</span>
+              </div>
+            </div>
+            {alto > 0 && (
+              <div className="rollo-dimension rollo-largo">
+                <span className="rollo-dimension-label">Alto</span>
+                <span className="rollo-dimension-valor">{alto} {unidadAl}</span>
+              </div>
+            )}
+          </div>
+          {coberturaPorUnidad > 0 && ancho > 0 && alto > 0 && (
+            <div className="ficha-formula">
+              <span className="formula-item">{anchoM.toFixed(2)} m</span>
+              <span className="formula-signo">×</span>
+              <span className="formula-item">{altoM.toFixed(2)} m</span>
+              <span className="formula-signo">=</span>
+              <span className="formula-item formula-resultado">
+                {coberturaPorUnidad.toFixed(2)} m²
+              </span>
+            </div>
+          )}
+          <p className="ficha-formula-desc">Ancho × Alto = cobertura por pieza</p>
+        </div>
+      );
+    }
+
+    // ============ PRESENTACIÓN / UNIDAD ============
+    if (t === 'presentacion' || t === 'unidad') {
+      return (
+        <div className="ficha-tecnica-visual">
+          <div className="rollo-visual">
+            <div className="rollo-rect rollo-rect-unidad">
+              <div className="rollo-rect-inner">
+                <span className="rollo-rect-text">UNIDAD</span>
+                <span className="rollo-rect-sub">{producto.presentacion || 'Presentación'}</span>
+              </div>
+            </div>
+          </div>
+          {coberturaPorUnidad > 0 && (
+            <div className="ficha-formula">
+              <span className="formula-item">1 unidad</span>
+              <span className="formula-signo">=</span>
+              <span className="formula-item formula-resultado">
+                {coberturaPorUnidad.toFixed(2)} m²
+              </span>
+            </div>
+          )}
+          <p className="ficha-formula-desc">Cobertura por unidad / presentación</p>
+        </div>
+      );
+    }
+
+    // ============ TRAMO ============
+    if (t === 'tramo') {
+      const ancho = Number(producto.ancho) || 0;
+      const alto = Number(producto.alto) || 0;
+      const unidadA = producto.unidadAncho || 'cm';
+      const unidadAl = producto.unidadAlto || 'cm';
+      const anchoM = convertirAMetrosConUnidad(ancho, unidadA);
+      const altoM = convertirAMetrosConUnidad(alto, unidadAl);
+
+      return (
+        <div className="ficha-tecnica-visual">
+          <div className="rollo-visual">
+            {ancho > 0 && (
+              <div className="rollo-dimension rollo-alto">
+                <span className="rollo-dimension-label">Ancho</span>
+                <span className="rollo-dimension-valor">{ancho} {unidadA}</span>
+              </div>
+            )}
+            <div className="rollo-rect">
+              <div className="rollo-rect-inner">
+                <span className="rollo-rect-text">TRAMO</span>
+              </div>
+            </div>
+            {alto > 0 && (
+              <div className="rollo-dimension rollo-largo">
+                <span className="rollo-dimension-label">Largo</span>
+                <span className="rollo-dimension-valor">{alto} {unidadAl}</span>
+              </div>
+            )}
+          </div>
+          {ancho > 0 && alto > 0 && (
+            <div className="ficha-formula">
+              <span className="formula-item">{anchoM.toFixed(2)} m</span>
+              <span className="formula-signo">×</span>
+              <span className="formula-item">{altoM.toFixed(2)} m</span>
+              <span className="formula-signo">=</span>
+              <span className="formula-item formula-resultado">
+                {(anchoM * altoM).toFixed(2)} m²
+              </span>
+            </div>
+          )}
+          <p className="ficha-formula-desc">Medidas y cobertura del tramo</p>
+        </div>
+      );
+    }
+
+    // ============ FALLBACK GENÉRICO ============
+    const ancho = Number(producto.ancho) || 0;
+    const alto = Number(producto.alto) || 0;
+    const grupo = Number(producto.grueso) || 0;
+    const unidadA = producto.unidadAncho || 'cm';
+    const unidadAl = producto.unidadAlto || 'cm';
+
+    if (ancho > 0 || alto > 0 || grupo > 0) {
+      return (
+        <div className="ficha-tecnica-visual">
+          <div className="rollo-visual">
+            {ancho > 0 && (
+              <div className="rollo-dimension rollo-alto">
+                <span className="rollo-dimension-label">Ancho</span>
+                <span className="rollo-dimension-valor">{ancho} {unidadA}</span>
+              </div>
+            )}
+            <div className="rollo-rect">
+              <div className="rollo-rect-inner">
+                <span className="rollo-rect-text">PRODUCTO</span>
+              </div>
+            </div>
+            {alto > 0 && (
+              <div className="rollo-dimension rollo-largo">
+                <span className="rollo-dimension-label">Alto</span>
+                <span className="rollo-dimension-valor">{alto} {unidadAl}</span>
+              </div>
+            )}
+          </div>
+          {grupo > 0 && (
+            <div className="ficha-formula">
+              <span className="formula-item">Grosor</span>
+              <span className="formula-signo">=</span>
+              <span className="formula-item formula-resultado">
+                {grupo} {producto.unidadGrueso || 'mm'}
+              </span>
+            </div>
+          )}
+          <p className="ficha-formula-desc">Medidas generales del producto</p>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="producto-detalle-page">
       <Navbar
@@ -1591,68 +1878,8 @@ export default function ProductoDetalle() {
               </div>
             </div>
 
-            {/* 🆕 FICHA VISUAL PARA PERÍMETRO */}
-            {esProductoPorPerimetro() && (
-              <div className="ficha-tecnica-visual">
-                <div className="rollo-visual">
-                  <div className="rollo-dimension rollo-alto">
-                    <span className="rollo-dimension-label">Ancho del rollo</span>
-                    <span className="rollo-dimension-valor">{formatearAnchoPerimetro()}</span>
-                  </div>
-                  <div className="rollo-rect">
-                    <div className="rollo-rect-inner">
-                      <span className="rollo-rect-text">ROLLO</span>
-                    </div>
-                  </div>
-                  <div className="rollo-dimension rollo-largo">
-                    <span className="rollo-dimension-label">Largo</span>
-                    <span className="rollo-dimension-valor">{metrosPorRollo} ml</span>
-                  </div>
-                </div>
-
-                <div className="ficha-formula">
-                  <span className="formula-item">{perimetroUsuario || "?"} ml</span>
-                  <span className="formula-signo">÷</span>
-                  <span className="formula-item">{metrosPorRollo} ml</span>
-                  <span className="formula-signo">=</span>
-                  <span className="formula-item formula-resultado">
-                    {rollosNecesarios || "?"} rollo(s)
-                  </span>
-                </div>
-                <p className="ficha-formula-desc">Perímetro a cubrir ÷ largo del rollo = rollos necesarios</p>
-              </div>
-            )}
-
-            {esProductoTipoRollo() && (
-              <div className="ficha-tecnica-visual">
-                <div className="rollo-visual">
-                  <div className="rollo-dimension rollo-alto">
-                    <span className="rollo-dimension-label">Ancho del rollo</span>
-                    <span className="rollo-dimension-valor">{obtenerAnchoRollo().toFixed(2)} m</span>
-                  </div>
-                  <div className="rollo-rect">
-                    <div className="rollo-rect-inner">
-                      <span className="rollo-rect-text">ROLLO</span>
-                    </div>
-                  </div>
-                  <div className="rollo-dimension rollo-largo">
-                    <span className="rollo-dimension-label">Largo</span>
-                    <span className="rollo-dimension-valor">{obtenerLargoRollo().toFixed(2)} m</span>
-                  </div>
-                </div>
-
-                <div className="ficha-formula">
-                  <span className="formula-item">{obtenerAnchoRollo().toFixed(2)} m</span>
-                  <span className="formula-signo">×</span>
-                  <span className="formula-item">{obtenerLargoRollo().toFixed(2)} m</span>
-                  <span className="formula-signo">=</span>
-                  <span className="formula-item formula-resultado">
-                    {obtenerCoberturaRollo().toFixed(2)} m²
-                  </span>
-                </div>
-                <p className="ficha-formula-desc">Cobertura total del rollo completo</p>
-              </div>
-            )}
+            {/* 🆕 FICHA VISUAL UNIVERSAL (todos los tipos de venta) */}
+            {renderFichaVisual()}
 
             <div className="ficha-grid">
               {/* 🆕 FICHA GRID PARA PERÍMETRO */}
@@ -2702,9 +2929,29 @@ if (typeof document !== "undefined") {
       padding: 10px 18px;
       position: relative;
       z-index: 1;
+      text-align: center;
     }
 
     .rollo-rect-text { color: #fff; font-weight: 800; font-size: 13px; letter-spacing: 1.5px; }
+
+    /* 🆕 SUBTEXTO DENTRO DEL RECTÁNGULO */
+    .rollo-rect-sub {
+      display: block;
+      color: rgba(255,255,255,0.9);
+      font-size: 10px;
+      font-weight: 700;
+      margin-top: 4px;
+      letter-spacing: 0.3px;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* 🆕 RECTÁNGULO MÁS GRANDE PARA UNIDAD/PRESENTACIÓN */
+    .rollo-rect-unidad {
+      width: 170px;
+      height: 110px;
+    }
 
     .rollo-alto, .rollo-largo { min-width: 95px; }
 
@@ -2830,6 +3077,7 @@ if (typeof document !== "undefined") {
       .ficha-tecnica-icon { width: 48px; height: 48px; font-size: 26px; }
       .ficha-tecnica-titulo { font-size: 15px; }
       .rollo-rect { width: 100px; height: 78px; }
+      .rollo-rect-unidad { width: 140px; height: 92px; }
       .rollo-dimension-valor { font-size: 18px; }
       .formula-item { font-size: 15px; padding: 6px 12px; }
       .ficha-grid { grid-template-columns: 1fr; }
@@ -2839,6 +3087,7 @@ if (typeof document !== "undefined") {
     @media (max-width: 400px) {
       .rollo-visual { gap: 8px; }
       .rollo-rect { width: 82px; height: 62px; }
+      .rollo-rect-unidad { width: 120px; height: 78px; }
       .formula-item { font-size: 13px; padding: 5px 9px; }
       .formula-signo { font-size: 16px; }
     }
