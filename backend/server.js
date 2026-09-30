@@ -66,7 +66,6 @@ const obtenerUnidadLegible = (tipoVenta) => {
 
 // =================================================
 // 🔥 FUNCIÓN AUXILIAR: FORMATEAR FECHA Y HORA
-// ✅ CORREGIDA para aceptar Date, string ISO y string formateado
 // =================================================
 const formatearFecha = (fechaISO) => {
   if (!fechaISO) return '';
@@ -143,7 +142,6 @@ app.post("/upload-banner", upload.single("imagen"), (req, res) => {
 
 // =================================================
 // ⚙️ CONFIGURACIÓN GLOBAL (fecha de ofertas, etc.)
-// 🔥 NUEVO: sincroniza la fecha de oferta entre dispositivos
 // =================================================
 app.get("/configuracion/:clave", async (req, res) => {
   try {
@@ -430,7 +428,7 @@ app.get("/pedidos/numero/:numero", async (req, res) => {
 });
 
 // =================================================
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO (con Resend)
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO
 // =================================================
 const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => {
   console.log("=================================================");
@@ -730,7 +728,7 @@ app.put("/pedidos/:id/estado", async (req, res) => {
 });
 
 // =================================================
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO) con Resend
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO)
 // =================================================
 const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
   const productosHtml = productos.map(p => {
@@ -1366,7 +1364,8 @@ app.post("/productos", async (req, res) => {
       metrosCuadrados,
       unidadAncho,
       unidadAlto,
-      unidadMetroLineal
+      unidadMetroLineal,
+      tipoCalculo
     } = req.body;
 
     const sql = `
@@ -1415,7 +1414,8 @@ app.post("/productos", async (req, res) => {
         metrosCuadrados = ?,
         unidadAncho = ?,
         unidadAlto = ?,
-        unidadMetroLineal = ?
+        unidadMetroLineal = ?,
+        tipoCalculo = ?
     `;
 
     const values = [
@@ -1463,7 +1463,8 @@ app.post("/productos", async (req, res) => {
       metrosCuadrados || null,
       unidadAncho || 'cm',
       unidadAlto || 'cm',
-      unidadMetroLineal || 'm'
+      unidadMetroLineal || 'm',
+      tipoCalculo || 'area'
     ];
 
     console.log(`📝 Valores a insertar: ${values.length}`);
@@ -1536,7 +1537,8 @@ app.put("/productos/:id", async (req, res) => {
       metrosCuadrados,
       unidadAncho,
       unidadAlto,
-      unidadMetroLineal
+      unidadMetroLineal,
+      tipoCalculo
     } = req.body;
 
     let imagenesFinal = imagenes;
@@ -1603,7 +1605,8 @@ app.put("/productos/:id", async (req, res) => {
         metrosCuadrados = ?,
         unidadAncho = ?,
         unidadAlto = ?,
-        unidadMetroLineal = ?
+        unidadMetroLineal = ?,
+        tipoCalculo = ?
       WHERE id = ?
     `;
 
@@ -1653,6 +1656,7 @@ app.put("/productos/:id", async (req, res) => {
       unidadAncho || 'cm',
       unidadAlto || 'cm',
       unidadMetroLineal || 'm',
+      tipoCalculo || 'area',
       id
     ];
 
@@ -2385,9 +2389,10 @@ app.listen(5000, () => {
   console.log("  - GET  /subcategorias");
   console.log("  - GET  /tipos");
   console.log("  - GET  /banners-ofertas");
-  console.log("  - GET  /configuracion/:clave ⚙️ NUEVO");
-  console.log("  - PUT  /configuracion/:clave ⚙️ NUEVO");
+  console.log("  - GET  /configuracion/:clave");
+  console.log("  - PUT  /configuracion/:clave");
   console.log("  - POST /pedidos");
   console.log("  - GET  /pedidos");
   console.log("  - PUT  /pedidos/:id/estado (con envío de correo)");
+  console.log("  - ✅ tipoCalculo habilitado en POST/PUT /productos");
 });
