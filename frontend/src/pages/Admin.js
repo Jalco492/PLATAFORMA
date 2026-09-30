@@ -150,8 +150,10 @@ export default function Admin() {
     metrosPorRollo: "",
     anchoProducto: "",
     precioPorMetroCuadrado: "",
-    // ✅ NUEVO CAMPO: Tipo de cálculo del cotizador
-    tipoCalculo: "area",
+    // 🆕 CAMPOS PARA ROLLO POR PERÍMETRO
+    anchoRolloPerimetro: "",
+    metrosPorRolloPerimetro: "",
+    precioPorMetroLineal: "",
   });
   
   // 🟡 FORM BANNERS
@@ -193,7 +195,7 @@ export default function Admin() {
       cargarTipos();
       cargarContactos();
       cargarPedidos();
-    }, 30000); // cada 30 segundos
+    }, 30000);
 
     return () => clearInterval(interval);
   }, []);
@@ -318,6 +320,10 @@ export default function Admin() {
         precioPorMetroCuadrado: "",
         piezasCaja: "",
         alto: "",
+        // 🆕 Limpiar campos de rollo por perímetro
+        anchoRolloPerimetro: "",
+        metrosPorRolloPerimetro: "",
+        precioPorMetroLineal: "",
       });
       return;
     }
@@ -350,6 +356,17 @@ export default function Admin() {
         if (!nuevoForm.precio && precioM2 > 0) {
           nuevoForm.precio = (precioM2 * m2).toFixed(2);
         }
+      }
+    }
+
+    // 🆕 Cálculo automático para ROLLO POR PERÍMETRO
+    if (nuevoForm.tipoVenta === "metro_perimetro") {
+      const largo = parseFloat(nuevoForm.metrosPorRolloPerimetro) || 0;
+      const precioML = parseFloat(nuevoForm.precioPorMetroLineal) || 0;
+      
+      if (largo > 0 && precioML > 0 && !nuevoForm.precio) {
+        // Precio del rollo completo = precio por ml × largo del rollo
+        nuevoForm.precio = (precioML * largo).toFixed(2);
       }
     }
     
@@ -675,8 +692,10 @@ export default function Admin() {
       metrosPorRollo: producto.metrosPorRollo || "",
       anchoProducto: producto.anchoProducto || "",
       precioPorMetroCuadrado: producto.precioPorMetroCuadrado || "",
-      // ✅ CARGAR tipoCalculo del producto (si no existe, default "area")
-      tipoCalculo: producto.tipoCalculo || "area",
+      // 🆕 Cargar campos de rollo por perímetro
+      anchoRolloPerimetro: producto.anchoRolloPerimetro || "",
+      metrosPorRolloPerimetro: producto.metrosPorRolloPerimetro || "",
+      precioPorMetroLineal: producto.precioPorMetroLineal || "",
     });
     setSugerencias(producto.sugerencias ? JSON.parse(producto.sugerencias) : []);
     setPreviewPrincipal(getUrlCompleta(principal));
@@ -738,8 +757,10 @@ export default function Admin() {
       metrosPorRollo: producto.metrosPorRollo || "",
       anchoProducto: producto.anchoProducto || "",
       precioPorMetroCuadrado: producto.precioPorMetroCuadrado || "",
-      // ✅ CARGAR tipoCalculo del producto (si no existe, default "area")
-      tipoCalculo: producto.tipoCalculo || "area",
+      // 🆕 Cargar campos de rollo por perímetro
+      anchoRolloPerimetro: producto.anchoRolloPerimetro || "",
+      metrosPorRolloPerimetro: producto.metrosPorRolloPerimetro || "",
+      precioPorMetroLineal: producto.precioPorMetroLineal || "",
     });
     setSugerencias(producto.sugerencias ? JSON.parse(producto.sugerencias) : []);
     setPreviewPrincipal(getUrlCompleta(principal));
@@ -801,8 +822,10 @@ export default function Admin() {
       metrosPorRollo: "",
       anchoProducto: "",
       precioPorMetroCuadrado: "",
-      // ✅ RESET tipoCalculo
-      tipoCalculo: "area",
+      // 🆕 Limpiar campos de rollo por perímetro
+      anchoRolloPerimetro: "",
+      metrosPorRolloPerimetro: "",
+      precioPorMetroLineal: "",
     });
     setSugerencias([]);
     setPreviewPrincipal("");
@@ -869,7 +892,10 @@ export default function Admin() {
       
       let precioFinal = form.precio;
       if (precioFinal === null || precioFinal === undefined || precioFinal === '') {
-        if (form.tipoVenta === "metro_lineal" && form.precioPorMetroCuadrado && metrosCuadrados) {
+        if (form.tipoVenta === "metro_perimetro" && form.precioPorMetroLineal && form.metrosPorRolloPerimetro) {
+          // 🆕 Precio por rollo completo = precio por ml × largo del rollo
+          precioFinal = parseFloat(form.precioPorMetroLineal) * parseFloat(form.metrosPorRolloPerimetro);
+        } else if (form.tipoVenta === "metro_lineal" && form.precioPorMetroCuadrado && metrosCuadrados) {
           precioFinal = parseFloat(form.precioPorMetroCuadrado) * metrosCuadrados;
         } else if (form.tipoVenta === "metro_cuadrado" && form.precioPorMetroCuadrado && metrosCuadrados) {
           precioFinal = parseFloat(form.precioPorMetroCuadrado) * metrosCuadrados;
@@ -892,8 +918,6 @@ export default function Admin() {
         sugerencias,
         metrosCuadrados: metrosCuadrados,
         mostrarCobertura: form.mostrarCobertura ? 1 : 0,
-        // ✅ ENVIAR tipoCalculo
-        tipoCalculo: form.tipoCalculo || "area",
       });
       cargar();
       cerrarModal();
@@ -966,7 +990,10 @@ export default function Admin() {
       
       let precioFinal = form.precio;
       if (precioFinal === null || precioFinal === undefined || precioFinal === '') {
-        if (form.tipoVenta === "metro_lineal" && form.precioPorMetroCuadrado && metrosCuadrados) {
+        if (form.tipoVenta === "metro_perimetro" && form.precioPorMetroLineal && form.metrosPorRolloPerimetro) {
+          // 🆕 Precio por rollo completo = precio por ml × largo del rollo
+          precioFinal = parseFloat(form.precioPorMetroLineal) * parseFloat(form.metrosPorRolloPerimetro);
+        } else if (form.tipoVenta === "metro_lineal" && form.precioPorMetroCuadrado && metrosCuadrados) {
           precioFinal = parseFloat(form.precioPorMetroCuadrado) * metrosCuadrados;
         } else if (form.tipoVenta === "metro_cuadrado" && form.precioPorMetroCuadrado && metrosCuadrados) {
           precioFinal = parseFloat(form.precioPorMetroCuadrado) * metrosCuadrados;
@@ -1023,9 +1050,11 @@ export default function Admin() {
         anchoProducto: form.anchoProducto || "",
         precioPorMetroCuadrado: form.precioPorMetroCuadrado || "",
         metrosCuadrados: metrosCuadrados,
-        sugerencias: sugerencias,
-        // ✅ ENVIAR tipoCalculo
-        tipoCalculo: form.tipoCalculo || "area",
+        // 🆕 Campos de rollo por perímetro
+        anchoRolloPerimetro: form.anchoRolloPerimetro || "",
+        metrosPorRolloPerimetro: form.metrosPorRolloPerimetro || "",
+        precioPorMetroLineal: form.precioPorMetroLineal || "",
+        sugerencias: sugerencias
       };
 
       console.log("📤 Enviando datos:", datosParaEnviar);
@@ -1517,116 +1546,10 @@ export default function Admin() {
               <option value="paquete">Paquete</option>
               <option value="metro_cuadrado">Metro Cuadrado (m²)</option>
               <option value="metro_lineal">Metro Lineal (ml)</option>
+              {/* 🆕 NUEVA OPCIÓN */}
+              <option value="metro_perimetro">Rollo por Perímetro (ml)</option>
               <option value="presentacion">Presentación</option>
             </select>
-
-            {/* ✅ NUEVO: SELECTOR DE TIPO DE CÁLCULO */}
-            <div style={{ gridColumn: '1 / -1', background: '#fef3c7', padding: '16px', borderRadius: '12px', border: '2px solid #f59e0b' }}>
-              <label style={{ display: 'block', fontWeight: '700', color: '#92400e', marginBottom: '12px', fontSize: '14px' }}>
-                🧮 Tipo de cálculo del cotizador
-              </label>
-              <p style={{ fontSize: '13px', color: '#92400e', marginBottom: '12px' }}>
-                Selecciona cómo el cliente debe calcular la cantidad que necesita:
-              </p>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                <label style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  padding: '12px',
-                  background: form.tipoCalculo === 'area' ? '#f59e0b' : '#fff',
-                  color: form.tipoCalculo === 'area' ? '#fff' : '#92400e',
-                  border: '2px solid #f59e0b',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  fontWeight: '700',
-                  fontSize: '13px',
-                  textAlign: 'center'
-                }}>
-                  <input
-                    type="radio"
-                    name="tipoCalculo"
-                    value="area"
-                    checked={form.tipoCalculo === 'area'}
-                    onChange={handleChange}
-                    style={{ display: 'none' }}
-                  />
-                  <span style={{ fontSize: '22px', marginBottom: '4px' }}>📐</span>
-                  <span>Solo Área (m²)</span>
-                  <span style={{ fontSize: '10px', fontWeight: '400', marginTop: '4px', opacity: 0.85 }}>
-                    Pisos, cerámicas, rollos
-                  </span>
-                </label>
-
-                <label style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  padding: '12px',
-                  background: form.tipoCalculo === 'perimetro' ? '#f59e0b' : '#fff',
-                  color: form.tipoCalculo === 'perimetro' ? '#fff' : '#92400e',
-                  border: '2px solid #f59e0b',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  fontWeight: '700',
-                  fontSize: '13px',
-                  textAlign: 'center'
-                }}>
-                  <input
-                    type="radio"
-                    name="tipoCalculo"
-                    value="perimetro"
-                    checked={form.tipoCalculo === 'perimetro'}
-                    onChange={handleChange}
-                    style={{ display: 'none' }}
-                  />
-                  <span style={{ fontSize: '22px', marginBottom: '4px' }}>📏</span>
-                  <span>Solo Perímetro (ml)</span>
-                  <span style={{ fontSize: '10px', fontWeight: '400', marginTop: '4px', opacity: 0.85 }}>
-                    Zócalos, molduras
-                  </span>
-                </label>
-
-                <label style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  padding: '12px',
-                  background: form.tipoCalculo === 'ambos' ? '#f59e0b' : '#fff',
-                  color: form.tipoCalculo === 'ambos' ? '#fff' : '#92400e',
-                  border: '2px solid #f59e0b',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  fontWeight: '700',
-                  fontSize: '13px',
-                  textAlign: 'center'
-                }}>
-                  <input
-                    type="radio"
-                    name="tipoCalculo"
-                    value="ambos"
-                    checked={form.tipoCalculo === 'ambos'}
-                    onChange={handleChange}
-                    style={{ display: 'none' }}
-                  />
-                  <span style={{ fontSize: '22px', marginBottom: '4px' }}>🔀</span>
-                  <span>Ambos</span>
-                  <span style={{ fontSize: '10px', fontWeight: '400', marginTop: '4px', opacity: 0.85 }}>
-                    Cliente elige
-                  </span>
-                </label>
-              </div>
-
-              <p style={{ fontSize: '12px', color: '#92400e', marginTop: '12px', fontStyle: 'italic', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fcd34d' }}>
-                {form.tipoCalculo === 'area' && '📐 El cotizador solo pedirá largo y ancho para calcular metros cuadrados.'}
-                {form.tipoCalculo === 'perimetro' && '📏 El cotizador solo pedirá metros lineales (perímetro).'}
-                {form.tipoCalculo === 'ambos' && '🔀 El cotizador permitirá al cliente elegir entre área o perímetro.'}
-              </p>
-            </div>
 
             {form.tipoVenta === "paquete" && (
               <input
@@ -1744,6 +1667,61 @@ export default function Admin() {
               </div>
             )}
 
+            {/* 🆕 FORMULARIO ROLLO POR PERÍMETRO */}
+            {form.tipoVenta === "metro_perimetro" && (
+              <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                <div>
+                  <label className="form-label">📏 Ancho del rollo (en metros)</label>
+                  <input
+                    name="anchoRolloPerimetro"
+                    placeholder="Ej: 0.08 (8 cm)"
+                    value={form.anchoRolloPerimetro}
+                    onChange={handleChange}
+                    className="form-input"
+                    step="0.01"
+                    type="number"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">📏 Largo del rollo (metros lineales)</label>
+                  <input
+                    name="metrosPorRolloPerimetro"
+                    placeholder="Ej: 2.90"
+                    value={form.metrosPorRolloPerimetro}
+                    onChange={handleChange}
+                    className="form-input"
+                    step="0.01"
+                    type="number"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">💰 Precio por metro lineal (ml)</label>
+                  <input
+                    name="precioPorMetroLineal"
+                    placeholder="Ej: 150"
+                    value={form.precioPorMetroLineal}
+                    onChange={handleChange}
+                    className="form-input"
+                    step="0.01"
+                    type="number"
+                  />
+                  {form.anchoRolloPerimetro && form.metrosPorRolloPerimetro && (
+                    <div style={{ marginTop: '8px', padding: '8px 12px', background: '#fef3c7', borderRadius: '8px', fontSize: '13px', border: '1px solid #fde68a' }}>
+                      <strong>📐 Rollo:</strong> {form.anchoRolloPerimetro}m ancho × {form.metrosPorRolloPerimetro}ml largo
+                      {form.precioPorMetroLineal && (
+                        <>
+                          <br />
+                          <strong>💰 Precio por rollo completo:</strong> ${(parseFloat(form.precioPorMetroLineal) * parseFloat(form.metrosPorRolloPerimetro)).toFixed(2)}
+                          <br />
+                          <strong>📊 Cálculo:</strong> perímetro a cubrir ÷ {form.metrosPorRolloPerimetro}ml = rollos necesarios
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {form.tipoVenta === "presentacion" && (
               <div>
                 <label className="form-label">🧴 Presentación</label>
@@ -1764,7 +1742,7 @@ export default function Admin() {
               </div>
             )}
 
-            {form.tipoVenta !== "metro_lineal" && form.tipoVenta !== "metro_cuadrado" && form.tipoVenta !== "presentacion" && (
+            {form.tipoVenta !== "metro_lineal" && form.tipoVenta !== "metro_cuadrado" && form.tipoVenta !== "metro_perimetro" && form.tipoVenta !== "presentacion" && (
               <div className="input-group">
                 <div>
                   <label className="form-label">📏 Ancho</label>
@@ -2279,116 +2257,10 @@ export default function Admin() {
                   <option value="paquete">Paquete</option>
                   <option value="metro_cuadrado">Metro Cuadrado (m²)</option>
                   <option value="metro_lineal">Metro Lineal (ml)</option>
+                  {/* 🆕 NUEVA OPCIÓN */}
+                  <option value="metro_perimetro">Rollo por Perímetro (ml)</option>
                   <option value="presentacion">Presentación</option>
                 </select>
-
-                {/* ✅ NUEVO: SELECTOR DE TIPO DE CÁLCULO EN MODAL */}
-                <div style={{ gridColumn: '1 / -1', background: '#fef3c7', padding: '16px', borderRadius: '12px', border: '2px solid #f59e0b' }}>
-                  <label style={{ display: 'block', fontWeight: '700', color: '#92400e', marginBottom: '12px', fontSize: '14px' }}>
-                    🧮 Tipo de cálculo del cotizador
-                  </label>
-                  <p style={{ fontSize: '13px', color: '#92400e', marginBottom: '12px' }}>
-                    Selecciona cómo el cliente debe calcular la cantidad que necesita:
-                  </p>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                    <label style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      padding: '12px',
-                      background: form.tipoCalculo === 'area' ? '#f59e0b' : '#fff',
-                      color: form.tipoCalculo === 'area' ? '#fff' : '#92400e',
-                      border: '2px solid #f59e0b',
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      fontWeight: '700',
-                      fontSize: '13px',
-                      textAlign: 'center'
-                    }}>
-                      <input
-                        type="radio"
-                        name="tipoCalculo"
-                        value="area"
-                        checked={form.tipoCalculo === 'area'}
-                        onChange={handleChange}
-                        style={{ display: 'none' }}
-                      />
-                      <span style={{ fontSize: '22px', marginBottom: '4px' }}>📐</span>
-                      <span>Solo Área (m²)</span>
-                      <span style={{ fontSize: '10px', fontWeight: '400', marginTop: '4px', opacity: 0.85 }}>
-                        Pisos, cerámicas, rollos
-                      </span>
-                    </label>
-
-                    <label style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      padding: '12px',
-                      background: form.tipoCalculo === 'perimetro' ? '#f59e0b' : '#fff',
-                      color: form.tipoCalculo === 'perimetro' ? '#fff' : '#92400e',
-                      border: '2px solid #f59e0b',
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      fontWeight: '700',
-                      fontSize: '13px',
-                      textAlign: 'center'
-                    }}>
-                      <input
-                        type="radio"
-                        name="tipoCalculo"
-                        value="perimetro"
-                        checked={form.tipoCalculo === 'perimetro'}
-                        onChange={handleChange}
-                        style={{ display: 'none' }}
-                      />
-                      <span style={{ fontSize: '22px', marginBottom: '4px' }}>📏</span>
-                      <span>Solo Perímetro (ml)</span>
-                      <span style={{ fontSize: '10px', fontWeight: '400', marginTop: '4px', opacity: 0.85 }}>
-                        Zócalos, molduras
-                      </span>
-                    </label>
-
-                    <label style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      padding: '12px',
-                      background: form.tipoCalculo === 'ambos' ? '#f59e0b' : '#fff',
-                      color: form.tipoCalculo === 'ambos' ? '#fff' : '#92400e',
-                      border: '2px solid #f59e0b',
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      fontWeight: '700',
-                      fontSize: '13px',
-                      textAlign: 'center'
-                    }}>
-                      <input
-                        type="radio"
-                        name="tipoCalculo"
-                        value="ambos"
-                        checked={form.tipoCalculo === 'ambos'}
-                        onChange={handleChange}
-                        style={{ display: 'none' }}
-                      />
-                      <span style={{ fontSize: '22px', marginBottom: '4px' }}>🔀</span>
-                      <span>Ambos</span>
-                      <span style={{ fontSize: '10px', fontWeight: '400', marginTop: '4px', opacity: 0.85 }}>
-                        Cliente elige
-                      </span>
-                    </label>
-                  </div>
-
-                  <p style={{ fontSize: '12px', color: '#92400e', marginTop: '12px', fontStyle: 'italic', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fcd34d' }}>
-                    {form.tipoCalculo === 'area' && '📐 El cotizador solo pedirá largo y ancho para calcular metros cuadrados.'}
-                    {form.tipoCalculo === 'perimetro' && '📏 El cotizador solo pedirá metros lineales (perímetro).'}
-                    {form.tipoCalculo === 'ambos' && '🔀 El cotizador permitirá al cliente elegir entre área o perímetro.'}
-                  </p>
-                </div>
 
                 {form.tipoVenta === "paquete" && (
                   <input
@@ -2484,6 +2356,59 @@ export default function Admin() {
                   </div>
                 )}
 
+                {/* 🆕 FORMULARIO ROLLO POR PERÍMETRO (Modal) */}
+                {form.tipoVenta === "metro_perimetro" && (
+                  <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                    <div>
+                      <label className="form-label">📏 Ancho del rollo (en metros)</label>
+                      <input
+                        name="anchoRolloPerimetro"
+                        placeholder="Ej: 0.08 (8 cm)"
+                        value={form.anchoRolloPerimetro}
+                        onChange={handleChange}
+                        className="form-input"
+                        step="0.01"
+                        type="number"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">📏 Largo del rollo (metros lineales)</label>
+                      <input
+                        name="metrosPorRolloPerimetro"
+                        placeholder="Ej: 2.90"
+                        value={form.metrosPorRolloPerimetro}
+                        onChange={handleChange}
+                        className="form-input"
+                        step="0.01"
+                        type="number"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">💰 Precio por metro lineal (ml)</label>
+                      <input
+                        name="precioPorMetroLineal"
+                        placeholder="Ej: 150"
+                        value={form.precioPorMetroLineal}
+                        onChange={handleChange}
+                        className="form-input"
+                        step="0.01"
+                        type="number"
+                      />
+                      {form.anchoRolloPerimetro && form.metrosPorRolloPerimetro && (
+                        <div style={{ marginTop: '8px', padding: '8px 12px', background: '#fef3c7', borderRadius: '8px', fontSize: '13px', border: '1px solid #fde68a' }}>
+                          <strong>📐 Rollo:</strong> {form.anchoRolloPerimetro}m ancho × {form.metrosPorRolloPerimetro}ml largo
+                          {form.precioPorMetroLineal && (
+                            <>
+                              <br />
+                              <strong>💰 Precio por rollo completo:</strong> ${(parseFloat(form.precioPorMetroLineal) * parseFloat(form.metrosPorRolloPerimetro)).toFixed(2)}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {form.tipoVenta === "presentacion" && (
                   <div>
                     <label className="form-label">🧴 Presentación</label>
@@ -2504,7 +2429,7 @@ export default function Admin() {
                   </div>
                 )}
 
-                {form.tipoVenta !== "metro_lineal" && form.tipoVenta !== "metro_cuadrado" && form.tipoVenta !== "presentacion" && (
+                {form.tipoVenta !== "metro_lineal" && form.tipoVenta !== "metro_cuadrado" && form.tipoVenta !== "metro_perimetro" && form.tipoVenta !== "presentacion" && (
                   <div className="input-group">
                     <div>
                       <label className="form-label">📏 Ancho</label>
@@ -3062,23 +2987,6 @@ export default function Admin() {
                   {p.tipo_id && tipos.find(t => t.id === p.tipo_id) && (
                     <p>🏷️ Tipo: {tipos.find(t => t.id === p.tipo_id)?.nombre}</p>
                   )}
-
-                  {/* ✅ MOSTRAR tipoCalculo del producto */}
-                  <div style={{
-                    marginTop: '8px',
-                    padding: '8px 12px',
-                    background: p.tipoCalculo === 'perimetro' ? '#fff7ed' : p.tipoCalculo === 'ambos' ? '#f0fdf4' : '#eff6ff',
-                    borderRadius: '8px',
-                    border: `1px solid ${p.tipoCalculo === 'perimetro' ? '#fdba74' : p.tipoCalculo === 'ambos' ? '#86efac' : '#bfdbfe'}`,
-                    fontSize: '12px',
-                    fontWeight: '600'
-                  }}>
-                    <strong>🧮 Cotizador:</strong>{' '}
-                    {p.tipoCalculo === 'perimetro' && '📏 Solo Perímetro (ml)'}
-                    {p.tipoCalculo === 'ambos' && '🔀 Área y Perímetro'}
-                    {(!p.tipoCalculo || p.tipoCalculo === 'area') && '📐 Solo Área (m²)'}
-                  </div>
-
                   <div className="status-badge">
                     {p.visible === 0 || p.visible === false ? (
                       <span className="badge-hidden">🚫 Oculto</span>
@@ -3114,6 +3022,24 @@ export default function Admin() {
                       )}
                       {p.precioPorMetroCuadrado && (
                         <p>💰 <strong>Precio por m²:</strong> ${p.precioPorMetroCuadrado}</p>
+                      )}
+                      {p.grueso && (
+                        <p>📊 <strong>Grosor:</strong> {p.grueso} {p.unidadGrueso || 'mm'}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 🆕 VISTA ROLLO POR PERÍMETRO */}
+                  {p.tipoVenta === "metro_perimetro" && (
+                    <div className="tipo-venta-info" style={{ borderLeftColor: '#f59e0b', background: '#fffbeb' }}>
+                      <p>🧵 <strong>Tipo:</strong> Rollo por Perímetro (ml)</p>
+                      <p>📏 <strong>Ancho del rollo:</strong> {p.anchoRolloPerimetro || 'N/A'} m</p>
+                      <p>📏 <strong>Largo del rollo:</strong> {p.metrosPorRolloPerimetro || 'N/A'} metros lineales</p>
+                      {p.precioPorMetroLineal && (
+                        <p>💰 <strong>Precio por ml:</strong> ${p.precioPorMetroLineal}</p>
+                      )}
+                      {p.metrosPorRolloPerimetro && (
+                        <p>📊 <strong>Cálculo:</strong> perímetro a cubrir ÷ {p.metrosPorRolloPerimetro} ml = rollos necesarios</p>
                       )}
                       {p.grueso && (
                         <p>📊 <strong>Grosor:</strong> {p.grueso} {p.unidadGrueso || 'mm'}</p>
@@ -3178,18 +3104,6 @@ export default function Admin() {
                     </div>
                   )}
 
-                  {p.tipoVenta === "tramo" && (
-                    <div className="tipo-venta-info">
-                      <p>📏 <strong>Tipo:</strong> Tramo</p>
-                      {(p.ancho || p.alto) && (
-                        <p>📐 <strong>Medidas del tramo:</strong> {p.ancho || 'N/A'}{p.unidadAncho || 'cm'} × {p.alto || 'N/A'}{p.unidadAlto || 'cm'}</p>
-                      )}
-                      {p.grueso && (
-                        <p>📊 <strong>Grosor:</strong> {p.grueso} {p.unidadGrueso || 'mm'}</p>
-                      )}
-                    </div>
-                  )}
-
                   {!p.tipoVenta && (
                     <div className="tipo-venta-info">
                       <p>📏 <strong>Medidas:</strong> {p.ancho || 'N/A'}{p.unidadAncho || 'cm'} × {p.alto || 'N/A'}{p.unidadAlto || 'cm'} × {p.grueso || 'N/A'}{p.unidadGrueso || 'mm'}</p>
@@ -3202,6 +3116,7 @@ export default function Admin() {
                    p.tipoVenta !== "presentacion" &&
                    p.tipoVenta !== "metro_lineal" &&
                    p.tipoVenta !== "metro_cuadrado" &&
+                   p.tipoVenta !== "metro_perimetro" &&
                    (p.mostrarCobertura === 1 || p.mostrarCobertura === true) &&
                    p.cobertura && (
                     <p>📦 <strong>Cobertura:</strong> {p.cobertura} {p.tipoCobertura || 'm²'}</p>

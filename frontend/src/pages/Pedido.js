@@ -75,6 +75,7 @@ const obtenerTipoVenta = (tipoVenta) => {
     'paquete': 'Paquete',
     'metro_cuadrado': 'Metro Cuadrado',
     'metro_lineal': 'Metro Lineal',
+    'metro_perimetro': 'Rollo por Perímetro',
     'presentacion': 'Presentación',
     'unidad': 'Unidad',
     'tramo': 'Tramo',
@@ -92,6 +93,7 @@ const obtenerIconoTipo = (tipoVenta) => {
     'paquete': <FaBox size={12} />,
     'metro_cuadrado': <FaRuler size={12} />,
     'metro_lineal': <FaRuler size={12} />,
+    'metro_perimetro': <FaLayerGroup size={12} />,
     'presentacion': <FaPalette size={12} />,
     'tramo': <FaRuler size={12} />,
     'rollo': <FaLayerGroup size={12} />,
@@ -102,14 +104,21 @@ const obtenerIconoTipo = (tipoVenta) => {
 };
 
 // 🔥 FUNCIÓN PARA SABER SI EL PRODUCTO SE VENDE POR METROS
+// ⚠️ metro_perimetro NO es venta por metros: se vende por rollos completos
 const esVentaPorMetros = (tipoVenta) => {
   return tipoVenta === 'tramo' || tipoVenta === 'rollo' || tipoVenta === 'metro_lineal' || tipoVenta === 'metro_cuadrado';
+};
+
+// 🔥 FUNCIÓN PARA SABER SI SE VENDE POR ROLLOS (ROLLOS ENTEROS)
+const esVentaPorRollos = (tipoVenta) => {
+  return tipoVenta === 'metro_perimetro';
 };
 
 // 🔥 FUNCIÓN PARA OBTENER LA UNIDAD DE MEDIDA (para el backend)
 const obtenerUnidadMedida = (tipoVenta) => {
   if (tipoVenta === 'metro_cuadrado') return 'm²';
   if (tipoVenta === 'metro_lineal') return 'ml';
+  if (tipoVenta === 'metro_perimetro') return 'rollos';
   if (tipoVenta === 'tramo' || tipoVenta === 'rollo') return 'metros';
   if (tipoVenta === 'caja') return 'cajas';
   if (tipoVenta === 'paquete') return 'paquetes';
@@ -121,6 +130,7 @@ const obtenerUnidadMedida = (tipoVenta) => {
 const obtenerUnidadMostrar = (tipoVenta) => {
   if (tipoVenta === 'metro_cuadrado') return 'm²';
   if (tipoVenta === 'metro_lineal') return 'ml';
+  if (tipoVenta === 'metro_perimetro') return 'rollos';
   if (tipoVenta === 'tramo') return 'tramos';
   if (tipoVenta === 'rollo') return 'm';
   if (tipoVenta === 'caja') return 'cajas';
@@ -134,6 +144,7 @@ const obtenerUnidadMostrar = (tipoVenta) => {
 const obtenerUnidadSingular = (tipoVenta) => {
   if (tipoVenta === 'metro_cuadrado') return 'm²';
   if (tipoVenta === 'metro_lineal') return 'ml';
+  if (tipoVenta === 'metro_perimetro') return 'rollo';
   if (tipoVenta === 'tramo') return 'tramo';
   if (tipoVenta === 'rollo') return 'm';
   if (tipoVenta === 'caja') return 'caja';
@@ -145,6 +156,8 @@ const obtenerUnidadSingular = (tipoVenta) => {
 
 // 🔥 FUNCIÓN PARA OBTENER EL PASO (incremento)
 const obtenerPaso = (tipoVenta) => {
+  // Rollos por perímetro: siempre enteros (no se venden fracciones de rollo)
+  if (tipoVenta === 'metro_perimetro') return 1;
   if (tipoVenta === 'metro_cuadrado' || tipoVenta === 'metro_lineal' || tipoVenta === 'tramo' || tipoVenta === 'rollo') {
     return 0.5;
   }
@@ -161,10 +174,43 @@ const calcularSubtotal = (item) => {
   return precio * cantidad;
 };
 
+// 🔥 FUNCIÓN PARA FORMATEAR ANCHO (0.08 → "8 cm")
+const formatearAnchoRollo = (anchoRollo) => {
+  const ancho = Number(anchoRollo) || 0;
+  if (!ancho) return "N/A";
+  if (ancho < 1) {
+    return `${(ancho * 100).toFixed(0)} cm`;
+  }
+  return `${ancho} m`;
+};
+
 // 🔥 FUNCIÓN PARA OBTENER INFO EXTRA DEL PRODUCTO
 const obtenerInfoExtra = (item) => {
   const info = [];
   const t = item.tipoVenta;
+
+  // 🆕 INFO ESPECIAL PARA ROLLO POR PERÍMETRO
+  if (t === 'metro_perimetro') {
+    if (item.perimetroSolicitado && Number(item.perimetroSolicitado) > 0) {
+      info.push({
+        icono: '📐',
+        texto: `Perímetro: ${item.perimetroSolicitado} ml`
+      });
+    }
+    if (item.metrosPorRollo && Number(item.metrosPorRollo) > 0) {
+      info.push({
+        icono: '📏',
+        texto: `${item.metrosPorRollo} ml por rollo`
+      });
+    }
+    if (item.anchoRollo && Number(item.anchoRollo) > 0) {
+      info.push({
+        icono: '📊',
+        texto: `Ancho: ${formatearAnchoRollo(item.anchoRollo)}`
+      });
+    }
+    return info;
+  }
 
   if ((t === 'caja' || t === 'paquete') && item.piezasCaja) {
     info.push({
@@ -495,6 +541,11 @@ export default function Pedido() {
       unidadAncho: producto.unidadAncho || 'cm',
       unidadAlto: producto.unidadAlto || 'cm',
       metrosCuadrados: producto.metrosCuadrados || 0,
+      // 🆕 Campos para metro_perimetro
+      perimetroSolicitado: producto.perimetroSolicitado || 0,
+      metrosPorRolloPerimetro: producto.metrosPorRolloPerimetro || 0,
+      anchoRolloPerimetro: producto.anchoRolloPerimetro || 0,
+      anchoRollo: producto.anchoRollo || 0,
       unidadMedida: obtenerUnidadMedida(producto.tipoVenta)
     };
     
@@ -558,6 +609,12 @@ export default function Pedido() {
           unidadAncho: producto.unidadAncho || 'cm',
           unidadAlto: producto.unidadAlto || 'cm',
           metrosCuadrados: producto.metrosCuadrados || 0,
+          // 🆕 Campos para metro_perimetro
+          perimetroSolicitado: producto.perimetroSolicitado || 0,
+          metrosPorRolloPerimetro: producto.metrosPorRolloPerimetro || 0,
+          anchoRolloPerimetro: producto.anchoRolloPerimetro || 0,
+          anchoRollo: producto.anchoRollo || 0,
+          unidadMostrar: producto.unidadMostrar || '',
           cantidad: Number(cantidad),
           subtotal: Number(producto.precio) * Number(cantidad)
         };
@@ -738,7 +795,12 @@ export default function Pedido() {
         anchoProducto: item.anchoProducto || 0,
         metrosPorRollo: item.metrosPorRollo || 0,
         piezasCaja: item.piezasCaja || 0,
-        metrosCuadrados: item.metrosCuadrados || 0
+        metrosCuadrados: item.metrosCuadrados || 0,
+        // 🆕 Campos para metro_perimetro
+        perimetroSolicitado: item.perimetroSolicitado || 0,
+        metrosPorRolloPerimetro: item.metrosPorRolloPerimetro || 0,
+        anchoRolloPerimetro: item.anchoRolloPerimetro || 0,
+        anchoRollo: item.anchoRollo || 0
       })),
       total: Number(totalCarrito.toFixed(2))
     };
@@ -1963,10 +2025,12 @@ export default function Pedido() {
                   {carrito.map(item => {
                     const imagenProducto = item.imagen || obtenerImagenProducto(item);
                     const esPorMetros = esVentaPorMetros(item.tipoVenta);
+                    const esPorRollos = esVentaPorRollos(item.tipoVenta);
                     const unidad = obtenerUnidadMostrar(item.tipoVenta);
                     const unidadSingular = obtenerUnidadSingular(item.tipoVenta);
                     const paso = obtenerPaso(item.tipoVenta);
-                    const esDecimal = paso < 1;
+                    // 🆕 metro_perimetro NO usa decimales (rollos completos)
+                    const esDecimal = paso < 1 && !esPorRollos;
                     const subtotal = calcularSubtotal(item);
                     const infoExtra = obtenerInfoExtra(item);
                     
@@ -1980,7 +2044,11 @@ export default function Pedido() {
                         flexWrap: 'wrap',
                         background: darkMode ? 'rgba(255,255,255,0.02)' : '#fff',
                         borderRadius: '10px',
-                        marginBottom: '8px'
+                        marginBottom: '8px',
+                        // 🆕 Resaltar productos por rollo
+                        borderLeft: esPorRollos 
+                          ? `4px solid ${darkMode ? '#fbbf24' : '#f59e0b'}` 
+                          : 'none'
                       }}>
                         <div style={{
                           width: '70px',
@@ -2014,7 +2082,9 @@ export default function Pedido() {
                           </div>
                           
                           <div style={{ 
-                            color: '#60a5fa', 
+                            color: esPorRollos 
+                              ? (darkMode ? '#fcd34d' : '#b45309') 
+                              : '#60a5fa', 
                             fontSize: '11px', 
                             fontWeight: '600',
                             display: 'flex',
@@ -2053,7 +2123,7 @@ export default function Pedido() {
                               value={cantidadInput}
                               onChange={(e) => setCantidadInput(e.target.value)}
                               step={esDecimal ? "0.5" : "1"}
-                              min="0"
+                              min={esPorRollos ? "1" : "0"}
                               style={{
                                 width: '90px',
                                 padding: '6px 8px',
@@ -2127,7 +2197,9 @@ export default function Pedido() {
                             
                             <span 
                               style={{ 
-                                color: darkMode ? '#fff' : '#111827', 
+                                color: esPorRollos 
+                                  ? (darkMode ? '#fcd34d' : '#b45309') 
+                                  : (darkMode ? '#fff' : '#111827'), 
                                 fontSize: '14px', 
                                 fontWeight: '700', 
                                 minWidth: '46px', 
@@ -2139,10 +2211,18 @@ export default function Pedido() {
                               onClick={() => iniciarEdicionCantidad(item)}
                               title="Haz clic para editar la cantidad"
                             >
-                              {esDecimal ? Number(item.cantidad).toFixed(2) : item.cantidad}
+                              {/* 🆕 metro_perimetro siempre muestra entero */}
+                              {esDecimal ? Number(item.cantidad).toFixed(2) : Number(item.cantidad)}
                             </span>
                             
-                            <span style={{ fontSize: '11px', color: darkMode ? '#94a3b8' : '#6b7280', fontWeight: '600', minWidth: '44px' }}>
+                            <span style={{ 
+                              fontSize: '11px', 
+                              color: esPorRollos 
+                                ? (darkMode ? '#fcd34d' : '#b45309') 
+                                : (darkMode ? '#94a3b8' : '#6b7280'), 
+                              fontWeight: '700', 
+                              minWidth: '44px' 
+                            }}>
                               {unidad}
                             </span>
                             

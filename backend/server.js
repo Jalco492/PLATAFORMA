@@ -55,6 +55,7 @@ const obtenerUnidadLegible = (tipoVenta) => {
     'paquete': 'Paquete',
     'metro_cuadrado': 'm²',
     'metro_lineal': 'ml',
+    'metro_perimetro': 'Rollo', // 🆕 Rollo por perímetro
     'presentacion': 'Presentación',
     'unidad': 'Unidad',
     'tramo': 'Tramo',
@@ -428,7 +429,7 @@ app.get("/pedidos/numero/:numero", async (req, res) => {
 });
 
 // =================================================
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO (con Resend)
 // =================================================
 const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => {
   console.log("=================================================");
@@ -728,7 +729,7 @@ app.put("/pedidos/:id/estado", async (req, res) => {
 });
 
 // =================================================
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO)
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO) con Resend
 // =================================================
 const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
   const productosHtml = productos.map(p => {
@@ -1314,6 +1315,7 @@ app.get("/productos/:id", async (req, res) => {
 
 // =================================================
 // ➕ CREAR PRODUCTO
+// 🆕 ACTUALIZADO: soporta "metro_perimetro" con campos nuevos
 // =================================================
 app.post("/productos", async (req, res) => {
   try {
@@ -1365,7 +1367,12 @@ app.post("/productos", async (req, res) => {
       unidadAncho,
       unidadAlto,
       unidadMetroLineal,
-      tipoCalculo
+      // 🆕 Nuevos campos: Rollo por perímetro
+      anchoRolloPerimetro,
+      metrosPorRolloPerimetro,
+      perimetroACubrir,
+      precioPorMetroLineal,
+      perimetroTotal
     } = req.body;
 
     const sql = `
@@ -1415,7 +1422,11 @@ app.post("/productos", async (req, res) => {
         unidadAncho = ?,
         unidadAlto = ?,
         unidadMetroLineal = ?,
-        tipoCalculo = ?
+        anchoRolloPerimetro = ?,
+        metrosPorRolloPerimetro = ?,
+        perimetroACubrir = ?,
+        precioPorMetroLineal = ?,
+        perimetroTotal = ?
     `;
 
     const values = [
@@ -1464,7 +1475,12 @@ app.post("/productos", async (req, res) => {
       unidadAncho || 'cm',
       unidadAlto || 'cm',
       unidadMetroLineal || 'm',
-      tipoCalculo || 'area'
+      // 🆕 Nuevos campos
+      anchoRolloPerimetro || null,
+      metrosPorRolloPerimetro || null,
+      perimetroACubrir || null,
+      precioPorMetroLineal || null,
+      perimetroTotal || null
     ];
 
     console.log(`📝 Valores a insertar: ${values.length}`);
@@ -1486,6 +1502,7 @@ app.post("/productos", async (req, res) => {
 
 // =================================================
 // ✏️ ACTUALIZAR PRODUCTO
+// 🆕 ACTUALIZADO: soporta "metro_perimetro" con campos nuevos
 // =================================================
 app.put("/productos/:id", async (req, res) => {
   try {
@@ -1538,7 +1555,12 @@ app.put("/productos/:id", async (req, res) => {
       unidadAncho,
       unidadAlto,
       unidadMetroLineal,
-      tipoCalculo
+      // 🆕 Nuevos campos: Rollo por perímetro
+      anchoRolloPerimetro,
+      metrosPorRolloPerimetro,
+      perimetroACubrir,
+      precioPorMetroLineal,
+      perimetroTotal
     } = req.body;
 
     let imagenesFinal = imagenes;
@@ -1606,7 +1628,11 @@ app.put("/productos/:id", async (req, res) => {
         unidadAncho = ?,
         unidadAlto = ?,
         unidadMetroLineal = ?,
-        tipoCalculo = ?
+        anchoRolloPerimetro = ?,
+        metrosPorRolloPerimetro = ?,
+        perimetroACubrir = ?,
+        precioPorMetroLineal = ?,
+        perimetroTotal = ?
       WHERE id = ?
     `;
 
@@ -1656,7 +1682,12 @@ app.put("/productos/:id", async (req, res) => {
       unidadAncho || 'cm',
       unidadAlto || 'cm',
       unidadMetroLineal || 'm',
-      tipoCalculo || 'area',
+      // 🆕 Nuevos campos
+      anchoRolloPerimetro || null,
+      metrosPorRolloPerimetro || null,
+      perimetroACubrir || null,
+      precioPorMetroLineal || null,
+      perimetroTotal || null,
       id
     ];
 
@@ -2394,5 +2425,6 @@ app.listen(5000, () => {
   console.log("  - POST /pedidos");
   console.log("  - GET  /pedidos");
   console.log("  - PUT  /pedidos/:id/estado (con envío de correo)");
-  console.log("  - ✅ tipoCalculo habilitado en POST/PUT /productos");
+  console.log("  - POST /productos (soporta metro_perimetro)");
+  console.log("  - PUT  /productos/:id (soporta metro_perimetro)");
 });

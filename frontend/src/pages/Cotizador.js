@@ -57,6 +57,16 @@ const convertirAMetrosConUnidad = (valor, unidad = 'cm') => {
   return num / 100;
 };
 
+// 🆕 FORMATEAR ANCHO DE ROLLO (0.08 → "8 cm")
+const formatearAnchoRollo = (anchoRollo) => {
+  const ancho = Number(anchoRollo) || 0;
+  if (!ancho) return "N/A";
+  if (ancho < 1) {
+    return `${(ancho * 100).toFixed(0)} cm`;
+  }
+  return `${ancho} m`;
+};
+
 export default function Cotizador() {
   const navigate = useNavigate();
 
@@ -83,10 +93,20 @@ export default function Cotizador() {
   }, [darkMode]);
 
   // ============================================================
-  // 🔥 TIPOS QUE SOLO PERMITEN INGRESAR CANTIDAD
+  // 🔥 HELPERS DE TIPO DE VENTA
   // ============================================================
   const esSoloCantidad = (tipoVenta) => {
     return ["pieza", "paquete", "otros", "unidad", "presentacion"].includes(tipoVenta);
+  };
+
+  // 🆕 ROLLO POR PERÍMETRO
+  const esProductoPorPerimetro = (tipoVenta) => {
+    return tipoVenta === "metro_perimetro";
+  };
+
+  // 🆕 ¿SE MUESTRA EL SELECTOR DE DESPERDICIO?
+  const muestraDesperdicio = (tipoVenta) => {
+    return !esSoloCantidad(tipoVenta) && !esProductoPorPerimetro(tipoVenta);
   };
 
   // ============================================================
@@ -99,6 +119,8 @@ export default function Cotizador() {
         return ["largoAncho", "area"];
       case "metro_lineal":
         return ["largoAncho", "metrosLineales"];
+      case "metro_perimetro":
+        return ["perimetro"];
       case "caja":
         return ["largoAncho", "area"];
       case "tramo":
@@ -113,6 +135,7 @@ export default function Cotizador() {
     if (modo === "cantidad") return { modo: "cantidad", cantidad: "", usar: true };
     if (modo === "metrosLineales") return { modo: "metrosLineales", metrosLineales: "", usar: true };
     if (modo === "area") return { modo: "area", area: "", usar: true };
+    if (modo === "perimetro") return { modo: "perimetro", perimetro: "", usar: true };
     return { modo: "largoAncho", largo: "", ancho: "", usar: true };
   };
 
@@ -132,15 +155,30 @@ export default function Cotizador() {
             const productoBD = res.data.find((prod) => prod.id === guardado.id);
             if (!productoBD) return null;
 
-            const areasForzadas = esSoloCantidad(productoBD.tipoVenta)
-              ? [{ modo: "cantidad", cantidad: "", usar: true }]
-              : (guardado.areas?.length
-                  ? guardado.areas
-                  : [crearAreaInicial(productoBD.tipoVenta)]);
+            let areasForzadas;
+            if (esSoloCantidad(productoBD.tipoVenta)) {
+              areasForzadas = [{ modo: "cantidad", cantidad: "", usar: true }];
+            } else if (esProductoPorPerimetro(productoBD.tipoVenta)) {
+              // ✅ CORRECCIÓN 1: SIEMPRE forzar modo perímetro al cargar
+              const areasGuardadas = Array.isArray(guardado.areas) ? guardado.areas : [];
+              areasForzadas = areasGuardadas.length > 0
+                ? areasGuardadas.map((a) => ({
+                    modo: "perimetro",
+                    perimetro: a.perimetro ?? "",
+                    usar: a.usar ?? true,
+                  }))
+                : [{ modo: "perimetro", perimetro: "", usar: true }];
+            } else {
+              areasForzadas = guardado.areas?.length
+                ? guardado.areas
+                : [crearAreaInicial(productoBD.tipoVenta)];
+            }
 
             return {
               ...productoBD,
-              desperdicio: esSoloCantidad(productoBD.tipoVenta) ? 0 : (guardado.desperdicio ?? 10),
+              desperdicio: muestraDesperdicio(productoBD.tipoVenta)
+                ? (guardado.desperdicio ?? 10)
+                : 0,
               areas: areasForzadas
             };
           })
@@ -211,14 +249,40 @@ export default function Cotizador() {
   // ============================================================
   // 🔥 INFO DE PRESENTACIÓN / RINDE POR UNIDAD
   // ============================================================
-  /**
-   * Devuelve un array de { icono, label, valor } con la info
-   * relevante del producto (piezas, rinde, cobertura, etc.)
-   */
   const obtenerInfoPresentacion = (p) => {
     if (!p) return [];
     const t = p.tipoVenta;
     const info = [];
+
+    // 🆕 INFO PARA ROLLO POR PERÍMETRO
+    if (esProductoPorPerimetro(t)) {
+      const anchoRollo = Number(p.anchoRolloPerimetro) || 0;
+      const metrosPorRollo = Number(p.metrosPorRolloPerimetro) || 0;
+      const precioPorML = Number(p.precioPorMetroLineal) || 0;
+
+      if (anchoRollo > 0) {
+        info.push({
+          icono: "📏",
+          label: "Ancho del rollo",
+          valor: formatearAnchoRollo(anchoRollo)
+        });
+      }
+      if (metrosPorRollo > 0) {
+        info.push({
+          icono: "📐",
+          label: "Largo del rollo",
+          valor: `${metrosPorRollo} ml`
+        });
+      }
+      if (precioPorML > 0) {
+        info.push({
+          icono: "💰",
+          label: "Precio por ml",
+          valor: `$${precioPorML.toFixed(2)}`
+        });
+      }
+      return info;
+    }
 
     // 🔹 Piezas por caja/paquete
     if ((t === "caja" || t === "paquete") && p.piezasCaja) {
@@ -303,6 +367,23 @@ export default function Cotizador() {
     return 0;
   };
 
+  // ✅ CORRECCIÓN 2: Fallback en extraerPerimetro para data vieja
+  const extraerPerimetro = (area) => {
+    if (!area || area.usar === false) return 0;
+    if (area.modo === "perimetro") return Number(area.perimetro) || 0;
+    // Fallbacks por si la data vieja tiene otro modo
+    if (area.modo === "area") return Number(area.area) || 0;
+    if (area.modo === "cantidad") return Number(area.cantidad) || 0;
+    if (area.modo === "metrosLineales") return Number(area.metrosLineales) || 0;
+    if (area.modo === "largoAncho") {
+      const largo = Number(area.largo) || 0;
+      const ancho = Number(area.ancho) || 0;
+      return largo * ancho;
+    }
+    // Último recurso: leer el campo directo
+    return Number(area.perimetro) || 0;
+  };
+
   // ============================================================
   // 🔥 MOTOR DE CÁLCULO PRINCIPAL
   // ============================================================
@@ -310,7 +391,7 @@ export default function Cotizador() {
     const tipo = p.tipoVenta || "otros";
     const precio = Number(p.oferta ? p.precioOferta : p.precio) || 0;
     const areas = p.areas || [];
-    const desperdicio = esSoloCantidad(tipo) ? 0 : (parseFloat(p.desperdicio) || 0);
+    const desperdicio = muestraDesperdicio(tipo) ? (parseFloat(p.desperdicio) || 0) : 0;
 
     // -------- TIPOS POR CANTIDAD --------
     if (esSoloCantidad(tipo)) {
@@ -332,6 +413,9 @@ export default function Cotizador() {
         cantidad,
         metrosLineales: 0,
         equivalenciaRollos: 0,
+        perimetro: 0,
+        rollosNecesarios: 0,
+        coberturaReal: 0,
         precio,
         total
       };
@@ -356,6 +440,42 @@ export default function Cotizador() {
         cantidad: metrosConDesp,
         metrosLineales: metrosConDesp,
         equivalenciaRollos: 0,
+        perimetro: 0,
+        rollosNecesarios: 0,
+        coberturaReal: 0,
+        precio,
+        total
+      };
+    }
+
+    // 🆕 -------- ROLLO POR PERÍMETRO --------
+    if (tipo === "metro_perimetro") {
+      const perimetro = areas.reduce((acc, a) => acc + extraerPerimetro(a), 0);
+      const metrosPorRollo = Number(p.metrosPorRolloPerimetro) || 0;
+      const anchoRollo = Number(p.anchoRolloPerimetro) || 0;
+
+      const rollosNecesarios = metrosPorRollo > 0
+        ? Math.ceil(perimetro / metrosPorRollo)
+        : 0;
+      const coberturaReal = rollosNecesarios * metrosPorRollo;
+      const total = rollosNecesarios * precio;
+
+      return {
+        tipo,
+        area: 0,
+        desperdicio: 0,
+        areaConDesc: 0,
+        ancho: anchoRollo,
+        alto: metrosPorRollo,
+        piezasCaja: 0,
+        coberturaPieza: 0,
+        coberturaUnidad: metrosPorRollo,
+        cantidad: rollosNecesarios,
+        metrosLineales: perimetro,
+        equivalenciaRollos: rollosNecesarios,
+        perimetro,
+        rollosNecesarios,
+        coberturaReal,
         precio,
         total
       };
@@ -382,6 +502,9 @@ export default function Cotizador() {
         cantidad: metrosLineales,
         metrosLineales,
         equivalenciaRollos: 0,
+        perimetro: 0,
+        rollosNecesarios: 0,
+        coberturaReal: 0,
         precio,
         total
       };
@@ -427,6 +550,9 @@ export default function Cotizador() {
         cantidad: metrosTotales,
         metrosLineales: metrosTotales,
         equivalenciaRollos: 0,
+        perimetro: 0,
+        rollosNecesarios: 0,
+        coberturaReal: 0,
         precio,
         total
       };
@@ -457,6 +583,9 @@ export default function Cotizador() {
         cantidad,
         metrosLineales: 0,
         equivalenciaRollos: 0,
+        perimetro: 0,
+        rollosNecesarios: 0,
+        coberturaReal: 0,
         precio,
         total
       };
@@ -477,6 +606,9 @@ export default function Cotizador() {
       cantidad: cantidadFallback,
       metrosLineales: 0,
       equivalenciaRollos: 0,
+      perimetro: 0,
+      rollosNecesarios: 0,
+      coberturaReal: 0,
       precio,
       total: cantidadFallback * precio
     };
@@ -616,6 +748,13 @@ export default function Cotizador() {
           if (r.areaConDesc > 0) {
             pdf.text(`Área total cubierta: ${r.areaConDesc.toFixed(2)} m²`, 20, y + 48);
           }
+        } else if (tipo === "metro_perimetro") {
+          // 🆕 RESUMEN PARA ROLLO POR PERÍMETRO
+          pdf.text(`Perímetro a cubrir: ${r.perimetro.toFixed(2)} ml`, 20, y + 8);
+          pdf.text(`Largo por rollo: ${r.alto} ml`, 20, y + 18);
+          pdf.text(`Ancho del rollo: ${formatearAnchoRollo(r.ancho)}`, 20, y + 28);
+          pdf.text(`Rollos necesarios: ${r.rollosNecesarios}`, 20, y + 38);
+          pdf.text(`Cobertura total: ${r.coberturaReal.toFixed(2)} ml`, 20, y + 48);
         } else if (tipo === "metro_cuadrado") {
           pdf.text(`Área a cubrir: ${r.area.toFixed(2)} m²`, 20, y + 8);
           pdf.text(`Desperdicio: ${r.desperdicio}%`, 20, y + 18);
@@ -658,6 +797,8 @@ export default function Cotizador() {
           areasActivas.forEach((area, index) => {
             if (area.modo === "cantidad") {
               pdf.text(`Cantidad ${index + 1}: ${Number(area.cantidad || 0)} unidades`, 20, y);
+            } else if (area.modo === "perimetro") {
+              pdf.text(`Perímetro ${index + 1}: ${Number(area.perimetro || 0).toFixed(2)} ml`, 20, y);
             } else if (area.modo === "metrosLineales") {
               pdf.text(`Tramo ${index + 1}: ${Number(area.metrosLineales || 0).toFixed(2)} ml`, 20, y);
             } else if (area.modo === "area") {
@@ -685,6 +826,12 @@ export default function Cotizador() {
             detalle += ` Rinde por unidad: ${r.coberturaUnidad.toFixed(2)} m². Cobertura total: ${r.areaConDesc.toFixed(2)} m².`;
           }
           notaProducto = detalle;
+        } else if (tipo === "metro_perimetro") {
+          // 🆕 NOTA PARA ROLLO POR PERÍMETRO
+          notaProducto =
+            `Producto por rollo (perímetro). Ancho del rollo: ${formatearAnchoRollo(r.ancho)}. ` +
+            `Cada rollo cubre ${r.alto} ml. Para cubrir ${r.perimetro.toFixed(2)} ml ` +
+            `necesitas ${r.rollosNecesarios} rollo(s) (cobertura real: ${r.coberturaReal.toFixed(2)} ml).`;
         } else if (tipo === "metro_cuadrado") {
           notaProducto =
             `Producto por metro cuadrado (rollo). Ancho del rollo: ${r.ancho.toFixed(2)} m. ` +
@@ -820,6 +967,10 @@ export default function Cotizador() {
   const actualizarArea = (indexProducto, indexArea, campo, valor) => {
     const copia = [...productos];
     copia[indexProducto].areas[indexArea][campo] = valor;
+    // ✅ Asegurar que el modo sea "perimetro" si es producto por perímetro
+    if (esProductoPorPerimetro(copia[indexProducto].tipoVenta)) {
+      copia[indexProducto].areas[indexArea].modo = "perimetro";
+    }
     guardar(copia);
   };
 
@@ -830,6 +981,7 @@ export default function Cotizador() {
     if (nuevoModo === "cantidad") nuevaArea.cantidad = "";
     else if (nuevoModo === "metrosLineales") nuevaArea.metrosLineales = "";
     else if (nuevoModo === "area") nuevaArea.area = "";
+    else if (nuevoModo === "perimetro") nuevaArea.perimetro = "";
     else if (nuevoModo === "largoAncho") { nuevaArea.largo = ""; nuevaArea.ancho = ""; }
     copia[indexProducto].areas[indexArea] = nuevaArea;
     guardar(copia);
@@ -894,6 +1046,7 @@ export default function Cotizador() {
           </h2>
           <p style={{ color: darkMode ? "#d1d5db" : "#374151", fontSize: "clamp(0.9rem, 1.8vw, 1rem)" }}>
             Para productos por <strong>metro cuadrado</strong> o <strong>metro lineal</strong> puedes ingresar largo × ancho o el área directa.
+            Para productos por <strong>rollo por perímetro</strong> solo ingresa el perímetro en metros lineales.
             Para productos por <strong>pieza</strong>, <strong>paquete</strong>, <strong>unidad</strong> u <strong>otros</strong>, solo ingresa la cantidad.
           </p>
           <div
@@ -960,11 +1113,13 @@ export default function Cotizador() {
           const imagenUrl = obtenerImagenProducto(p);
           const tipo = p.tipoVenta || "otros";
           const soloCantidad = esSoloCantidad(tipo);
+          const porPerimetro = esProductoPorPerimetro(tipo);
           const infoPresentacion = obtenerInfoPresentacion(p);
 
           const tipoAmigable =
             tipo === "metro_cuadrado" ? "Metro cuadrado" :
             tipo === "metro_lineal" ? "Metro lineal" :
+            tipo === "metro_perimetro" ? "Rollo por perímetro" :
             tipo === "caja" ? "Caja" :
             tipo === "paquete" ? "Paquete" :
             tipo === "pieza" ? "Pieza" :
@@ -1036,12 +1191,12 @@ export default function Cotizador() {
                   <p
                     style={{
                       margin: "5px 0 0",
-                      color: "#2563eb",
+                      color: porPerimetro ? "#d97706" : "#2563eb",
                       fontWeight: "600",
                       fontSize: "clamp(0.75rem, 1.4vw, 0.9rem)"
                     }}
                   >
-                    🚚 Tipo de venta: {tipoAmigable}
+                    {porPerimetro ? "🧵" : "🚚"} Tipo de venta: {tipoAmigable}
                   </p>
                   {(tipo === "metro_cuadrado" || tipo === "metro_lineal") && (
                     <p
@@ -1058,7 +1213,7 @@ export default function Cotizador() {
               </div>
 
               {/* 🔥 INFO DE PRESENTACIÓN / RINDE */}
-              {soloCantidad && infoPresentacion.length > 0 && (
+              {infoPresentacion.length > 0 && (soloCantidad || porPerimetro) && (
                 <div
                   style={{
                     display: "grid",
@@ -1066,9 +1221,13 @@ export default function Cotizador() {
                     gap: "10px",
                     marginBottom: "18px",
                     padding: "14px",
-                    background: darkMode ? "#0f172a" : "#f0f9ff",
+                    background: darkMode
+                      ? (porPerimetro ? "#1c1917" : "#0f172a")
+                      : (porPerimetro ? "#fffbeb" : "#f0f9ff"),
                     borderRadius: "12px",
-                    border: darkMode ? "1px solid #1e3a8a" : "1px solid #bae6fd"
+                    border: darkMode
+                      ? (porPerimetro ? "1px solid #78350f" : "1px solid #1e3a8a")
+                      : (porPerimetro ? "1px solid #fde68a" : "1px solid #bae6fd")
                   }}
                 >
                   {infoPresentacion.map((item, idx) => (
@@ -1121,6 +1280,11 @@ export default function Cotizador() {
               >
                 {(p.areas || []).map((area, areaIndex) => {
                   const modos = modosPermitidos;
+                  // ✅ Detectar si debemos mostrar input de perímetro
+                  const mostrarInputPerimetro =
+                    area.modo === "perimetro" ||
+                    (porPerimetro && !["largoAncho", "area", "metrosLineales", "cantidad"].includes(area.modo));
+
                   return (
                     <div
                       key={areaIndex}
@@ -1132,6 +1296,7 @@ export default function Cotizador() {
                     >
                       <h4 style={{ fontSize: "clamp(0.95rem, 1.8vw, 1.1rem)" }}>
                         {soloCantidad ? `Cantidad ${areaIndex + 1}` :
+                         porPerimetro ? `Perímetro ${areaIndex + 1}` :
                          tipo === "tramo" ? `Tramo ${areaIndex + 1}` :
                          `Área ${areaIndex + 1}`}
                       </h4>
@@ -1175,6 +1340,7 @@ export default function Cotizador() {
                               modo === "largoAncho" ? "📏 Largo × Ancho" :
                               modo === "area" ? "📐 Área (m²)" :
                               modo === "metrosLineales" ? "📏 Metros lineales" :
+                              modo === "perimetro" ? "🧵 Perímetro (ml)" :
                               modo === "cantidad" ? "🔢 Cantidad" : modo;
                             return (
                               <button
@@ -1272,6 +1438,25 @@ export default function Cotizador() {
                           />
                         )}
 
+                        {/* ✅ CORRECCIÓN 3: Render defensivo del input de perímetro */}
+                        {mostrarInputPerimetro && (
+                          <input
+                            type="number"
+                            placeholder="Perímetro a cubrir (ml)"
+                            value={area.perimetro || ""}
+                            onChange={(e) => actualizarArea(i, areaIndex, "perimetro", e.target.value)}
+                            style={{
+                              padding: "clamp(10px, 1.8vw, 14px)",
+                              borderRadius: "10px",
+                              border: "2px solid #f59e0b",
+                              fontSize: "clamp(0.9rem, 1.6vw, 1rem)",
+                              width: "100%",
+                              boxSizing: "border-box",
+                              background: darkMode ? "#1c1917" : "#fffbeb"
+                            }}
+                          />
+                        )}
+
                         {area.modo === "cantidad" && (
                           <input
                             type="number"
@@ -1299,7 +1484,11 @@ export default function Cotizador() {
                             fontSize: "clamp(0.85rem, 1.5vw, 1rem)"
                           }}
                         >
-                          {area.modo === "metrosLineales"
+                          {porPerimetro
+                            ? `Perímetro: ${Number(area.perimetro || 0).toFixed(2)} ml`
+                            : area.modo === "perimetro"
+                            ? `Perímetro: ${Number(area.perimetro || 0).toFixed(2)} ml`
+                            : area.modo === "metrosLineales"
                             ? `Metros lineales: ${Number(area.metrosLineales || 0).toFixed(2)} ml`
                             : area.modo === "area"
                             ? `Área: ${Number(area.area || 0).toFixed(2)} m²`
@@ -1344,12 +1533,12 @@ export default function Cotizador() {
                     touchAction: "manipulation"
                   }}
                 >
-                  ➕ Agregar {soloCantidad ? "otra cantidad" : "otra área"}
+                  ➕ Agregar {soloCantidad ? "otra cantidad" : porPerimetro ? "otro perímetro" : "otra área"}
                 </button>
               </div>
 
               {/* DESPERDICIO — solo para tipos que lo usan */}
-              {!soloCantidad && (
+              {muestraDesperdicio(tipo) && (
                 <div
                   style={{
                     display: "flex",
@@ -1437,6 +1626,29 @@ export default function Cotizador() {
                     <hr style={{ border: "none", borderTop: darkMode ? "1px solid #374151" : "1px solid #e5e7eb", margin: "12px 0" }} />
                     <p style={{ color: "#2563eb", fontWeight: "700", marginBottom: "8px", fontSize: "clamp(1rem, 1.7vw, 1.15rem)" }}>
                       📦 Pedido: {r.cantidad} {tipoAmigable.toLowerCase()}{r.cantidad === 1 ? "" : "s"}
+                    </p>
+                  </>
+                ) : porPerimetro ? (
+                  // 🆕 RESUMEN PARA ROLLO POR PERÍMETRO
+                  <>
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Ancho del rollo:</strong> {formatearAnchoRollo(r.ancho)}
+                    </p>
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Largo del rollo:</strong> {r.alto} ml
+                    </p>
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Perímetro a cubrir:</strong> {r.perimetro.toFixed(2)} ml
+                    </p>
+                    <p style={{ color: darkMode ? "#d1d5db" : "#374151", marginBottom: "8px", fontSize: "clamp(0.85rem, 1.5vw, 1rem)" }}>
+                      <strong>Precio por rollo:</strong> ${r.precio.toFixed(2)}
+                    </p>
+                    <hr style={{ border: "none", borderTop: darkMode ? "1px solid #374151" : "1px solid #e5e7eb", margin: "12px 0" }} />
+                    <p style={{ color: "#d97706", fontWeight: "700", marginBottom: "8px", fontSize: "clamp(1rem, 1.7vw, 1.15rem)" }}>
+                      🧵 Necesitas: {r.rollosNecesarios} rollo{r.rollosNecesarios === 1 ? "" : "s"}
+                    </p>
+                    <p style={{ color: darkMode ? "#9ca3af" : "#6b7280", marginBottom: "8px", fontSize: "clamp(0.8rem, 1.4vw, 0.9rem)" }}>
+                      Cobertura real: {r.coberturaReal.toFixed(2)} ml ({r.rollosNecesarios} × {r.alto} ml)
                     </p>
                   </>
                 ) : tipo === "metro_cuadrado" ? (
