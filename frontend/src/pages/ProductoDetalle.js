@@ -68,6 +68,16 @@ export default function ProductoDetalle() {
   // ✅ ESTADO PARA EL ACORDEÓN
   const [acordeonAbierto, setAcordeonAbierto] = useState("descripcion");
 
+  // 🆕 BURBUJA DE PRODUCTO ANTERIOR
+  const [bubbleProducto, setBubbleProducto] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem("bubbleProducto");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const cotizadorRef = useRef();
   const imagenPDFRef = useRef();
   const carruselIntervalRef = useRef(null);
@@ -118,6 +128,22 @@ export default function ProductoDetalle() {
         setModoEntrada("largoAncho");
         setDesperdicio(0);
         setPerimetroUsuario(""); // 🆕 Resetear perímetro
+
+        // 🆕 Si llegamos al producto que está en la burbuja, la ocultamos
+        try {
+          const stored = sessionStorage.getItem("bubbleProducto");
+          if (stored) {
+            const bubble = JSON.parse(stored);
+            if (String(bubble.id) === String(res.data.id)) {
+              sessionStorage.removeItem("bubbleProducto");
+              setBubbleProducto(null);
+            } else {
+              setBubbleProducto(bubble);
+            }
+          }
+        } catch {
+          // ignorar
+        }
       })
       .catch((err) => console.error("Error cargando producto:", err));
   }, [id]);
@@ -338,7 +364,7 @@ export default function ProductoDetalle() {
       'paquete': 'por paquete',
       'metro_cuadrado': 'por metro cuadrado',
       'metro_lineal': 'por metro lineal',
-      'metro_perimetro': 'por rollo', // 🆕
+      'metro_perimetro': 'por rollo',
       'presentacion': producto?.presentacion ? `por ${producto.presentacion}` : 'por presentación'
     };
     return unidadMap[tipoVenta] || '';
@@ -411,7 +437,6 @@ export default function ProductoDetalle() {
       precio: precioPorRollo,
       cantidad: rollosNecesarios,
       subtotal: precioTotalRollos,
-      // Info extra del cálculo
       perimetroSolicitado: Number(perimetroUsuario),
       metrosPorRollo: metrosPorRollo,
       anchoRollo: anchoRolloPerimetro,
@@ -421,7 +446,6 @@ export default function ProductoDetalle() {
     const carritoGuardado = sessionStorage.getItem("carritoPedido");
     let carrito = carritoGuardado ? JSON.parse(carritoGuardado) : [];
     
-    // Buscar si ya existe este producto CON el mismo perímetro
     const existeIndex = carrito.findIndex(
       i => i.id === item.id && 
            i.tipoVenta === "metro_perimetro" && 
@@ -443,6 +467,39 @@ export default function ProductoDetalle() {
     sessionStorage.setItem("carritoPedido", JSON.stringify(carrito));
     mostrarNotificacionCustom(`✅ ${rollosNecesarios} rollo(s) agregados al pedido`);
     setTimeout(() => navigate("/pedido"), 1500);
+  };
+
+  // 🆕 IR A PRODUCTO GUARDANDO EL ACTUAL EN LA BURBUJA
+  const irAProductoConBubble = (nuevoProducto) => {
+    // Guardar el producto actual como burbuja
+    const bubbleData = {
+      id: producto.id,
+      nombre: producto.nombre,
+      imagen: obtenerImagen(producto),
+      precio: producto.oferta ? producto.precioOferta : producto.precio,
+      oferta: producto.oferta === 1 || producto.oferta === true,
+      precioOriginal: producto.precio
+    };
+    sessionStorage.setItem("bubbleProducto", JSON.stringify(bubbleData));
+    setBubbleProducto(bubbleData);
+    navigate(`/producto/${nuevoProducto.id}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // 🆕 CERRAR BURBUJA
+  const cerrarBubble = () => {
+    setBubbleProducto(null);
+    sessionStorage.removeItem("bubbleProducto");
+  };
+
+  // 🆕 IR AL PRODUCTO DE LA BURBUJA
+  const irAlBubble = () => {
+    if (!bubbleProducto) return;
+    const idBubble = bubbleProducto.id;
+    sessionStorage.removeItem("bubbleProducto");
+    setBubbleProducto(null);
+    navigate(`/producto/${idBubble}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const agregarMedida = () => {
@@ -475,7 +532,7 @@ export default function ProductoDetalle() {
       { largo: "", ancho: "", area: "" }
     ]);
     setAreaDirecta("");
-    setPerimetroUsuario(""); // 🆕
+    setPerimetroUsuario("");
   };
 
   const convertirAMetrosConUnidad = (valor, unidad = 'cm') => {
@@ -494,7 +551,6 @@ export default function ProductoDetalle() {
     return producto?.tipoVenta === "metro_cuadrado" || producto?.tipoVenta === "metro_lineal";
   };
 
-  // 🆕 ES PRODUCTO POR PERÍMETRO
   const esProductoPorPerimetro = () => {
     return producto?.tipoVenta === "metro_perimetro";
   };
@@ -533,7 +589,7 @@ export default function ProductoDetalle() {
     const map = {
       'metro_cuadrado': 'Metro cuadrado',
       'metro_lineal': 'Metro lineal',
-      'metro_perimetro': 'Rollo por perímetro', // 🆕
+      'metro_perimetro': 'Rollo por perímetro',
       'caja': 'Caja',
       'paquete': 'Paquete',
       'pieza': 'Pieza',
@@ -631,7 +687,6 @@ export default function ProductoDetalle() {
     areaCubierta = cantidadNecesaria * coberturaPorUnidad;
   }
 
-  // 🆕 CÁLCULO DE ROLLOS PARA PERÍMETRO
   const anchoRolloPerimetro = Number(producto?.anchoRolloPerimetro) || 0;
   const metrosPorRollo = Number(producto?.metrosPorRolloPerimetro) || 0;
   const precioPorMetroLineal = Number(producto?.precioPorMetroLineal) || 0;
@@ -649,7 +704,6 @@ export default function ProductoDetalle() {
   const precioFinal = Number(producto?.oferta ? producto?.precioOferta : producto?.precio) || 0;
   let total = 0;
 
-  // 🆕 SI ES POR PERÍMETRO, EL TOTAL ES EL PRECIO DE LOS ROLLOS
   if (esProductoPorPerimetro()) {
     total = precioTotalRollos;
   } else if (producto?.tipoVenta === "metro_lineal") {
@@ -730,7 +784,6 @@ export default function ProductoDetalle() {
       pdf.roundedRect(15, y, pageWidth - 30, 55, 3, 3, "F");
       pdf.setFontSize(11); pdf.setTextColor(60);
 
-      // 🆕 RESUMEN PARA PERÍMETRO
       if (esProductoPorPerimetro()) {
         pdf.text(`Perímetro a cubrir: ${perimetroUsuario} ml`, 20, y + 8);
         pdf.text(`Largo del rollo: ${metrosPorRollo} ml`, 20, y + 18);
@@ -827,7 +880,6 @@ export default function ProductoDetalle() {
   const mostrarSelectorModo = () => esProductoTipoRollo();
   const mostrarDesperdicio = () => esProductoTipoRollo();
 
-  // ✅ VALIDACIONES PARA EL ACORDEÓN
   const tieneDetallesAdicionales = () => (
     (producto.uso && producto.uso.trim() !== "") ||
     (producto.aplicacion && producto.aplicacion.trim() !== "") ||
@@ -843,7 +895,6 @@ export default function ProductoDetalle() {
   const tieneEspecificaciones = () => producto.especificaciones && producto.especificaciones.trim() !== "";
   const tieneInfoAdicional = () => producto.informacionAdicional && producto.informacionAdicional.trim() !== "";
 
-  // 🆕 FORMATEAR ANCHO (0.08 → "8 cm")
   const formatearAnchoPerimetro = () => {
     if (!anchoRolloPerimetro) return "N/A";
     if (anchoRolloPerimetro < 1) {
@@ -855,7 +906,6 @@ export default function ProductoDetalle() {
   const getTextoExplicativoProducto = () => {
     const t = (producto?.tipoVenta || '').toLowerCase();
 
-    // 🆕 TEXTO PARA PERÍMETRO
     if (t === "metro_perimetro") {
       return (
         <>
@@ -987,7 +1037,6 @@ export default function ProductoDetalle() {
   const renderFichaVisual = () => {
     const t = (producto?.tipoVenta || '').toLowerCase();
 
-    // ============ PERÍMETRO ============
     if (t === 'metro_perimetro') {
       return (
         <div className="ficha-tecnica-visual">
@@ -1020,7 +1069,6 @@ export default function ProductoDetalle() {
       );
     }
 
-    // ============ ROLLO (m² o ml) ============
     if (t === 'metro_cuadrado' || t === 'metro_lineal') {
       return (
         <div className="ficha-tecnica-visual">
@@ -1053,7 +1101,6 @@ export default function ProductoDetalle() {
       );
     }
 
-    // ============ CAJA / PAQUETE ============
     if (t === 'caja' || t === 'paquete') {
       const piezas = Number(producto.piezasCaja) || 1;
       const ancho = Number(producto.ancho) || 0;
@@ -1106,7 +1153,6 @@ export default function ProductoDetalle() {
       );
     }
 
-    // ============ PIEZA ============
     if (t === 'pieza') {
       const ancho = Number(producto.ancho) || 0;
       const alto = Number(producto.alto) || 0;
@@ -1152,7 +1198,6 @@ export default function ProductoDetalle() {
       );
     }
 
-    // ============ PRESENTACIÓN / UNIDAD ============
     if (t === 'presentacion' || t === 'unidad') {
       return (
         <div className="ficha-tecnica-visual">
@@ -1178,7 +1223,6 @@ export default function ProductoDetalle() {
       );
     }
 
-    // ============ TRAMO ============
     if (t === 'tramo') {
       const ancho = Number(producto.ancho) || 0;
       const alto = Number(producto.alto) || 0;
@@ -1224,7 +1268,6 @@ export default function ProductoDetalle() {
       );
     }
 
-    // ============ FALLBACK GENÉRICO ============
     const ancho = Number(producto.ancho) || 0;
     const alto = Number(producto.alto) || 0;
     const grupo = Number(producto.grueso) || 0;
@@ -1281,6 +1324,48 @@ export default function ProductoDetalle() {
         <div className="notificacion-flotante"><span>{notificacionMensaje}</span></div>
       )}
 
+      {/* 🆕 BURBUJA DE PRODUCTO ANTERIOR */}
+      {bubbleProducto && (
+        <div className="bubble-producto-anterior" onClick={irAlBubble} role="button" tabIndex={0}>
+          <button
+            className="bubble-close"
+            onClick={(e) => { e.stopPropagation(); cerrarBubble(); }}
+            aria-label="Cerrar"
+            title="Cerrar"
+          >×</button>
+
+          <div className="bubble-header">
+            <span className="bubble-header-icon">↩️</span>
+            <span className="bubble-header-text">Volver al producto</span>
+          </div>
+
+          <div className="bubble-body">
+            <div className="bubble-imagen-wrapper">
+              <img
+                src={bubbleProducto.imagen}
+                alt={bubbleProducto.nombre}
+                className="bubble-imagen"
+                loading="lazy"
+              />
+            </div>
+            <div className="bubble-info">
+              <p className="bubble-nombre">{bubbleProducto.nombre}</p>
+              <div className="bubble-precio-row">
+                {bubbleProducto.oferta ? (
+                  <>
+                    <span className="bubble-precio oferta">${bubbleProducto.precio}</span>
+                    <span className="bubble-precio-tachado">${bubbleProducto.precioOriginal}</span>
+                  </>
+                ) : (
+                  <span className="bubble-precio">${bubbleProducto.precio}</span>
+                )}
+              </div>
+            </div>
+            <div className="bubble-arrow">←</div>
+          </div>
+        </div>
+      )}
+
       <div className="producto-detalle-wrapper">
         <div className="producto-detalle-left-col">
           <div className="producto-detalle-gallery">
@@ -1325,7 +1410,6 @@ export default function ProductoDetalle() {
             <div className="cotizador-wrapper">
               <div className="cotizador-box" ref={cotizadorRef}>
 
-                {/* 🆕 ============ COTIZADOR PARA ROLLO POR PERÍMETRO ============ */}
                 {esProductoPorPerimetro() ? (
                   <>
                     <div className="cotizador-header">
@@ -1336,7 +1420,6 @@ export default function ProductoDetalle() {
                       </div>
                     </div>
 
-                    {/* Info del rollo */}
                     <div className="info-rollo-perimetro">
                       <div className="info-rollo-item">
                         <span className="info-rollo-icon">📏</span>
@@ -1361,7 +1444,6 @@ export default function ProductoDetalle() {
                       </div>
                     </div>
 
-                    {/* Input del perímetro */}
                     <div className="input-perimetro-card">
                       <label className="input-perimetro-label">
                         🧮 ¿Cuántos metros lineales necesitas cubrir?
@@ -1380,7 +1462,6 @@ export default function ProductoDetalle() {
                       </p>
                     </div>
 
-                    {/* Resultado del cálculo */}
                     {rollosNecesarios > 0 && (
                       <div className="resultado-cotizacion">
                         <div className="resultado-grid">
@@ -1418,7 +1499,6 @@ export default function ProductoDetalle() {
                           <span className="necesitas-valor">{rollosNecesarios} rollo(s)</span>
                         </div>
 
-                        {/* 🛒 Botón de agregar al carrito con los rollos calculados */}
                         <button
                           className="btn-agregar-perimetro"
                           onClick={agregarAlPedidoConRollos}
@@ -1426,7 +1506,6 @@ export default function ProductoDetalle() {
                           🛒 Agregar {rollosNecesarios} rollo(s) al pedido · ${precioTotalRollos.toLocaleString()}
                         </button>
 
-                        {/* Formulario de cotización por correo */}
                         <div className="form-cliente">
                           <h3>📨 Solicitar cotización</h3>
                           <input type="text" placeholder="Nombre" value={cliente.nombre}
@@ -1444,7 +1523,6 @@ export default function ProductoDetalle() {
                     )}
                   </>
                 ) : (
-                  // ============ COTIZADOR TRADICIONAL (para los otros tipos) ============
                   <>
                     <div className="cotizador-header">
                       <span className="cotizador-icon">🧮</span>
@@ -1878,11 +1956,9 @@ export default function ProductoDetalle() {
               </div>
             </div>
 
-            {/* 🆕 FICHA VISUAL UNIVERSAL (todos los tipos de venta) */}
             {renderFichaVisual()}
 
             <div className="ficha-grid">
-              {/* 🆕 FICHA GRID PARA PERÍMETRO */}
               {esProductoPorPerimetro() && (
                 <>
                   <div className="ficha-grid-item">
@@ -2131,7 +2207,6 @@ export default function ProductoDetalle() {
             </div>
           </div>
 
-          {/* ✅ ============ ACORDEÓN DE INFORMACIÓN ============ */}
           <div className="acordeon-container">
             {tieneDescripcion() && (
               <div className={`acordeon-item ${acordeonAbierto === "descripcion" ? "abierto" : ""}`}>
@@ -2241,7 +2316,6 @@ export default function ProductoDetalle() {
                 📄 Ver ficha técnica
               </button>
             )}
-            {/* 🆕 Si es por perímetro, agregar con los rollos calculados */}
             {esProductoPorPerimetro() ? (
               <button 
                 className="btn-agregar-pedido" 
@@ -2272,7 +2346,6 @@ export default function ProductoDetalle() {
         </div>
       )}
 
-      {/* ============ SECCIÓN RECOMENDADOS Y RELACIONADOS ============ */}
       <div className="full-width-related-wrapper">
         {sugeridos.length > 0 && (
           <div className="full-width-related-section">
@@ -2294,7 +2367,7 @@ export default function ProductoDetalle() {
                     <div
                       key={p.id}
                       className="producto-card sugerido-card"
-                      onClick={() => { navigate(`/producto/${p.id}`); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      onClick={() => irAProductoConBubble(p)}
                     >
                       <div className="producto-card-badges">
                         <span className="card-badge recomendado">⭐ Recomendado</span>
@@ -2336,7 +2409,7 @@ export default function ProductoDetalle() {
                           )}
                         </div>
 
-                        <button className="producto-card-btn" onClick={(e) => { e.stopPropagation(); navigate(`/producto/${p.id}`); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+                        <button className="producto-card-btn" onClick={(e) => { e.stopPropagation(); irAProductoConBubble(p); }}>
                           Ver producto →
                         </button>
                       </div>
@@ -2372,7 +2445,7 @@ export default function ProductoDetalle() {
                     <div
                       key={p.id}
                       className="producto-card"
-                      onClick={() => { navigate(`/producto/${p.id}`); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      onClick={() => irAProductoConBubble(p)}
                     >
                       <div className="producto-card-badges">
                         {(p.oferta === 1 || p.oferta === true) && (
@@ -2412,7 +2485,7 @@ export default function ProductoDetalle() {
                           )}
                         </div>
 
-                        <button className="producto-card-btn" onClick={(e) => { e.stopPropagation(); navigate(`/producto/${p.id}`); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+                        <button className="producto-card-btn" onClick={(e) => { e.stopPropagation(); irAProductoConBubble(p); }}>
                           Ver producto →
                         </button>
                       </div>
@@ -2537,6 +2610,232 @@ if (typeof document !== "undefined") {
     @media (max-width: 767px) {
       .producto-detalle-wrapper { padding: 20px; gap: 24px; margin: 16px 10px 24px; border-radius: 20px; }
       .producto-detalle-left-col, .producto-detalle-right-col { flex: 1 1 100%; max-width: 100%; }
+    }
+
+    /* 🆕 ============ BURBUJA PRODUCTO ANTERIOR ============ */
+    .bubble-producto-anterior {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9998;
+      width: 340px;
+      max-width: calc(100vw - 32px);
+      background: #fff;
+      border-radius: 18px;
+      box-shadow:
+        0 24px 60px rgba(15, 23, 42, 0.22),
+        0 10px 24px rgba(37, 99, 235, 0.14),
+        0 0 0 1px rgba(37, 99, 235, 0.08);
+      border: 2px solid var(--accent-light);
+      padding: 14px 14px 14px 14px;
+      cursor: pointer;
+      animation: bubbleSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      user-select: none;
+      overflow: hidden;
+    }
+
+    .bubble-producto-anterior::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--success) 100%);
+    }
+
+    .bubble-producto-anterior:hover {
+      transform: translateY(-6px) scale(1.02);
+      box-shadow:
+        0 32px 72px rgba(15, 23, 42, 0.28),
+        0 14px 32px rgba(37, 99, 235, 0.22),
+        0 0 0 1px rgba(37, 99, 235, 0.14);
+      border-color: var(--accent);
+    }
+
+    @keyframes bubbleSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(60px) scale(0.85);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .bubble-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      z-index: 3;
+      line-height: 1;
+      padding: 0;
+      font-family: inherit;
+    }
+
+    .bubble-close:hover {
+      background: #fef2f2;
+      color: var(--danger);
+      border-color: #fecaca;
+      transform: scale(1.1) rotate(90deg);
+    }
+
+    .bubble-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 0 10px 0;
+      margin-bottom: 10px;
+      border-bottom: 1px dashed var(--border-soft);
+      padding-right: 30px;
+    }
+
+    .bubble-header-icon {
+      font-size: 14px;
+      animation: bubbleArrowPulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes bubbleArrowPulse {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(-4px); }
+    }
+
+    .bubble-header-text {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--accent-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .bubble-body {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .bubble-imagen-wrapper {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #fafbfc 0%, #f1f5f9 100%);
+      padding: 6px;
+      border: 1px solid var(--border-soft);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .bubble-imagen {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .bubble-producto-anterior:hover .bubble-imagen {
+      transform: scale(1.12);
+    }
+
+    .bubble-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .bubble-nombre {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--brand-900);
+      margin: 0;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      letter-spacing: -0.2px;
+    }
+
+    .bubble-precio-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .bubble-precio {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--success);
+      letter-spacing: -0.4px;
+    }
+
+    .bubble-precio.oferta {
+      color: var(--danger);
+    }
+
+    .bubble-precio-tachado {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-decoration: line-through;
+      font-weight: 600;
+    }
+
+    .bubble-arrow {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 800;
+      flex-shrink: 0;
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .bubble-producto-anterior:hover .bubble-arrow {
+      transform: translateX(-4px) scale(1.1);
+      box-shadow: 0 8px 22px rgba(37, 99, 235, 0.45);
+    }
+
+    @media (max-width: 767px) {
+      .bubble-producto-anterior {
+        bottom: 12px;
+        right: 12px;
+        left: 12px;
+        width: auto;
+        max-width: none;
+        padding: 12px;
+        border-radius: 16px;
+      }
+      .bubble-imagen-wrapper { width: 54px; height: 54px; }
+      .bubble-nombre { font-size: 12px; }
+      .bubble-precio { font-size: 15px; }
+      .bubble-arrow { width: 30px; height: 30px; font-size: 14px; }
     }
 
     /* 🆕 ============ INFO ROLLO PERÍMETRO ============ */
@@ -2934,7 +3233,6 @@ if (typeof document !== "undefined") {
 
     .rollo-rect-text { color: #fff; font-weight: 800; font-size: 13px; letter-spacing: 1.5px; }
 
-    /* 🆕 SUBTEXTO DENTRO DEL RECTÁNGULO */
     .rollo-rect-sub {
       display: block;
       color: rgba(255,255,255,0.9);
@@ -2947,7 +3245,6 @@ if (typeof document !== "undefined") {
       z-index: 1;
     }
 
-    /* 🆕 RECTÁNGULO MÁS GRANDE PARA UNIDAD/PRESENTACIÓN */
     .rollo-rect-unidad {
       width: 170px;
       height: 110px;
