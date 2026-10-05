@@ -55,7 +55,7 @@ const obtenerUnidadLegible = (tipoVenta) => {
     'paquete': 'Paquete',
     'metro_cuadrado': 'm²',
     'metro_lineal': 'ml',
-    'metro_perimetro': 'Rollo', // 🆕 Rollo por perímetro
+    'metro_perimetro': 'Rollo',
     'presentacion': 'Presentación',
     'unidad': 'Unidad',
     'tramo': 'Tramo',
@@ -70,18 +70,18 @@ const obtenerUnidadLegible = (tipoVenta) => {
 // =================================================
 const formatearFecha = (fechaISO) => {
   if (!fechaISO) return '';
-  
+
   try {
     if (typeof fechaISO === 'string' && fechaISO.includes('/')) {
       return fechaISO;
     }
-    
+
     const fecha = fechaISO instanceof Date ? fechaISO : new Date(fechaISO);
-    
+
     if (isNaN(fecha.getTime())) {
       return String(fechaISO);
     }
-    
+
     const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const dia = String(fecha.getDate()).padStart(2, '0');
     const mes = String(fecha.getMonth() + 1).padStart(2, '0');
@@ -95,25 +95,25 @@ const formatearFecha = (fechaISO) => {
 
 const formatearHora = (hora24) => {
   if (!hora24) return '';
-  
+
   try {
     if (typeof hora24 === 'string' && (hora24.toUpperCase().includes('AM') || hora24.toUpperCase().includes('PM'))) {
       return hora24;
     }
-    
+
     const horaStr = String(hora24);
     const partes = horaStr.split(':');
     if (partes.length < 2) {
       return horaStr;
     }
-    
+
     const h = parseInt(partes[0]);
     const m = partes[1];
-    
+
     if (isNaN(h)) {
       return horaStr;
     }
-    
+
     const ampm = h >= 12 ? 'PM' : 'AM';
     const hora12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
     return `${hora12}:${m} ${ampm}`;
@@ -154,7 +154,7 @@ app.get("/configuracion/:clave", async (req, res) => {
     if (rows.length === 0) {
       return res.json({ valor: null });
     }
-    res.json({ 
+    res.json({
       valor: rows[0].valor,
       actualizado_en: rows[0].actualizado_en
     });
@@ -168,19 +168,19 @@ app.put("/configuracion/:clave", async (req, res) => {
   try {
     const { clave } = req.params;
     const { valor } = req.body;
-    
+
     if (valor === undefined || valor === null) {
       return res.status(400).json({ error: "Falta el valor" });
     }
-    
+
     await db.query(`
       INSERT INTO configuracion (clave, valor) 
       VALUES (?, ?) 
       ON DUPLICATE KEY UPDATE valor = ?, actualizado_en = NOW()
     `, [clave, valor, valor]);
-    
+
     console.log(`⚙️ Configuración guardada: ${clave} = ${valor}`);
-    
+
     res.json({ success: true, clave, valor });
   } catch (error) {
     console.error("Error al guardar configuración:", error);
@@ -232,12 +232,12 @@ const generarNumeroPedido = async () => {
   const mes = String(fecha.getMonth() + 1).padStart(2, '0');
   const dia = String(fecha.getDate()).padStart(2, '0');
   const fechaStr = `${año}${mes}${dia}`;
-  
+
   const [rows] = await db.query(
     "SELECT numero_pedido FROM pedidos WHERE numero_pedido LIKE ? ORDER BY id DESC LIMIT 1",
     [`PED-${fechaStr}-%`]
   );
-  
+
   let consecutivo = 1;
   if (rows.length > 0) {
     const ultimoNumero = rows[0].numero_pedido;
@@ -246,7 +246,7 @@ const generarNumeroPedido = async () => {
       consecutivo = parseInt(partes[2]) + 1;
     }
   }
-  
+
   return `PED-${fechaStr}-${String(consecutivo).padStart(4, '0')}`;
 };
 
@@ -256,17 +256,17 @@ const generarNumeroPedido = async () => {
 app.post("/pedidos", async (req, res) => {
   try {
     const { cliente, productos, total } = req.body;
-    
+
     if (!cliente || !cliente.nombre || !cliente.email || !cliente.celular) {
       return res.status(400).json({ error: "Datos del cliente incompletos" });
     }
-    
+
     if (!productos || productos.length === 0) {
       return res.status(400).json({ error: "No hay productos en el pedido" });
     }
-    
+
     const numeroPedido = await generarNumeroPedido();
-    
+
     const sqlPedido = `
       INSERT INTO pedidos (
         numero_pedido,
@@ -281,7 +281,7 @@ app.post("/pedidos", async (req, res) => {
         fecha_pedido
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `;
-    
+
     const [resultPedido] = await db.query(sqlPedido, [
       numeroPedido,
       cliente.nombre,
@@ -293,9 +293,9 @@ app.post("/pedidos", async (req, res) => {
       total,
       'pendiente'
     ]);
-    
+
     const pedidoId = resultPedido.insertId;
-    
+
     const sqlProducto = `
       INSERT INTO pedido_productos (
         pedido_id,
@@ -310,7 +310,7 @@ app.post("/pedidos", async (req, res) => {
         imagen
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    
+
     for (const item of productos) {
       await db.query(sqlProducto, [
         pedidoId,
@@ -325,25 +325,25 @@ app.post("/pedidos", async (req, res) => {
         item.imagen || null
       ]);
     }
-    
+
     try {
       await enviarCorreoPedido(cliente, numeroPedido, productos, total);
     } catch (emailError) {
       console.error("Error al enviar correo:", emailError);
     }
-    
+
     res.status(201).json({
       success: true,
       mensaje: "Pedido creado exitosamente",
       numero_pedido: numeroPedido,
       pedido_id: pedidoId
     });
-    
+
   } catch (error) {
     console.error("Error al crear pedido:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Error al crear el pedido",
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -376,17 +376,17 @@ app.get("/pedidos", async (req, res) => {
 app.get("/pedidos/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const [pedido] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedido.length === 0) {
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
-    
+
     const [productos] = await db.query(
       "SELECT * FROM pedido_productos WHERE pedido_id = ?",
       [id]
     );
-    
+
     res.json({
       ...pedido[0],
       productos
@@ -403,21 +403,21 @@ app.get("/pedidos/:id", async (req, res) => {
 app.get("/pedidos/numero/:numero", async (req, res) => {
   try {
     const { numero } = req.params;
-    
+
     const [pedido] = await db.query(
       "SELECT * FROM pedidos WHERE numero_pedido = ?",
       [numero]
     );
-    
+
     if (pedido.length === 0) {
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
-    
+
     const [productos] = await db.query(
       "SELECT * FROM pedido_productos WHERE pedido_id = ?",
       [pedido[0].id]
     );
-    
+
     res.json({
       ...pedido[0],
       productos
@@ -661,50 +661,50 @@ app.put("/pedidos/:id/estado", async (req, res) => {
   try {
     const { id } = req.params;
     const { estado } = req.body;
-    
+
     console.log("=================================================");
     console.log("🔄 ACTUALIZANDO ESTADO DE PEDIDO");
     console.log("   ID pedido:", id);
     console.log("   Nuevo estado:", estado);
     console.log("=================================================");
-    
+
     const estadosValidos = ['pendiente', 'confirmado', 'en_preparacion', 'listo', 'entregado', 'cancelado'];
     if (!estadosValidos.includes(estado)) {
       console.log("❌ Estado no válido:", estado);
       return res.status(400).json({ error: "Estado no válido" });
     }
-    
+
     const [pedidoActual] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedidoActual.length === 0) {
       console.log("❌ Pedido no encontrado:", id);
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
-    
+
     const estadoAnterior = pedidoActual[0].estado;
     console.log("   Estado anterior:", estadoAnterior);
-    
+
     if (estadoAnterior === estado) {
       console.log("⚠️ El estado es el mismo, no se envía correo");
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         mensaje: "El estado ya era el mismo",
         estado_anterior: estadoAnterior,
         estado_nuevo: estado,
         correo_enviado: false
       });
     }
-    
+
     await db.query(
       "UPDATE pedidos SET estado = ? WHERE id = ?",
       [estado, id]
     );
     console.log("✅ Estado actualizado en BD");
-    
+
     const [pedidoActualizado] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
-    
+
     let correoEnviado = false;
     let errorCorreo = null;
-    
+
     try {
       await enviarCorreoEstadoPedido(pedidoActualizado[0], estadoAnterior, estado);
       correoEnviado = true;
@@ -713,9 +713,9 @@ app.put("/pedidos/:id/estado", async (req, res) => {
       errorCorreo = emailError.message;
       console.error("❌ ERROR AL ENVIAR CORREO:", emailError.message);
     }
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       mensaje: "Estado actualizado",
       estado_anterior: estadoAnterior,
       estado_nuevo: estado,
@@ -982,7 +982,7 @@ app.get("/productos/categoria-id/:id", async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`🔍 Buscando productos para categoría ID: ${id}`);
-    
+
     const [catCheck] = await db.query("SELECT id FROM categorias WHERE id = ?", [id]);
     if (catCheck.length === 0) {
       return res.status(404).json({ error: "Categoría no encontrada" });
@@ -1071,12 +1071,12 @@ app.get("/productos/subcategoria-id/:id", async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`🔍 Buscando productos para subcategoría ID: ${id}`);
-    
+
     const [subCheck] = await db.query("SELECT id FROM subcategorias WHERE id = ?", [id]);
     if (subCheck.length === 0) {
       return res.status(404).json({ error: "Subcategoría no encontrada" });
     }
-    
+
     const sql = `
       SELECT 
         productos.*,
@@ -1106,7 +1106,7 @@ app.get("/productos/tipo/:id", async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`🔍 Buscando productos con tipo_id = ${id}`);
-    
+
     const [tipoCheck] = await db.query("SELECT id FROM tipos WHERE id = ?", [id]);
     if (tipoCheck.length === 0) {
       return res.status(404).json({ error: "Tipo no encontrado" });
@@ -1142,7 +1142,7 @@ app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
   try {
     const { nombre } = req.params;
     console.log(`🔍 Buscando productos con tipo: ${nombre}`);
-    
+
     const sql = `
       SELECT 
         productos.*,
@@ -1172,9 +1172,9 @@ app.get("/productos/tipo-nombre/:nombre", async (req, res) => {
 app.get("/productos/filtro", async (req, res) => {
   try {
     const { categoria_id, subcategoria_id, tipo_id } = req.query;
-    
+
     console.log(`🔍 Filtrando productos: categoria=${categoria_id}, subcategoria=${subcategoria_id}, tipo=${tipo_id}`);
-    
+
     let sql = `
       SELECT 
         productos.*,
@@ -1187,44 +1187,44 @@ app.get("/productos/filtro", async (req, res) => {
       LEFT JOIN tipos ON tipos.id = productos.tipo_id
       WHERE productos.visible = 1
     `;
-    
+
     const condiciones = [];
     const valores = [];
-    
+
     if (categoria_id && categoria_id !== 'undefined' && categoria_id !== 'null') {
       condiciones.push('productos.categoria_id = ?');
       valores.push(categoria_id);
     }
-    
+
     if (subcategoria_id && subcategoria_id !== 'undefined' && subcategoria_id !== 'null') {
       condiciones.push('productos.subcategoria_id = ?');
       valores.push(subcategoria_id);
     }
-    
+
     if (tipo_id && tipo_id !== 'undefined' && tipo_id !== 'null') {
       condiciones.push('productos.tipo_id = ?');
       valores.push(tipo_id);
     }
-    
+
     if (condiciones.length > 0) {
       sql += ' AND ' + condiciones.join(' AND ');
     }
-    
+
     sql += ' ORDER BY productos.nombre ASC';
-    
+
     console.log(`📝 SQL: ${sql}`);
     console.log(`📊 Valores: ${valores}`);
-    
+
     const [result] = await db.query(sql, valores);
-    
+
     console.log(`✅ Encontrados ${result.length} productos`);
     res.json(result);
-    
+
   } catch (err) {
     console.error('❌ Error en /productos/filtro:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Error al filtrar productos",
-      details: err.message 
+      details: err.message
     });
   }
 });
@@ -1263,7 +1263,7 @@ app.get("/subcategorias/:id", async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`🔍 Buscando subcategoría ID: ${id}`);
-    
+
     const sql = `
       SELECT 
         subcategorias.*,
@@ -1273,12 +1273,12 @@ app.get("/subcategorias/:id", async (req, res) => {
       WHERE subcategorias.id = ?
     `;
     const [rows] = await db.query(sql, [id]);
-    
+
     if (rows.length === 0) {
       console.log(`❌ Subcategoría ID ${id} no encontrada`);
       return res.status(404).json({ error: "Subcategoría no encontrada" });
     }
-    
+
     console.log(`✅ Subcategoría encontrada: ${rows[0].nombre}`);
     res.json(rows[0]);
   } catch (error) {
@@ -1315,12 +1315,11 @@ app.get("/productos/:id", async (req, res) => {
 
 // =================================================
 // ➕ CREAR PRODUCTO
-// 🆕 ACTUALIZADO: soporta "metro_perimetro" con campos nuevos
 // =================================================
 app.post("/productos", async (req, res) => {
   try {
     console.log("📦 Recibiendo producto:", req.body.nombre);
-    
+
     const {
       nombre,
       descripcion,
@@ -1367,7 +1366,6 @@ app.post("/productos", async (req, res) => {
       unidadAncho,
       unidadAlto,
       unidadMetroLineal,
-      // 🆕 Nuevos campos: Rollo por perímetro
       anchoRolloPerimetro,
       metrosPorRolloPerimetro,
       perimetroACubrir,
@@ -1475,7 +1473,6 @@ app.post("/productos", async (req, res) => {
       unidadAncho || 'cm',
       unidadAlto || 'cm',
       unidadMetroLineal || 'm',
-      // 🆕 Nuevos campos
       anchoRolloPerimetro || null,
       metrosPorRolloPerimetro || null,
       perimetroACubrir || null,
@@ -1484,16 +1481,16 @@ app.post("/productos", async (req, res) => {
     ];
 
     console.log(`📝 Valores a insertar: ${values.length}`);
-    
+
     const [result] = await db.query(sql, values);
     console.log("✅ Producto creado con ID:", result.insertId);
-    
+
     res.json({ mensaje: "Producto creado", id: result.insertId });
   } catch (err) {
     console.error("❌ Error al crear producto:", err.message);
     console.error("❌ SQL:", err.sql);
-    res.status(500).json({ 
-      error: "Error al crear producto", 
+    res.status(500).json({
+      error: "Error al crear producto",
       message: err.message,
       sql: err.sql || null
     });
@@ -1502,13 +1499,12 @@ app.post("/productos", async (req, res) => {
 
 // =================================================
 // ✏️ ACTUALIZAR PRODUCTO
-// 🆕 ACTUALIZADO: soporta "metro_perimetro" con campos nuevos
 // =================================================
 app.put("/productos/:id", async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`📦 Actualizando producto ID: ${id}`);
-    
+
     const {
       nombre,
       descripcion,
@@ -1555,7 +1551,6 @@ app.put("/productos/:id", async (req, res) => {
       unidadAncho,
       unidadAlto,
       unidadMetroLineal,
-      // 🆕 Nuevos campos: Rollo por perímetro
       anchoRolloPerimetro,
       metrosPorRolloPerimetro,
       perimetroACubrir,
@@ -1682,7 +1677,6 @@ app.put("/productos/:id", async (req, res) => {
       unidadAncho || 'cm',
       unidadAlto || 'cm',
       unidadMetroLineal || 'm',
-      // 🆕 Nuevos campos
       anchoRolloPerimetro || null,
       metrosPorRolloPerimetro || null,
       perimetroACubrir || null,
@@ -1692,16 +1686,16 @@ app.put("/productos/:id", async (req, res) => {
     ];
 
     console.log(`📝 Valores a actualizar: ${values.length}`);
-    
+
     const [result] = await db.query(sql, values);
     console.log("✅ Producto actualizado, filas afectadas:", result.affectedRows);
-    
+
     res.json({ mensaje: "Producto actualizado", affectedRows: result.affectedRows });
   } catch (err) {
     console.error("❌ Error al actualizar:", err.message);
     console.error("❌ SQL:", err.sql);
-    res.status(500).json({ 
-      error: "Error al actualizar", 
+    res.status(500).json({
+      error: "Error al actualizar",
       message: err.message,
       sql: err.sql || null
     });
@@ -2107,7 +2101,7 @@ app.get("/banners-ofertas", async (req, res) => {
       ORDER BY orden ASC, creado_en DESC
     `;
     const [rows] = await db.query(sql);
-    
+
     for (let banner of rows) {
       if (banner.enlace_tipo === 'categoria' && banner.categoria_id) {
         const [categoria] = await db.query('SELECT nombre FROM categorias WHERE id = ?', [banner.categoria_id]);
@@ -2124,7 +2118,7 @@ app.get("/banners-ofertas", async (req, res) => {
         banner.producto_sku = producto[0]?.sku || null;
       }
     }
-    
+
     res.json(rows);
   } catch (err) {
     console.error('Error al obtener banners de ofertas:', err);
@@ -2314,19 +2308,74 @@ app.get("/banners-ofertas/public/active", async (req, res) => {
 });
 
 // =================================================
-// 📋 CONTACTOS
+// 📋 CONTACTOS (guarda en BD + envía correo con Resend)
 // =================================================
 app.post("/contactos", async (req, res) => {
   try {
     const { nombre, correo, telefono, empresa, mensaje } = req.body;
+
+    // 1) Validación básica
+    if (!nombre || !correo || !telefono || !mensaje) {
+      return res.status(400).json({ error: "Faltan campos obligatorios" });
+    }
+
+    // 2) Guardar en base de datos
     await db.query(
       `INSERT INTO contactos (nombre, correo, telefono, empresa, mensaje)
        VALUES (?, ?, ?, ?, ?)`,
-      [nombre, correo, telefono, empresa, mensaje]
+      [nombre, correo, telefono, empresa || null, mensaje]
     );
+
+    // 3) Enviar correo con Resend (no bloqueante: si falla, el contacto YA quedó guardado)
+    try {
+      const resultado = await resend.emails.send({
+        from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
+        to: process.env.EMAIL_TO || 'frayflooring@gmail.com',
+        replyTo: correo,
+        subject: `📩 Nuevo contacto: ${nombre}`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head><meta charset="UTF-8"></head>
+          <body style="font-family: Arial, sans-serif; background:#f8fafc; padding:20px; margin:0;">
+            <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:12px; padding:30px; box-shadow:0 4px 20px rgba(0,0,0,0.05);">
+              
+              <div style="text-align:center; padding-bottom:20px; border-bottom:2px solid #3b82f6;">
+                <h1 style="color:#1e293b; margin:0;">📩 Nuevo mensaje de contacto</h1>
+                <p style="color:#3b82f6; margin-top:8px;">Fray Flooring</p>
+              </div>
+
+              <div style="background:#f1f5f9; padding:16px; border-radius:8px; margin:20px 0;">
+                <p style="margin:6px 0;"><strong>👤 Nombre:</strong> ${nombre}</p>
+                <p style="margin:6px 0;"><strong>📧 Correo:</strong> <a href="mailto:${correo}" style="color:#2563eb;">${correo}</a></p>
+                <p style="margin:6px 0;"><strong>📱 Teléfono:</strong> <a href="tel:${telefono}" style="color:#2563eb;">${telefono}</a></p>
+                <p style="margin:6px 0;"><strong>🏢 Empresa:</strong> ${empresa || 'No especificada'}</p>
+              </div>
+
+              <h3 style="color:#1e40af;">💬 Mensaje</h3>
+              <div style="background:#eef2ff; padding:16px; border-radius:8px; border-left:4px solid #3b82f6; white-space:pre-wrap;">
+                ${mensaje}
+              </div>
+
+              <div style="text-align:center; margin-top:30px; color:#94a3b8; font-size:13px;">
+                <p>Recibido el ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</p>
+                <p>© ${new Date().getFullYear()} Fray Flooring</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+      });
+
+      console.log("✅ Correo de contacto enviado:", JSON.stringify(resultado));
+    } catch (emailError) {
+      console.error("❌ Error al enviar correo de contacto:", emailError.message);
+    }
+
     res.json({ success: true, mensaje: "Mensaje enviado" });
+
   } catch (error) {
-    console.log(error);
+    console.error("Error en /contactos:", error);
     res.status(500).json({ error: "Error al guardar" });
   }
 });
@@ -2376,23 +2425,23 @@ app.get("/proxy-image", async (req, res) => {
 app.delete("/pedidos/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const [pedido] = await db.query("SELECT * FROM pedidos WHERE id = ?", [id]);
     if (pedido.length === 0) {
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
-    
+
     await db.query("DELETE FROM pedidos WHERE id = ?", [id]);
-    
-    res.json({ 
-      success: true, 
-      mensaje: "Pedido eliminado correctamente" 
+
+    res.json({
+      success: true,
+      mensaje: "Pedido eliminado correctamente"
     });
   } catch (error) {
     console.error("Error al eliminar pedido:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Error al eliminar el pedido",
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -2427,4 +2476,5 @@ app.listen(5000, () => {
   console.log("  - PUT  /pedidos/:id/estado (con envío de correo)");
   console.log("  - POST /productos (soporta metro_perimetro)");
   console.log("  - PUT  /productos/:id (soporta metro_perimetro)");
+  console.log("  - POST /contactos (guarda en BD + envía correo)");
 });
