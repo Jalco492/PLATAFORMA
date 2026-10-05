@@ -14,6 +14,8 @@ const { Resend } = require('resend');
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 console.log("RESEND_API_KEY:", process.env.RESEND_API_KEY ? "Cargada" : "No cargada");
+console.log("EMAIL_FROM:", process.env.EMAIL_FROM || "(no definido, usa default)");
+console.log("EMAIL_TO:", process.env.EMAIL_TO || "(no definido, usa default)");
 
 const app = express();
 
@@ -189,16 +191,15 @@ app.put("/configuracion/:clave", async (req, res) => {
 });
 
 // =================================================
-// ✉️ ENVIAR COTIZACIÓN POR EMAIL (con Resend)
+// ✉️ ENVIAR COTIZACIÓN POR EMAIL (con Resend) — FIX error handling
 // =================================================
 app.post("/enviar-cotizacion", async (req, res) => {
   try {
     const { nombre, correo, celular, producto, total, pdf } = req.body;
     const pdfBuffer = Buffer.from(pdf.split("base64,")[1], "base64");
-
     const pdfBase64 = pdfBuffer.toString('base64');
 
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
       to: correo,
       subject: "Cotización - Fray Flooring",
@@ -216,9 +217,15 @@ app.post("/enviar-cotizacion", async (req, res) => {
       ]
     });
 
-    res.json({ ok: true });
+    if (error) {
+      console.error("❌ RESEND ERROR (cotización):", JSON.stringify(error, null, 2));
+      return res.status(500).json({ error: "Error enviando correo", detalle: error });
+    }
+
+    console.log("✅ Cotización enviada:", data);
+    res.json({ ok: true, data });
   } catch (error) {
-    console.log(error);
+    console.log("❌ Excepción enviando cotización:", error);
     res.status(500).json({ error: "Error enviando correo" });
   }
 });
@@ -429,7 +436,7 @@ app.get("/pedidos/numero/:numero", async (req, res) => {
 });
 
 // =================================================
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO (con Resend)
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE ACTUALIZACIÓN DE ESTADO — FIX error handling
 // =================================================
 const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => {
   console.log("=================================================");
@@ -522,38 +529,14 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
         .pedido-info p { margin: 5px 0; }
         .entrega-info { background: #fffbeb; padding: 15px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b; }
         .entrega-info p { margin: 5px 0; color: #92400e; }
-        
-        .tabla-productos {
-          width: 100%;
-          border-collapse: collapse;
-          table-layout: fixed;
-          margin: 16px 0;
-          font-size: 12px;
-        }
-        .tabla-productos thead th {
-          background: #3b82f6;
-          color: #fff;
-          padding: 12px 6px;
-          text-align: left;
-          font-size: 11px;
-          font-weight: 700;
-          white-space: nowrap;
-          letter-spacing: 0.3px;
-        }
-        .tabla-productos thead th.th-unidad,
-        .tabla-productos thead th.th-cantidad {
-          text-align: center;
-        }
-        .tabla-productos thead th.th-precio,
-        .tabla-productos thead th.th-subtotal {
-          text-align: right;
-        }
-        
+        .tabla-productos { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 16px 0; font-size: 12px; }
+        .tabla-productos thead th { background: #3b82f6; color: #fff; padding: 12px 6px; text-align: left; font-size: 11px; font-weight: 700; white-space: nowrap; letter-spacing: 0.3px; }
+        .tabla-productos thead th.th-unidad, .tabla-productos thead th.th-cantidad { text-align: center; }
+        .tabla-productos thead th.th-precio, .tabla-productos thead th.th-subtotal { text-align: right; }
         .total { text-align: right; font-size: 18px; font-weight: bold; color: #3b82f6; padding-top: 15px; border-top: 2px solid #e2e8f0; }
         .footer { text-align: center; margin-top: 30px; color: #94a3b8; font-size: 14px; }
         .importante { margin-top: 16px; padding: 15px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b; }
         .importante p { margin: 0; color: #92400e; }
-        
         @media only screen and (max-width: 600px) {
           .container { padding: 15px !important; }
           .tabla-productos { font-size: 11px !important; }
@@ -567,34 +550,28 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
           <h1>📦 Actualización de tu Pedido</h1>
           <p style="color: #3b82f6; font-size: 18px; font-weight: bold;">${pedido.numero_pedido}</p>
         </div>
-        
         <div class="status-box">
           <span class="old">${estadoLabels[estadoAnterior] || estadoAnterior}</span>
           <span class="arrow">➜</span>
           <span class="new">${estadoLabels[estadoNuevo] || estadoNuevo}</span>
         </div>
-        
         <div class="message">
           <p style="margin: 0; font-size: 16px; color: #1e293b;">
             ${mensajes[estadoNuevo] || 'El estado de tu pedido ha sido actualizado.'}
           </p>
         </div>
-        
         <div class="pedido-info">
           <p><strong>👤 Cliente:</strong> ${pedido.cliente_nombre}</p>
           <p><strong>📧 Email:</strong> ${pedido.cliente_email}</p>
           <p><strong>📱 Celular:</strong> ${pedido.cliente_celular}</p>
         </div>
-
         ${fechaEntrega || horaEntrega ? `
           <div class="entrega-info">
             <p><strong>📅 Día de entrega:</strong> ${fechaEntrega || 'No especificado'}</p>
             <p><strong>🕒 Hora de entrega:</strong> ${horaEntrega || 'No especificado'}</p>
           </div>
         ` : ''}
-        
         <h3 style="color: #1e40af;">🛒 Productos</h3>
-        
         <table class="tabla-productos" width="100%" cellpadding="0" cellspacing="0">
           <colgroup>
             <col style="width: 36%;">
@@ -616,15 +593,12 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
             ${productosHtml}
           </tbody>
         </table>
-        
         <div class="total">
           Total: $${pedido.total}
         </div>
-        
         <div class="importante">
           <p>⚠️ <strong>Recuerda:</strong> Este pedido será entregado en tienda física. No realizamos envíos a domicilio.</p>
         </div>
-        
         <div class="footer">
           <p>📞 <a href="tel:+525511164545" style="color: #3b82f6; text-decoration: none;">55 1116 4545</a></p>
           <p>📧 <a href="mailto:frayflooring@gmail.com" style="color: #3b82f6; text-decoration: none;">frayflooring@gmail.com</a></p>
@@ -635,23 +609,23 @@ const enviarCorreoEstadoPedido = async (pedido, estadoAnterior, estadoNuevo) => 
     </html>
   `;
 
-  try {
-    console.log("📤 Enviando correo con Resend...");
-    const resultado = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
-      to: pedido.cliente_email,
-      subject: `📦 Actualización de tu pedido #${pedido.numero_pedido}`,
-      html: html
-    });
-    console.log("✅ RESULTADO RESEND:", JSON.stringify(resultado, null, 2));
-    console.log(`✅ Correo de actualización enviado a ${pedido.cliente_email}`);
-    return resultado;
-  } catch (error) {
-    console.error("❌ ERROR AL ENVIAR CORREO:");
-    console.error("   Mensaje:", error.message);
-    console.error("   Stack:", error.stack);
-    throw error;
+  console.log("📤 Enviando correo con Resend...");
+  const { data, error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
+    to: pedido.cliente_email,
+    subject: `📦 Actualización de tu pedido #${pedido.numero_pedido}`,
+    html: html
+  });
+
+  // 🔥 FIX: revisar el objeto error (el SDK no lanza excepciones)
+  if (error) {
+    console.error("❌ RESEND ERROR (estado pedido):", JSON.stringify(error, null, 2));
+    throw new Error(error.message || "Error al enviar correo con Resend");
   }
+
+  console.log("✅ RESULTADO RESEND:", JSON.stringify(data, null, 2));
+  console.log(`✅ Correo de actualización enviado a ${pedido.cliente_email}`);
+  return data;
 };
 
 // =================================================
@@ -729,7 +703,7 @@ app.put("/pedidos/:id/estado", async (req, res) => {
 });
 
 // =================================================
-// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO) con Resend
+// 📧 FUNCIÓN PARA ENVIAR CORREO DE CONFIRMACIÓN (PEDIDO NUEVO) — FIX error handling
 // =================================================
 const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
   const productosHtml = productos.map(p => {
@@ -780,39 +754,15 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
         .cliente-info p { margin: 5px 0; }
         .entrega-info { background: #fffbeb; padding: 15px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b; }
         .entrega-info p { margin: 5px 0; color: #92400e; }
-        
-        .tabla-productos {
-          width: 100%;
-          border-collapse: collapse;
-          table-layout: fixed;
-          margin: 20px 0;
-          font-size: 12px;
-        }
-        .tabla-productos thead th {
-          background: #3b82f6;
-          color: #fff;
-          padding: 12px 6px;
-          text-align: left;
-          font-size: 11px;
-          font-weight: 700;
-          white-space: nowrap;
-          letter-spacing: 0.3px;
-        }
-        .tabla-productos thead th.th-unidad,
-        .tabla-productos thead th.th-cantidad {
-          text-align: center;
-        }
-        .tabla-productos thead th.th-precio,
-        .tabla-productos thead th.th-subtotal {
-          text-align: right;
-        }
-        
+        .tabla-productos { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 20px 0; font-size: 12px; }
+        .tabla-productos thead th { background: #3b82f6; color: #fff; padding: 12px 6px; text-align: left; font-size: 11px; font-weight: 700; white-space: nowrap; letter-spacing: 0.3px; }
+        .tabla-productos thead th.th-unidad, .tabla-productos thead th.th-cantidad { text-align: center; }
+        .tabla-productos thead th.th-precio, .tabla-productos thead th.th-subtotal { text-align: right; }
         .total { text-align: right; font-size: 20px; font-weight: bold; color: #3b82f6; padding-top: 15px; border-top: 2px solid #e2e8f0; }
         .footer { text-align: center; margin-top: 30px; color: #94a3b8; font-size: 14px; }
         .estado { display: inline-block; background: #f59e0b; color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 14px; }
         .importante { margin-top: 20px; padding: 15px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b; }
         .importante p { margin: 0; color: #92400e; }
-        
         @media only screen and (max-width: 600px) {
           .container { padding: 15px !important; }
           .tabla-productos { font-size: 11px !important; }
@@ -827,23 +777,19 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
           <p class="numero">Número de Pedido: <strong>${numeroPedido}</strong></p>
           <span class="estado">📌 Pendiente</span>
         </div>
-        
         <div class="cliente-info">
           <p><strong>👤 Cliente:</strong> ${cliente.nombre}</p>
           <p><strong>📧 Email:</strong> ${cliente.email}</p>
           <p><strong>📱 Celular:</strong> ${cliente.celular}</p>
           ${cliente.comentarios ? `<p><strong>💬 Comentarios:</strong> ${cliente.comentarios}</p>` : ''}
         </div>
-
         ${fechaEntrega || horaEntrega ? `
           <div class="entrega-info">
             <p><strong>📅 Día de entrega:</strong> ${fechaEntrega || 'No especificado'}</p>
             <p><strong>🕒 Hora de entrega:</strong> ${horaEntrega || 'No especificado'}</p>
           </div>
         ` : ''}
-        
         <h3 style="color: #1e40af;">🛒 Productos</h3>
-        
         <table class="tabla-productos" width="100%" cellpadding="0" cellspacing="0">
           <colgroup>
             <col style="width: 36%;">
@@ -865,15 +811,12 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
             ${productosHtml}
           </tbody>
         </table>
-        
         <div class="total">
           Total: $${total}
         </div>
-        
         <div class="importante">
           <p>⚠️ <strong>Importante:</strong> Este pedido será entregado directamente en tienda física. No se realizan envíos a domicilio.</p>
         </div>
-        
         <div class="footer">
           <p>📞 <a href="tel:+525511164545" style="color: #3b82f6; text-decoration: none;">55 1116 4545</a></p>
           <p>📧 <a href="mailto:frayflooring@gmail.com" style="color: #3b82f6; text-decoration: none;">frayflooring@gmail.com</a></p>
@@ -884,18 +827,21 @@ const enviarCorreoPedido = async (cliente, numeroPedido, productos, total) => {
     </html>
   `;
 
-  try {
-    await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
-      to: cliente.email,
-      subject: `Confirmación de Pedido #${numeroPedido}`,
-      html: html
-    });
-    console.log(`✅ Correo de confirmación enviado a ${cliente.email}`);
-  } catch (error) {
-    console.error("Error enviando correo:", error);
-    throw error;
+  const { data, error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
+    to: cliente.email,
+    subject: `Confirmación de Pedido #${numeroPedido}`,
+    html: html
+  });
+
+  // 🔥 FIX: revisar error
+  if (error) {
+    console.error("❌ RESEND ERROR (confirmación pedido):", JSON.stringify(error, null, 2));
+    throw new Error(error.message || "Error al enviar correo con Resend");
   }
+
+  console.log(`✅ Correo de confirmación enviado a ${cliente.email}`);
+  return data;
 };
 
 // =================================================
@@ -2308,7 +2254,7 @@ app.get("/banners-ofertas/public/active", async (req, res) => {
 });
 
 // =================================================
-// 📋 CONTACTOS (guarda en BD + envía correo con Resend)
+// 📋 CONTACTOS (guarda en BD + envía correo con Resend) — FIX error handling
 // =================================================
 app.post("/contactos", async (req, res) => {
   try {
@@ -2326,56 +2272,67 @@ app.post("/contactos", async (req, res) => {
       [nombre, correo, telefono, empresa || null, mensaje]
     );
 
-    // 3) Enviar correo con Resend (no bloqueante: si falla, el contacto YA quedó guardado)
-    try {
-      const resultado = await resend.emails.send({
-        from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
-        to: process.env.EMAIL_TO || 'frayflooring@gmail.com',
-        replyTo: correo,
-        subject: `📩 Nuevo contacto: ${nombre}`,
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <head><meta charset="UTF-8"></head>
-          <body style="font-family: Arial, sans-serif; background:#f8fafc; padding:20px; margin:0;">
-            <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:12px; padding:30px; box-shadow:0 4px 20px rgba(0,0,0,0.05);">
-              
-              <div style="text-align:center; padding-bottom:20px; border-bottom:2px solid #3b82f6;">
-                <h1 style="color:#1e293b; margin:0;">📩 Nuevo mensaje de contacto</h1>
-                <p style="color:#3b82f6; margin-top:8px;">Fray Flooring</p>
-              </div>
-
-              <div style="background:#f1f5f9; padding:16px; border-radius:8px; margin:20px 0;">
-                <p style="margin:6px 0;"><strong>👤 Nombre:</strong> ${nombre}</p>
-                <p style="margin:6px 0;"><strong>📧 Correo:</strong> <a href="mailto:${correo}" style="color:#2563eb;">${correo}</a></p>
-                <p style="margin:6px 0;"><strong>📱 Teléfono:</strong> <a href="tel:${telefono}" style="color:#2563eb;">${telefono}</a></p>
-                <p style="margin:6px 0;"><strong>🏢 Empresa:</strong> ${empresa || 'No especificada'}</p>
-              </div>
-
-              <h3 style="color:#1e40af;">💬 Mensaje</h3>
-              <div style="background:#eef2ff; padding:16px; border-radius:8px; border-left:4px solid #3b82f6; white-space:pre-wrap;">
-                ${mensaje}
-              </div>
-
-              <div style="text-align:center; margin-top:30px; color:#94a3b8; font-size:13px;">
-                <p>Recibido el ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</p>
-                <p>© ${new Date().getFullYear()} Fray Flooring</p>
-              </div>
+    // 3) Enviar correo con Resend
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'Fray Flooring <onboarding@resend.dev>',
+      to: process.env.EMAIL_TO || 'frayflooring@gmail.com',
+      replyTo: correo,
+      subject: `📩 Nuevo contacto: ${nombre}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"></head>
+        <body style="font-family: Arial, sans-serif; background:#f8fafc; padding:20px; margin:0;">
+          <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:12px; padding:30px; box-shadow:0 4px 20px rgba(0,0,0,0.05);">
+            
+            <div style="text-align:center; padding-bottom:20px; border-bottom:2px solid #3b82f6;">
+              <h1 style="color:#1e293b; margin:0;">📩 Nuevo mensaje de contacto</h1>
+              <p style="color:#3b82f6; margin-top:8px;">Fray Flooring</p>
             </div>
-          </body>
-          </html>
-        `
-      });
 
-      console.log("✅ Correo de contacto enviado:", JSON.stringify(resultado));
-    } catch (emailError) {
-      console.error("❌ Error al enviar correo de contacto:", emailError.message);
+            <div style="background:#f1f5f9; padding:16px; border-radius:8px; margin:20px 0;">
+              <p style="margin:6px 0;"><strong>👤 Nombre:</strong> ${nombre}</p>
+              <p style="margin:6px 0;"><strong>📧 Correo:</strong> <a href="mailto:${correo}" style="color:#2563eb;">${correo}</a></p>
+              <p style="margin:6px 0;"><strong>📱 Teléfono:</strong> <a href="tel:${telefono}" style="color:#2563eb;">${telefono}</a></p>
+              <p style="margin:6px 0;"><strong>🏢 Empresa:</strong> ${empresa || 'No especificada'}</p>
+            </div>
+
+            <h3 style="color:#1e40af;">💬 Mensaje</h3>
+            <div style="background:#eef2ff; padding:16px; border-radius:8px; border-left:4px solid #3b82f6; white-space:pre-wrap;">
+              ${mensaje}
+            </div>
+
+            <div style="text-align:center; margin-top:30px; color:#94a3b8; font-size:13px;">
+              <p>Recibido el ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</p>
+              <p>© ${new Date().getFullYear()} Fray Flooring</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    });
+
+    // 🔥 FIX CRÍTICO: revisar el objeto error que devuelve Resend
+    if (error) {
+      console.error("❌ RESEND ERROR COMPLETO (contacto):", JSON.stringify(error, null, 2));
+      // El contacto YA quedó guardado en BD. Avisamos al frontend.
+      return res.json({
+        success: true,
+        mensaje: "Mensaje guardado",
+        email_enviado: false,
+        email_error: error.message || "Error al enviar correo"
+      });
     }
 
-    res.json({ success: true, mensaje: "Mensaje enviado" });
+    console.log("✅ Correo de contacto enviado:", JSON.stringify(data, null, 2));
+    res.json({
+      success: true,
+      mensaje: "Mensaje enviado",
+      email_enviado: true
+    });
 
   } catch (error) {
-    console.error("Error en /contactos:", error);
+    console.error("❌ Error en /contactos:", error);
     res.status(500).json({ error: "Error al guardar" });
   }
 });
