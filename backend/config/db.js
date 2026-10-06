@@ -1,10 +1,10 @@
 const mysql = require("mysql2/promise");
 
 const connection = mysql.createPool({
-  host: "altaria.proxy.rlwy.net",
-  port: 24881,
+  host: "shuttle.proxy.rlwy.net",
+  port: 36267,
   user: "root",
-  password: "GyvMTUyacQCLvxeAPjXazPYJxUUFFcaE",
+  password: "DaapxeDuabYaDwmtUynZwNgiEsmIUYkw",
   database: "railway",
   waitForConnections: true,
   connectionLimit: 10,
