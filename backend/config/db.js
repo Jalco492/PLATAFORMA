@@ -1,15 +1,14 @@
-const mysql = require("mysql2/promise");
-
 const connection = mysql.createPool({
-  host: "shuttle.proxy.rlwy.net",
-  port: 36267,
-  user: "root",
-  password: "DaapxeDuabYaDwmtUynZwNgiEsmIUYkw",
-  database: "railway",
+  host: "mysql-1ebced27-johanlopezcordoba9-6fef.g.aivencloud.com",
+  port: 12295,
+  user: "avnadmin",
+  password: "AVNS_TLczsiaKbkvE5FXXOuS",
+  database: "defaultdb",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
+
 
 async function probarConexion() {
   try {
