@@ -1,3 +1,5 @@
+const mysql = require('mysql/promise');
+
 const connection = mysql.createPool({
   host: "mysql-1ebced27-johanlopezcordoba9-6fef.g.aivencloud.com",
   port: 12295,
@@ -8,7 +10,6 @@ const connection = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
-
 
 async function probarConexion() {
   try {
@@ -34,5 +35,4 @@ async function probarConexion() {
 }
 
 probarConexion();
-
 module.exports = connection;
